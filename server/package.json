@@ -2,9 +2,13 @@
   "name": "server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/app.js",
+  "type": "module",
   "scripts": {
-    "dev": "nodemon app.js"
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "dev": "concurrently \"tsc -w\" \"nodemon dist/app.js\"",
+    "dev:server": "nodemon dist/app.js"
   },
   "keywords": [],
   "author": "",
@@ -14,9 +18,13 @@
     "http-errors": "^2.0.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.10",
+    "concurrently": "^9.1.0",
     "cookie-parser": "^1.4.7",
     "debug": "^4.4.3",
     "morgan": "^1.10.1",
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "typescript": "^5.7.3"
   }
 }
