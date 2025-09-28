@@ -6,8 +6,8 @@
   "scripts": {
     "install": "cd client && npm install && cd ../server && npm install",
     "start": "npm run server",
-    "server": "cd server && nodemon app.js",
-    "client": "cd client && npm start"
+    "server": "cd server && nmp dev",
+    "client": "cd client && npm dev"
   },
   "keywords": [],
   "author": "",
