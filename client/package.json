@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "proxy": "http://localhost:3500",
   "dependencies": {
     "react": "19.1.0",
     "react-dom": "19.1.0",
