@@ -5,14 +5,24 @@
   "main": "index.js",
   "scripts": {
     "install": "cd client && npm install && cd ../server && npm install",
-    "start": "npm run server",
+    "install:client": "cd client && npm install",
+    "install:server": "cd server && npm install",
+    "dev": "concurrently \"npm run server\" \"npm run client\" --names \"server,client\" --prefix-colors \"yellow,cyan\"",
+    "start": "npm run dev",
+    "status": "echo \"🚀 Backend: http://localhost:3000\" && echo \"🌐 Frontend: http://localhost:3003\" && echo \"📡 API: http://localhost:3000/api\"",
     "server": "cd server && npm run dev",
-    "client": "cd client && npm run dev"
+    "client": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "pg": "^8.16.3"
+    "firebase": "^12.3.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0"
   }
 }

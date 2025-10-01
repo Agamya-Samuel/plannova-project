@@ -3,19 +3,23 @@ import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
+import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
-import pool from "./src/db.js";
+import connectDB from "./src/db.js";
 
 // Load environment variables
 dotenv.config();
 
+// Connect to MongoDB
+connectDB();
+
 const app = express();
-const port = process.env.PORT || 3500;
+const port = process.env.PORT || 3000;
 
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000",
+  origin: ["http://localhost:3003", "http://localhost:3002", "http://localhost:3001", "http://localhost:3000"],
   credentials: true,
 }));
 
@@ -33,57 +37,22 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 
-// Example route to test PostgreSQL DB connection
-app.get("/api/test-data", async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM "Test-Table"'); // using your Test-Table
-    res.json({
-      success: true,
-      data: result.rows,
-      count: result.rowCount
-    });
-  } catch (err) {
-    console.error('Database query error:', err);
-    res.status(500).json({ 
-      success: false,
-      error: "Server Error", 
-      details: err instanceof Error ? err.message : 'Unknown error' 
-    });
-  }
-});
-
-// Route to insert data into Test-Table
-app.post("/api/test-data", async (req, res) => {
-  try {
-    const { name, value } = req.body;
-    const result = await pool.query(
-      'INSERT INTO "Test-Table" (name, value) VALUES ($1, $2) RETURNING *',
-      [name, value]
-    );
-    res.json({
-      success: true,
-      message: 'Data inserted successfully',
-      data: result.rows[0]
-    });
-  } catch (err) {
-    console.error('Database insert error:', err);
-    res.status(500).json({ 
-      success: false,
-      error: "Failed to insert data", 
-      details: err instanceof Error ? err.message : 'Unknown error' 
-    });
-  }
-});
-
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
   try {
-    const result = await pool.query('SELECT NOW() as current_time');
-    res.json({ 
-      status: 'connected', 
-      timestamp: result.rows[0].current_time,
-      message: 'PostgreSQL database connection is healthy'
-    });
+    if (mongoose.connection.readyState === 1) {
+      res.json({ 
+        status: 'connected', 
+        timestamp: new Date().toISOString(),
+        message: 'MongoDB database connection is healthy'
+      });
+    } else {
+      res.status(500).json({ 
+        status: 'error', 
+        message: 'Database connection not ready',
+        readyState: mongoose.connection.readyState
+      });
+    }
   } catch (err) {
     console.error('Database health check failed:', err);
     res.status(500).json({ 

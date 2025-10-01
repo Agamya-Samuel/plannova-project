@@ -38,7 +38,21 @@ export default function DashboardPage() {
                   </p>
                 </div>
                 <div className="hidden md:block">
-                  <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
+                  {user?.photoURL ? (
+                    <img
+                      src={user.photoURL}
+                      alt={`${user.firstName} ${user.lastName}`}
+                      className="w-20 h-20 rounded-full border-4 border-white/30 object-cover shadow-lg"
+                      onError={(e) => {
+                        console.log('Dashboard profile image failed to load:', user.photoURL);
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        (e.target as HTMLImageElement).nextElementSibling?.setAttribute('style', 'display: flex');
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    className={`w-20 h-20 bg-white/20 rounded-full flex items-center justify-center border-4 border-white/30 shadow-lg ${user?.photoURL ? 'hidden' : ''}`}
+                  >
                     <span className="text-2xl font-bold">
                       {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
                     </span>

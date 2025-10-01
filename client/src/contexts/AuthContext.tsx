@@ -1,7 +1,9 @@
 'use client';
+'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '../lib/api';
+import { signInWithGoogle, logout as firebaseLogout } from '../lib/firebase-auth';
 import { User, AuthContextType, RegisterData, LoginResponse } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,6 +30,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Verify token is still valid by fetching profile
           const response = await apiClient.get('/auth/profile');
+          console.log('👤 Current user profile data:', response.data);
           setUser(response.data);
         } catch (error) {
           // Token is invalid, clear storage
@@ -55,8 +58,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Login failed');
+    } catch (error: unknown) {
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Login failed');
     }
   };
 
@@ -69,15 +72,72 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
       setUser(user);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Registration failed');
+    } catch (error: unknown) {
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Registration failed');
     }
   };
 
-  const logout = (): void => {
+  const logout = async (): Promise<void> => {
+    try {
+      // Sign out from Firebase
+      await firebaseLogout();
+    } catch (error) {
+      console.error('Firebase logout error:', error);
+    }
+    
+    // Clear local storage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+  };
+
+  const googleSignIn = async (): Promise<void> => {
+    try {
+      console.log('🚀 Starting Google sign-in process...');
+      const result = await signInWithGoogle();
+      const user = result.user;
+      
+      console.log('✅ Firebase Google sign-in successful:', {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName
+      });
+      
+      // Get the ID token and send to backend
+      const idToken = await user.getIdToken();
+      console.log('🔑 Got Firebase ID token, sending to backend...');
+      console.log('🌐 API URL:', apiClient.defaults.baseURL);
+      console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+      
+      // Send to backend for user creation/verification
+      const response = await apiClient.post<LoginResponse>('/auth/google', {
+        idToken,
+      });
+
+      console.log('✅ Backend response successful:', response.data);
+      const { user: userData, token } = response.data;
+      
+      // Debug: Log the photoURL we received
+      console.log('🖼️ User photoURL received:', userData.photoURL);
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(userData));
+      setUser(userData);
+      console.log('✅ Google sign-in completed successfully');
+    } catch (error: unknown) {
+      console.error('❌ Google sign-in error details:', {
+        error,
+        message: (error as Error)?.message,
+        response: (error as { response?: { data?: unknown } })?.response?.data,
+        status: (error as { response?: { status?: number } })?.response?.status
+      });
+      
+      const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 
+                          (error as Error)?.message || 
+                          'Google sign-in failed';
+      
+      throw new Error(errorMessage);
+    }
   };
 
   const updateProfile = async (data: Partial<User>): Promise<void> => {
@@ -87,8 +147,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-    } catch (error: any) {
-      throw new Error(error.response?.data?.error || 'Profile update failed');
+    } catch (error: unknown) {
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Profile update failed');
     }
   };
 
@@ -99,6 +159,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
+    googleSignIn,
     updateProfile,
   };
 

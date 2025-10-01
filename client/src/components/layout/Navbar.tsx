@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { UserRole } from '../../types/auth';
-import { Search, Menu, X, MapPin, Star, Heart, Camera, Calendar, Users, Settings } from 'lucide-react';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut } from 'lucide-react';
+import ProfileImage from '../ui/ProfileImage';
 
 interface NavItem {
   label: string;
@@ -27,13 +28,30 @@ const navItems: NavItem[] = [
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const profileRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
     router.push('/');
+    setIsProfileOpen(false);
   };
+
+  // Close profile dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setIsProfileOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const filteredNavItems = navItems.filter(item => {
     if (!item.roles) return true;
@@ -80,7 +98,7 @@ export default function Navbar() {
               <input 
                 type="text" 
                 placeholder="Search venues, vendors..."
-                className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-full focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm"
+                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-full focus:ring-2 focus:ring-pink-500 focus:border-transparent text-sm text-gray-900 placeholder-gray-500"
               />
             </div>
           </div>
@@ -88,30 +106,105 @@ export default function Navbar() {
           {/* Desktop Auth Section */}
           <div className="hidden lg:flex lg:items-center lg:space-x-4">
             {isAuthenticated ? (
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-semibold">
-                      {user?.firstName?.charAt(0)}
-                    </span>
-                  </div>
-                  <div className="text-sm">
-                    <p className="text-gray-700 font-medium">
-                      Hello, {user?.firstName}
+              <div className="relative" ref={profileRef}>
+                {/* Profile Dropdown Trigger */}
+                <button
+                  onClick={() => setIsProfileOpen(!isProfileOpen)}
+                  className="flex items-center space-x-3 px-3 py-2 rounded-xl hover:bg-gray-50 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                >
+                  {/* Profile Image */}
+                  <ProfileImage
+                    src={user?.photoURL}
+                    alt={`${user?.firstName} ${user?.lastName}`}
+                    size="sm"
+                    firstName={user?.firstName}
+                    lastName={user?.lastName}
+                    className="flex-shrink-0"
+                  />
+                  
+                  {/* User Info */}
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-gray-700">
+                      {user?.firstName}
                     </p>
                     <p className="text-xs text-pink-600 font-medium">
                       {user?.role}
                     </p>
                   </div>
-                </div>
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm" className="border-pink-200 text-pink-600 hover:bg-pink-50">
-                    Dashboard
-                  </Button>
-                </Link>
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-gray-600 hover:text-pink-600">
-                  Logout
-                </Button>
+                  
+                  {/* Dropdown Arrow */}
+                  <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {/* Profile Dropdown Menu */}
+                {isProfileOpen && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                    {/* User Info Header */}
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <div className="flex items-start space-x-3">
+                        <ProfileImage
+                          src={user?.photoURL}
+                          alt={`${user?.firstName} ${user?.lastName}`}
+                          size="md"
+                          firstName={user?.firstName}
+                          lastName={user?.lastName}
+                          className="flex-shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-800 truncate">
+                            {user?.firstName} {user?.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500 break-all leading-tight">
+                            {user?.email}
+                          </p>
+                          <span className="inline-block mt-2 px-2 py-1 text-xs font-semibold text-pink-600 bg-pink-100 rounded-full">
+                            {user?.role}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Menu Items */}
+                    <div className="py-2">
+                      <Link
+                        href="/dashboard"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <Calendar className="h-4 w-4 mr-3" />
+                        Dashboard
+                      </Link>
+                      
+                      <Link
+                        href="/profile"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <User className="h-4 w-4 mr-3" />
+                        Profile Settings
+                      </Link>
+                      
+                      <Link
+                        href="/settings"
+                        className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                        onClick={() => setIsProfileOpen(false)}
+                      >
+                        <Settings className="h-4 w-4 mr-3" />
+                        Account Settings
+                      </Link>
+                      
+                      <hr className="my-2 border-gray-100" />
+                      
+                      <button
+                        onClick={handleLogout}
+                        className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="h-4 w-4 mr-3" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="flex items-center space-x-3">
@@ -159,7 +252,7 @@ export default function Navbar() {
             <input 
               type="text" 
               placeholder="Search venues, vendors..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
             />
           </div>
           
@@ -178,11 +271,14 @@ export default function Navbar() {
           {isAuthenticated ? (
             <div className="border-t border-gray-200 pt-4 mt-4">
               <div className="flex items-center px-4 py-3 mb-3">
-                <div className="w-10 h-10 bg-gradient-to-r from-pink-600 to-purple-600 rounded-full flex items-center justify-center mr-3">
-                  <span className="text-white font-semibold">
-                    {user?.firstName?.charAt(0)}
-                  </span>
-                </div>
+                <ProfileImage
+                  src={user?.photoURL}
+                  alt={`${user?.firstName} ${user?.lastName}`}
+                  size="md"
+                  firstName={user?.firstName}
+                  lastName={user?.lastName}
+                  className="mr-3"
+                />
                 <div>
                   <div className="text-base font-medium text-gray-800">
                     {user?.firstName} {user?.lastName}

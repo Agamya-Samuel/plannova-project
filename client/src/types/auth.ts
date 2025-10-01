@@ -9,6 +9,8 @@ export interface User {
   role: UserRole;
   isActive: boolean;
   isVerified: boolean;
+  photoURL?: string;
+  provider?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -19,7 +21,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  googleSignIn: () => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
 

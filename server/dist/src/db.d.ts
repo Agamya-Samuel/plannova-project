@@ -1,4 +1,3 @@
-import { Pool } from 'pg';
-declare const pool: Pool;
-export default pool;
+declare const connectDB: () => Promise<void>;
+export default connectDB;
 //# sourceMappingURL=db.d.ts.map

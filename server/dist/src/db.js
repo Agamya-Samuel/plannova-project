@@ -1,22 +1,33 @@
-import { Pool } from 'pg';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 dotenv.config();
-// Create a connection pool
-const pool = new Pool({
-    user: process.env.DB_USER || 'postgres', // your PostgreSQL username
-    host: process.env.DB_HOST || 'localhost', // server hosting the DB
-    database: process.env.DB_NAME || 'Test-db', // your database name
-    password: process.env.DB_PASSWORD || 'mypassword', // your PostgreSQL password
-    port: parseInt(process.env.DB_PORT || '5432'), // default PostgreSQL port
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+// MongoDB connection function
+const connectDB = async () => {
+    try {
+        const mongoURI = process.env.MONGODB_URI;
+        if (!mongoURI) {
+            throw new Error('MONGODB_URI is not defined in environment variables');
+        }
+        const conn = await mongoose.connect(mongoURI);
+        console.log(`✅ Connected to MongoDB: ${conn.connection.host}`);
+    }
+    catch (error) {
+        console.error('❌ MongoDB connection error:', error);
+        process.exit(1);
+    }
+};
+// Handle connection events
+mongoose.connection.on('disconnected', () => {
+    console.log('❌ MongoDB disconnected');
 });
-// Test the connection
-pool.on('connect', () => {
-    console.log('✅ Connected to PostgreSQL database');
+mongoose.connection.on('error', (err) => {
+    console.error('❌ MongoDB connection error:', err);
 });
-pool.on('error', (err) => {
-    console.error('❌ PostgreSQL connection error:', err);
+// Graceful shutdown
+process.on('SIGINT', async () => {
+    await mongoose.connection.close();
+    console.log('MongoDB connection closed through app termination');
+    process.exit(0);
 });
-// Export the pool for use in other files
-export default pool;
+export default connectDB;
 //# sourceMappingURL=db.js.map
