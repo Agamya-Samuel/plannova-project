@@ -4,8 +4,8 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
-import authRoutes from "./routes/auth";
-import connectDB from "./db";
+import authRoutes from "./routes/auth.js";
+import connectDB from "./db.js";
 
 // Load environment variables
 dotenv.config();

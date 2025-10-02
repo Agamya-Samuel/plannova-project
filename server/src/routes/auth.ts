@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import User, { UserRole, IUser } from '../models/User';
-import { hashPassword, comparePassword, generateToken } from '../utils/auth';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { adminAuth } from '../firebase-admin';
+import User, { UserRole, IUser } from '../models/User.js';
+import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import { adminAuth } from '../firebase-admin.js';
 
 const router = Router();
 
