@@ -3,12 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack --port 3003",
+    "dev": "next dev --turbopack --port 3000",
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint"
   },
-  "proxy": "http://localhost:3000",
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-slot": "^1.2.3",
