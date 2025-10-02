@@ -5,7 +5,8 @@ import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
-import connectDB from "./src/db.js";
+import venueRoutes from "./routes/venues.js";
+import connectDB from "./db.js";
 
 // Load environment variables
 dotenv.config();
@@ -19,7 +20,7 @@ const port = process.env.PORT || 3000;
 // Security middleware
 app.use(helmet());
 app.use(cors({
-  origin: ["http://localhost:3003", "http://localhost:3002", "http://localhost:3001", "http://localhost:3000"],
+  origin: process.env.FRONTEND_URL,
   credentials: true,
 }));
 
@@ -36,6 +37,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/venues", venueRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
@@ -67,4 +69,10 @@ app.get("/api", (req, res) => {
     res.send({ message: "Hello from Express!" });
 });
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+// Export the app for use by the server entry point
+export default app;
+
+// Only start the server if this file is run directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(port);
+}

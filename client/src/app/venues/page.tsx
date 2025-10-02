@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Search, MapPin, Users, Star, Heart, Filter, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import { Venue as VenueType, VenueFilters, VenuesResponse } from '../../types/venue';
+import apiClient from '../../lib/api';
 
 interface Venue {
   id: string;
@@ -70,14 +73,24 @@ const sampleVenues: Venue[] = [
 ];
 
 export default function VenuesPage() {
+  const searchParams = useSearchParams();
   const [selectedFilters, setSelectedFilters] = useState({
     location: '',
-    venueType: '',
+    venueType: searchParams.get('type') || '',
     capacity: '',
     priceRange: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+
+  // Update filters when URL parameters change
+  useEffect(() => {
+    const typeParam = searchParams.get('type');
+    if (typeParam) {
+      setSelectedFilters(prev => ({ ...prev, venueType: typeParam }));
+      setShowFilters(true); // Show filters panel when filtering is applied
+    }
+  }, [searchParams]);
 
   const toggleFavorite = (venueId: string) => {
     const newFavorites = new Set(favorites);
@@ -88,6 +101,15 @@ export default function VenuesPage() {
     }
     setFavorites(newFavorites);
   };
+
+  // Filter venues based on selected filters
+  const filteredVenues = sampleVenues.filter((venue) => {
+    if (selectedFilters.venueType && venue.type !== selectedFilters.venueType) {
+      return false;
+    }
+    // Add more filter logic here as needed
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -113,12 +135,16 @@ export default function VenuesPage() {
                 
                 <div className="relative">
                   <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 h-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-700 bg-white">
-                    <option>Venue type</option>
-                    <option>Banquet Hall</option>
-                    <option>Hotel</option>
-                    <option>Resort</option>
-                    <option>Outdoor</option>
+                  <select 
+                    className="w-full pl-10 pr-4 h-12 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-700 bg-white"
+                    value={selectedFilters.venueType}
+                    onChange={(e) => setSelectedFilters(prev => ({ ...prev, venueType: e.target.value }))}
+                  >
+                    <option value="">Venue type</option>
+                    <option value="Banquet Hall">Banquet Hall</option>
+                    <option value="Hotel">Hotel</option>
+                    <option value="Resort">Resort</option>
+                    <option value="Outdoor">Outdoor</option>
                   </select>
                 </div>
                 
@@ -156,7 +182,12 @@ export default function VenuesPage() {
             </Button>
             
             <div className="text-sm text-gray-600">
-              Showing {sampleVenues.length} venues
+              Showing {filteredVenues.length} venues
+              {selectedFilters.venueType && (
+                <span className="ml-2 text-pink-600">
+                  • Filtered by: {selectedFilters.venueType}
+                </span>
+              )}
             </div>
           </div>
           
@@ -175,6 +206,19 @@ export default function VenuesPage() {
         {/* Filters Panel */}
         {showFilters && (
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900">Filters</h3>
+              {(selectedFilters.venueType || selectedFilters.location || selectedFilters.capacity || selectedFilters.priceRange) && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSelectedFilters({ location: '', venueType: '', capacity: '', priceRange: '' })}
+                  className="text-pink-600 border-pink-200 hover:bg-pink-50"
+                >
+                  Clear All
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Location</h3>
@@ -193,7 +237,18 @@ export default function VenuesPage() {
                 <div className="space-y-2">
                   {['Banquet Hall', 'Hotel', 'Resort', 'Outdoor'].map((type) => (
                     <label key={type} className="flex items-center">
-                      <input type="checkbox" className="rounded border-gray-300 text-pink-600 focus:ring-pink-500" />
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300 text-pink-600 focus:ring-pink-500" 
+                        checked={selectedFilters.venueType === type}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedFilters(prev => ({ ...prev, venueType: type }));
+                          } else {
+                            setSelectedFilters(prev => ({ ...prev, venueType: '' }));
+                          }
+                        }}
+                      />
                       <span className="ml-2 text-sm text-gray-700">{type}</span>
                     </label>
                   ))}
@@ -229,7 +284,7 @@ export default function VenuesPage() {
 
         {/* Venues Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {sampleVenues.map((venue) => (
+          {filteredVenues.map((venue) => (
             <div key={venue.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
                 <img 
