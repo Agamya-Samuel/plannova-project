@@ -109,6 +109,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.log('🌐 API URL:', apiClient.defaults.baseURL);
       console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
       
+      // Test API connectivity first
+      try {
+        const healthCheck = await apiClient.get('/health/db');
+        console.log('✅ API connectivity test passed:', healthCheck.data);
+      } catch (connectivityError) {
+        console.error('❌ API connectivity test failed:', connectivityError);
+        throw new Error('Unable to connect to authentication server. Please check if the server is running.');
+      }
+      
       // Send to backend for user creation/verification
       const response = await apiClient.post<LoginResponse>('/auth/google', {
         idToken,
@@ -129,12 +138,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error,
         message: (error as Error)?.message,
         response: (error as { response?: { data?: unknown } })?.response?.data,
-        status: (error as { response?: { status?: number } })?.response?.status
+        status: (error as { response?: { status?: number } })?.response?.status,
+        code: (error as { code?: string })?.code
       });
       
-      const errorMessage = (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 
-                          (error as Error)?.message || 
-                          'Google sign-in failed';
+      let errorMessage = 'Google sign-in failed';
+      
+      if ((error as { code?: string })?.code) {
+        // Firebase-specific errors
+        switch ((error as { code?: string })?.code) {
+          case 'auth/popup-closed-by-user':
+            errorMessage = 'Sign-in was cancelled by user';
+            break;
+          case 'auth/popup-blocked':
+            errorMessage = 'Please allow popups for this site';
+            break;
+          case 'auth/unauthorized-domain':
+            errorMessage = 'This domain is not authorized for Google sign-in';
+            break;
+          default:
+            errorMessage = (error as Error)?.message || 'Google sign-in failed';
+        }
+      } else if ((error as { response?: { status?: number } })?.response?.status) {
+        // API errors
+        const status = (error as { response?: { status?: number } })?.response?.status;
+        const apiError = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+        
+        switch (status) {
+          case 401:
+            errorMessage = 'Authentication failed. Please try again.';
+            break;
+          case 500:
+            errorMessage = apiError || 'Server error. Please try again later.';
+            break;
+          case 404:
+            errorMessage = 'Authentication service not found. Please contact support.';
+            break;
+          default:
+            errorMessage = apiError || `Request failed with status ${status}`;
+        }
+      } else {
+        // Network or other errors
+        errorMessage = (error as Error)?.message || 'Network error. Please check your connection and try again.';
+      }
       
       throw new Error(errorMessage);
     }
