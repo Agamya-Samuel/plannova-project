@@ -1,8 +1,31 @@
+'use client';
+
 import Link from "next/link";
 import { Button } from "../components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
+import { useRouter } from 'next/navigation';
 
 export default function Home() {
+  const router = useRouter();
+
+  const handleCategoryClick = (categoryTitle: string) => {
+    // Map category titles to venue types for filtering
+    const venueTypeMap: { [key: string]: string } = {
+      'Luxury Hotels': 'Hotel',
+      'Banquet Halls': 'Banquet Hall',
+      'Garden Venues': 'Resort'
+    };
+    
+    const venueType = venueTypeMap[categoryTitle];
+    if (venueType) {
+      // Navigate to venues page with filter parameter
+      router.push(`/venues?type=${encodeURIComponent(venueType)}`);
+    } else {
+      // Fallback to general venues page
+      router.push('/venues');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Background Image */}
@@ -122,7 +145,11 @@ export default function Home() {
                 location: "Mumbai | Chennai | Delhi"
               }
             ].map((category, index) => (
-              <div key={index} className="group cursor-pointer">
+              <div 
+                key={index} 
+                className="group cursor-pointer"
+                onClick={() => handleCategoryClick(category.title)}
+              >
                 <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
                   <img 
                     src={category.image} 

@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
+import venueRoutes from "./routes/venues.js";
 import connectDB from "./src/db.js";
 // Load environment variables
 dotenv.config();
@@ -15,7 +16,7 @@ const port = process.env.PORT || 3000;
 // Security middleware
 app.use(helmet());
 app.use(cors({
-    origin: ["http://localhost:3003", "http://localhost:3002", "http://localhost:3001", "http://localhost:3000"],
+    origin: ["http://localhost:3003", "http://localhost:3004", "http://localhost:3002", "http://localhost:3001", "http://localhost:3000"],
     credentials: true,
 }));
 // Rate limiting
@@ -29,6 +30,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/venues", venueRoutes);
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
     try {

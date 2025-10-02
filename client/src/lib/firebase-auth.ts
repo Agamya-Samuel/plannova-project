@@ -48,6 +48,7 @@ export const signInWithGoogle = async () => {
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
     });
 
+    console.log('Attempting popup sign-in...');
     const result = await signInWithPopup(auth, googleProvider);
     const user = result.user;
     
@@ -96,6 +97,9 @@ export const signInWithGoogle = async () => {
         break;
       case 'auth/invalid-api-key':
         userFriendlyMessage = 'Invalid API configuration. Please contact support.';
+        break;
+      case 'auth/network-request-failed':
+        userFriendlyMessage = 'Network error. Please check your internet connection.';
         break;
       default:
         userFriendlyMessage = `Google sign-in failed: ${errorMessage}`;
