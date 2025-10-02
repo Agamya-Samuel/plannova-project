@@ -5,8 +5,12 @@ import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
+<<<<<<< HEAD:server/app.ts
 import venueRoutes from "./routes/venues.js";
 import connectDB from "./src/db.js";
+=======
+import connectDB from "./db.js";
+>>>>>>> 66b52655a46da48b0d7ab533f2e3953a37fc92ba:server/src/app.ts
 
 // Load environment variables
 dotenv.config();
@@ -69,4 +73,10 @@ app.get("/api", (req, res) => {
     res.send({ message: "Hello from Express!" });
 });
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+// Export the app for use by the server entry point
+export default app;
+
+// Only start the server if this file is run directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(port);
+}

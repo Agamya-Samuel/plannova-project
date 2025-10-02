@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import { Types } from 'mongoose';
-import Venue, { VenueType, VenueStatus, IVenue } from '../src/models/Venue.js';
+import Venue, { VenueType, VenueStatus, IVenue } from '../models/Venue.js';
 import { authenticateToken, requireProvider, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
