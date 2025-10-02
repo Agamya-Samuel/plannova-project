@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import User, { UserRole, IUser } from '../src/models/User.js';
-import { adminAuth } from '../src/firebase-admin.js';
+import User, { UserRole, IUser } from '../models/User';
+import { adminAuth } from '../firebase-admin';
 import { Types } from 'mongoose';
 
 export interface AuthRequest extends Request {

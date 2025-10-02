@@ -4,8 +4,8 @@ import helmet from "helmet";
 import dotenv from "dotenv";
 import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
-import authRoutes from "./routes/auth.js";
-import connectDB from "./src/db.js";
+import authRoutes from "./routes/auth";
+import connectDB from "./db";
 
 // Load environment variables
 dotenv.config();
@@ -67,4 +67,10 @@ app.get("/api", (req, res) => {
     res.send({ message: "Hello from Express!" });
 });
 
-app.listen(port, () => console.log(`Listening on port ${port}`));
+// Export the app for use by the server entry point
+export default app;
+
+// Only start the server if this file is run directly (not imported)
+if (import.meta.url === `file://${process.argv[1]}`) {
+  app.listen(port, () => console.log(`Listening on port ${port}`));
+}
