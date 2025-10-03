@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import { Search, Heart, Eye, Download, Filter, Grid3X3, LayoutList } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -304,12 +305,18 @@ export default function PhotosPage() {
               }`}
             >
               <div className="relative">
-                <img 
+                <Image 
                   src={photo.image} 
                   alt={photo.title}
+                  width={800}
+                  height={viewMode === 'grid' ? 256 : 600}
                   className={`w-full object-cover group-hover:scale-105 transition-transform duration-300 ${
                     viewMode === 'grid' ? 'h-64' : 'h-auto'
                   }`}
+                  placeholder="blur"
+                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSorjUdEAiuRDQfKt36WV1ZuVYyv9EG1X9jU0qLUcqcM3FTKuuOTKL8sR6k1v6WS09nclLF2Jl2VvvjIJHhV6k2qv0pY8kP18D3jqF0wCnZWp/qFgFa4kNDR9zf/2Q=="
+                  priority={photo.id === '1'}
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
                 
                 {/* Overlay on hover */}

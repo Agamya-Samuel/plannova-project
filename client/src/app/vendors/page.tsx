@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, MapPin, Star, Heart, Filter, SlidersHorizontal, Camera, Music, Utensils, Flower } from 'lucide-react';
+import Image from 'next/image';
+import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 
@@ -298,10 +299,13 @@ export default function VendorsPage() {
           {filteredVendors.map((vendor) => (
             <div key={vendor.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
-                <img 
+                <Image 
                   src={vendor.image} 
                   alt={vendor.name}
+                  width={400}
+                  height={256}
                   className="w-full h-64 object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
                 <button
                   onClick={() => toggleFavorite(vendor.id)}
