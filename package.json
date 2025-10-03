@@ -13,12 +13,14 @@
     "status": "echo \"🚀 Backend API: http://localhost:3000\" && echo \"🌐 Frontend: http://localhost:3000\"",
     "build": "concurrently \"npm run build:server\" \"npm run build:client\" --names \"server,client\" --prefix-colors \"yellow,cyan\"",
     "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm run build"
+    "build:server": "cd server && npm run build",
+    "prepare": "husky install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "concurrently": "^9.1.0"
+    "concurrently": "^9.1.0",
+    "husky": "^8.0.3"
   }
 }
