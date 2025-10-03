@@ -511,28 +511,27 @@ export default function EditVenuePage() {
                 {tabs.map((tab, index) => {
                   const isCompleted = isTabCompleted(tab.id);
                   const isCurrent = activeTab === tab.id;
+                  const canAccess = isCompleted || isCurrent;
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (index <= currentTabIndex) {
+                          if (canAccess) {
                             setActiveTab(tab.id);
                             setError('');
                           }
                         }}
-                        disabled={index > currentTabIndex}
+                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
-                            : isCompleted && index < currentTabIndex
-                            ? 'bg-green-500 text-white'
-                            : index > currentTabIndex
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            : isCompleted
+                            ? 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        {isCompleted && index < currentTabIndex ? (
+                        {isCompleted ? (
                           <Check className="h-5 w-5" />
                         ) : (
                           <tab.icon className="h-5 w-5" />
@@ -540,7 +539,7 @@ export default function EditVenuePage() {
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
                         isCurrent ? 'text-pink-600 font-medium' : 
-                        index > currentTabIndex ? 'text-gray-400' : 'text-gray-600'
+                        isCompleted ? 'text-green-600 font-medium' : 'text-gray-400'
                       }`}>
                         {tab.label}
                       </span>
@@ -600,14 +599,14 @@ export default function EditVenuePage() {
                       onChange={(e) => handleInputChange('description', e.target.value)}
                       placeholder="Describe your venue..."
                       rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                       minLength={10}
                       maxLength={2000}
                     />
-                    <div className="flex justify-between text-sm text-gray-500 mt-1">
+                    <div className="flex justify-between text-sm text-black mt-1">
                       <span>Minimum 10 characters required</span>
-                      <span className={`${formData.description.length > 2000 ? 'text-red-500' : ''}`}>
+                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
                         {formData.description.length}/2000
                       </span>
                     </div>
@@ -796,7 +795,7 @@ export default function EditVenuePage() {
                       onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
                       placeholder="Describe your cancellation policy..."
                       rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                     />
                   </div>
@@ -1188,7 +1187,7 @@ export default function EditVenuePage() {
                             onChange={(e) => updateFoodOption(index, 'description', e.target.value)}
                             placeholder="Describe the menu items and offerings..."
                             rows={3}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                           />
                         </div>
                         
@@ -1276,8 +1275,8 @@ export default function EditVenuePage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Venue Details</h2>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Please review all information before submitting:</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
+                    <h4 className="text-sm font-medium text-black mb-2">Please review all information before submitting:</h4>
+                    <ul className="text-sm text-black space-y-1">
                       <li>• Ensure all required fields are completed</li>
                       <li>• Verify contact information is accurate</li>
                       <li>• Check that images represent your venue well</li>
@@ -1288,29 +1287,29 @@ export default function EditVenuePage() {
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
-                      <p><strong>Name:</strong> {formData.name}</p>
-                      <p><strong>Type:</strong> {formData.type}</p>
-                      <p><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
-                      <p><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
+                      <h3 className="font-semibold text-black mb-2">Basic Information</h3>
+                      <p className="text-black"><strong>Name:</strong> {formData.name}</p>
+                      <p className="text-black"><strong>Type:</strong> {formData.type}</p>
+                      <p className="text-black"><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
+                      <p className="text-black"><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Contact & Location</h3>
-                      <p><strong>Phone:</strong> {formData.contact.phone}</p>
-                      <p><strong>Email:</strong> {formData.contact.email}</p>
-                      <p><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
+                      <h3 className="font-semibold text-black mb-2">Contact & Location</h3>
+                      <p className="text-black"><strong>Phone:</strong> {formData.contact.phone}</p>
+                      <p className="text-black"><strong>Email:</strong> {formData.contact.email}</p>
+                      <p className="text-black"><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Images</h3>
-                      <p>{formData.images.length} image(s) uploaded</p>
+                      <h3 className="font-semibold text-black mb-2">Images</h3>
+                      <p className="text-black">{formData.images.length} image(s) uploaded</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Features & Food</h3>
-                      <p><strong>Features:</strong> {formData.features.length} selected</p>
-                      <p><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
+                      <h3 className="font-semibold text-black mb-2">Features & Food</h3>
+                      <p className="text-black"><strong>Features:</strong> {formData.features.length} selected</p>
+                      <p className="text-black"><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
                     </div>
                   </div>
                 </div>
