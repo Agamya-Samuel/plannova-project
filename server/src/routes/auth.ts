@@ -264,14 +264,14 @@ router.post('/google', async (req: Request, res: Response) => {
         await user.save();
       }
     } else {
-      // Create new user from Google account
+      // Create new user from Google account - but don't assign role yet
       const nameParts = decodedToken.name?.split(' ') || ['User', ''];
       user = await User.create({
         firebaseUid: decodedToken.uid,
         email: decodedToken.email,
         firstName: nameParts[0] || 'User',
         lastName: nameParts.slice(1).join(' ') || '',
-        role: UserRole.CUSTOMER,
+        role: null, // No role assigned yet - user needs to select
         isActive: true,
         isVerified: decodedToken.email_verified || false,
         provider: decodedToken.firebase?.sign_in_provider || 'google.com',
@@ -294,14 +294,70 @@ router.post('/google', async (req: Request, res: Response) => {
 
     console.log('🚀 Google Sign-In - Sending response with user data:', userData);
 
+    // Check if user needs to select a role
+    const needsRoleSelection = user.role === null;
+
     res.json({
       message: 'Google sign-in successful',
       user: userData,
       token: idToken, // Use Firebase ID token as auth token
+      needsRoleSelection, // Indicates if frontend should show role selection
     });
   } catch (error) {
     console.error('Google sign-in error:', error);
     res.status(500).json({ error: 'Google sign-in failed' });
+  }
+});
+
+// Update user role for Google sign-in users
+router.post('/update-role', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { role } = req.body;
+
+    // Validate role
+    if (!role || !Object.values(UserRole).includes(role)) {
+      return res.status(400).json({ error: 'Invalid role provided' });
+    }
+
+    // Find and update user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Only allow updating role if it's currently null (new Google users)
+    if (user.role !== null) {
+      return res.status(400).json({ error: 'User role is already set' });
+    }
+
+    // Update the role
+    user.role = role;
+    await user.save();
+
+    // Return updated user data
+    const userData = {
+      id: (user._id as Types.ObjectId).toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      photoURL: user.photoURL,
+      provider: user.provider,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+    };
+
+    res.json({
+      message: 'Role updated successfully',
+      user: userData,
+    });
+  } catch (error) {
+    console.error('Role update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
