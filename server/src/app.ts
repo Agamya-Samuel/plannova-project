@@ -81,8 +81,3 @@ app.get("/api", (req, res) => {
 
 // Export the app for use by the server entry point
 export default app;
-
-// Only start the server if this file is run directly (not imported)
-if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(port);
-}
