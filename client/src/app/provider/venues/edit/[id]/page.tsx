@@ -21,6 +21,7 @@ import {
   Check
 } from 'lucide-react';
 import apiClient from '../../../../../lib/api';
+import { ImageUpload } from '../../../../../components/upload';
 
 interface VenueFormData {
   name: string;
@@ -61,6 +62,8 @@ export default function EditVenuePage() {
   const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('basic');
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
 
   const venueId = params.id as string;
@@ -134,13 +137,6 @@ export default function EditVenuePage() {
         [field]: value
       }));
     }
-  };
-
-  const addImage = (imageUrl: string, alt: string, category: string) => {
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, { url: imageUrl, alt, category, isPrimary: prev.images.length === 0 }]
-    }));
   };
 
   const removeImage = (index: number) => {
@@ -868,150 +864,57 @@ export default function EditVenuePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Venue Images</h2>
                   
-                  {/* Image Upload Section */}
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Upload venue images</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Upload high-quality images of your venue (PNG, JPG up to 10MB each)
-                      </p>
-                      
-                      {/* File Upload Input */}
-                      <div className="mt-6">
-                        <input
-                          type="file"
-                          id="venue-images"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                              // Handle file upload here
-                              Array.from(e.target.files).forEach((file, index) => {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    addImage(
-                                      event.target.result as string,
-                                      file.name.split('.')[0],
-                                      'gallery'
-                                    );
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              });
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="venue-images"
-                          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-pink-600 hover:bg-pink-700 cursor-pointer transition-colors duration-200"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Import Images
-                        </label>
-                      </div>
-                      
-                      {/* Demo URL Input (fallback) */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm text-gray-500 mb-2">Or add image URL:</p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const imageUrl = prompt('Enter image URL:');
-                            const alt = prompt('Enter image description:');
-                            const category = prompt('Enter category (main/gallery/room/food/decoration/amenity):') || 'gallery';
-                            if (imageUrl && alt) {
-                              addImage(imageUrl, alt, category);
-                            }
-                          }}
-                          className="text-gray-600"
-                        >
-                          Add Image URL
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  {/* S3 Image Upload Component */}
+                  <ImageUpload
+                    uploadType="venue"
+                    venueId={venueId}
+                    maxFiles={20}
+                    images={formData.images.map(img => ({
+                      ...img,
+                      key: undefined, // Will be populated after upload
+                      uploadStatus: 'success' as const,
+                      category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity'
+                    }))}
+                    onImagesChange={(images) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        images: images.map(img => ({
+                          url: img.url,
+                          alt: img.alt,
+                          category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity',
+                          isPrimary: img.isPrimary
+                        }))
+                      }));
+                    }}
+                    onUploadStart={() => {
+                      setIsUploadingImages(true);
+                      setError('');
+                    }}
+                    onUploadProgress={(progress) => {
+                      setImageUploadProgress(progress);
+                    }}
+                    onUploadError={(error) => {
+                      setError(`Image upload failed: ${error}`);
+                      setIsUploadingImages(false);
+                    }}
+                    onUploadComplete={() => {
+                      setIsUploadingImages(false);
+                      setImageUploadProgress(0);
+                    }}
+                    disabled={loading}
+                    className=""
+                  />
                   
-                  {/* Current Images Display */}
-                  {formData.images.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Current Images ({formData.images.length})
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {formData.images.map((image, index) => (
-                          <div key={index} className="relative group border border-gray-200 rounded-lg overflow-hidden">
-                            <img
-                              src={image.url}
-                              alt={image.alt}
-                              className="w-full h-48 object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y0ZjRmNCIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBub3QgZm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
-                              }}
-                            />
-                            
-                            {/* Image overlay with controls */}
-                            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => setPrimaryImage(index)}
-                                className={`text-xs ${
-                                  image.isPrimary 
-                                    ? 'bg-green-600 hover:bg-green-700' 
-                                    : 'bg-blue-600 hover:bg-blue-700'
-                                }`}
-                              >
-                                {image.isPrimary ? '✓ Primary' : 'Set Primary'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeImage(index)}
-                                className="text-xs bg-white text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                                Delete
-                              </Button>
-                            </div>
-                            
-                            {/* Image info */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
-                              <p className="text-white text-xs font-medium truncate">{image.alt}</p>
-                              <p className="text-gray-200 text-xs">{image.category}</p>
-                              {image.isPrimary && (
-                                <span className="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded mt-1">
-                                  Primary Image
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* No Images State */}
-                  {formData.images.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No images uploaded yet. Click "Import Images" to get started.</p>
-                    </div>
-                  )}
-                  
-                  {/* Image Management Tips */}
+                  {/* Image Upload Tips */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Management Tips:</h4>
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• Upload at least 5-10 high-quality images of your venue</li>
                       <li>• Include exterior shots, interior spaces, seating arrangements, and decor</li>
-                      <li>• Set one image as primary - it will be shown in search results</li>
-                      <li>• Click "Delete" to remove unwanted images</li>
-                      <li>• Use descriptive names for better organization</li>
+                      <li>• The first image will be used as the primary image in search results</li>
+                      <li>• Click the star icon to set a different image as primary</li>
+                      <li>• Images are automatically optimized for web display</li>
+                      <li>• Supported formats: JPEG, PNG, WebP, GIF (max 10MB each)</li>
                     </ul>
                   </div>
                 </div>
