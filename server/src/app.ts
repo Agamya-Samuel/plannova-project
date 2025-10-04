@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import venueRoutes from "./routes/venues.js";
 import uploadRoutes from "./routes/upload.js";
+import bookingRoutes from "./routes/bookings.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -16,13 +17,25 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
+
+// Trust proxy settings - required when running behind a proxy
+// This enables express-rate-limit to work correctly with X-Forwarded-For headers
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
+
+// Parse FRONTEND_URL environment variable (comma-separated domains)
+const allowedOrigins = process.env.FRONTEND_URL!.split(',').map(url => url.trim())
+
+console.log('🌐 CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
 // Rate limiting
@@ -40,6 +53,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/venues", venueRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
@@ -73,8 +87,3 @@ app.get("/api", (req, res) => {
 
 // Export the app for use by the server entry point
 export default app;
-
-// Only start the server if this file is run directly (not imported)
-if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(port);
-}
