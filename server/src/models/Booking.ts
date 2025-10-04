@@ -78,8 +78,6 @@ const BookingSchema: Schema<IBooking> = new Schema({
 });
 
 // Indexes for better query performance
-BookingSchema.index({ customerId: 1 });
-BookingSchema.index({ venueId: 1 });
 BookingSchema.index({ date: 1 });
 
 // Create and export the model
