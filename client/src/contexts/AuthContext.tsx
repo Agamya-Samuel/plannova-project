@@ -4,7 +4,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '../lib/api';
 import { signInWithGoogle, logout as firebaseLogout } from '../lib/firebase-auth';
-import { User, AuthContextType, RegisterData, LoginResponse } from '../types/auth';
+import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(null);
   };
 
-  const googleSignIn = async (): Promise<void> => {
+  const googleSignIn = async (): Promise<{ needsRoleSelection?: boolean }> => {
     try {
       console.log('🚀 Starting Google sign-in process...');
       const result = await signInWithGoogle();
@@ -124,7 +124,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       console.log('✅ Backend response successful:', response.data);
-      const { user: userData, token } = response.data;
+      const { user: userData, token, needsRoleSelection } = response.data;
       
       // Debug: Log the photoURL we received
       console.log('🖼️ User photoURL received:', userData.photoURL);
@@ -133,6 +133,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       console.log('✅ Google sign-in completed successfully');
+      
+      return { needsRoleSelection };
     } catch (error: unknown) {
       console.error('❌ Google sign-in error details:', {
         error,
@@ -186,6 +188,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateRole = async (role: UserRole): Promise<void> => {
+    try {
+      const response = await apiClient.post<RoleUpdateResponse>('/auth/update-role', {
+        role,
+      });
+
+      const { user: updatedUser } = response.data;
+      
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error: unknown) {
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Role update failed');
+    }
+  };
+
   const updateProfile = async (data: Partial<User>): Promise<void> => {
     try {
       const response = await apiClient.put('/auth/profile', data);
@@ -206,6 +223,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     googleSignIn,
+    updateRole,
     updateProfile,
   };
 
