@@ -111,7 +111,7 @@ export const generateFileKey = (
   const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
   
   if (type === 'venue' && venueId) {
-    return `uploads/venues/${venueId}/${timestamp}_${sanitizedFilename}`;
+    return `uploads/venue/${venueId}/${timestamp}_${sanitizedFilename}`;
   }
   
   return `uploads/${type}/${userId}/${timestamp}_${sanitizedFilename}`;
