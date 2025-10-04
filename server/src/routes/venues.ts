@@ -3,6 +3,8 @@ import { body, validationResult, query } from 'express-validator';
 import { Types } from 'mongoose';
 import Venue, { VenueType, VenueStatus, IVenue } from '../models/Venue.js';
 import { authenticateToken, requireProvider, AuthRequest } from '../middleware/auth.js';
+import { extractS3Key, getS3Url } from '../utils/s3.js';
+import { deleteFromS3, bulkDeleteFromS3 } from '../services/uploadService.js';
 
 const router = Router();
 
@@ -310,13 +312,31 @@ router.delete('/:id', authenticateToken, requireProvider, async (req: AuthReques
   }
 });
 
-// POST /api/venues/:id/images - Add images to venue
+// POST /api/venues/:id/images - Add images to venue (enhanced for S3)
 router.post('/:id/images', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {
     const { images } = req.body;
 
     if (!images || !Array.isArray(images) || images.length === 0) {
       return res.status(400).json({ error: 'Images array is required' });
+    }
+
+    // Validate image objects structure (simplified for existing IVenueImage interface)
+    for (const image of images) {
+      if (!image.url) {
+        return res.status(400).json({ 
+          error: 'Each image must have a url property' 
+        });
+      }
+      
+      // Validate that the S3 URL belongs to this user (security check)
+      const userId = req.user!.id;
+      const extractedKey = extractS3Key(image.url);
+      if (extractedKey && !extractedKey.includes(userId)) {
+        return res.status(403).json({ 
+          error: 'Unauthorized: Image URL does not belong to current user' 
+        });
+      }
     }
 
     const venue = await Venue.findOne({
@@ -328,12 +348,26 @@ router.post('/:id/images', authenticateToken, requireProvider, async (req: AuthR
       return res.status(404).json({ error: 'Venue not found or unauthorized' });
     }
 
-    venue.images.push(...images);
+    // Add images with S3 metadata
+    const enhancedImages = images.map(image => ({
+      url: image.url,
+      alt: image.alt || image.name || 'Venue image',
+      category: image.category || 'gallery',
+      isPrimary: image.isPrimary || false,
+      // Note: Additional metadata like key, name, type, size, etc. can be stored
+      // in a separate collection or as extended fields if needed
+    }));
+
+    venue.images.push(...enhancedImages);
     await venue.save();
 
     res.json({
       message: 'Images added successfully',
-      venue
+      venue: {
+        _id: venue._id,
+        name: venue.name,
+        images: venue.images
+      }
     });
   } catch (error) {
     console.error('Error adding images:', error);
@@ -341,7 +375,7 @@ router.post('/:id/images', authenticateToken, requireProvider, async (req: AuthR
   }
 });
 
-// DELETE /api/venues/:id/images/:imageId - Remove image from venue
+// DELETE /api/venues/:id/images/:imageId - Remove image from venue (enhanced with S3 cleanup)
 router.delete('/:id/images/:imageId', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {
     const venue = await Venue.findOne({
@@ -353,12 +387,41 @@ router.delete('/:id/images/:imageId', authenticateToken, requireProvider, async 
       return res.status(404).json({ error: 'Venue not found or unauthorized' });
     }
 
-    venue.images = venue.images.filter((img: any) => img._id?.toString() !== req.params.imageId);
+    // Find the image to be deleted
+    const imageToDelete = venue.images.find((img: any) => 
+      img._id?.toString() === req.params.imageId
+    );
+
+    if (!imageToDelete) {
+      return res.status(404).json({ error: 'Image not found' });
+    }
+
+    // Remove image from venue
+    venue.images = venue.images.filter((img: any) => 
+      img._id?.toString() !== req.params.imageId
+    );
+    
     await venue.save();
+
+    // Delete from S3 by extracting key from URL
+    const s3Key = extractS3Key(imageToDelete.url);
+    if (s3Key) {
+      try {
+        await deleteFromS3(s3Key);
+        console.log(`Successfully deleted S3 file: ${s3Key}`);
+      } catch (s3Error) {
+        console.error('Failed to delete from S3:', s3Error);
+        // Don't fail the request if S3 deletion fails
+      }
+    }
 
     res.json({
       message: 'Image removed successfully',
-      venue
+      venue: {
+        _id: venue._id,
+        name: venue.name,
+        images: venue.images
+      }
     });
   } catch (error) {
     console.error('Error removing image:', error);

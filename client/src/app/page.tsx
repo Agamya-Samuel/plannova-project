@@ -1,6 +1,7 @@
 'use client';
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "../components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -151,10 +152,13 @@ export default function Home() {
                 onClick={() => handleCategoryClick(category.title)}
               >
                 <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                  <img 
+                  <Image 
                     src={category.image} 
                     alt={category.title}
+                    width={800}
+                    height={256}
                     className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
+                    priority={index === 0}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   <div className="absolute bottom-6 left-6 text-white">
