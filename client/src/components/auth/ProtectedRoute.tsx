@@ -14,7 +14,7 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ 
   children, 
-  allowedRoles = ['CUSTOMER', 'PROVIDER', 'ADMIN'],
+  allowedRoles = ['CUSTOMER', 'PROVIDER', 'STAFF', 'ADMIN'],
   redirectTo = '/auth/login'
 }: ProtectedRouteProps) {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -32,7 +32,8 @@ export default function ProtectedRoute({
       // User doesn't have required role, redirect to appropriate page
       const roleRedirects = {
         CUSTOMER: '/dashboard',
-        PROVIDER: '/provider/dashboard',
+        PROVIDER: '/provider/venues',
+        STAFF: '/staff/approvals',
         ADMIN: '/admin/dashboard',
       };
       router.push(roleRedirects[user.role] || '/dashboard');

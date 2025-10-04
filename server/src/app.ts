@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import venueRoutes from "./routes/venues.js";
+import adminRoutes from "./routes/admin.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -38,6 +39,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/venues", venueRoutes);
+app.use("/api/admin", adminRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {

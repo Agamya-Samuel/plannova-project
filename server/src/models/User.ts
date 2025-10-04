@@ -4,6 +4,7 @@ import mongoose, { Document, Schema } from 'mongoose';
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
   PROVIDER = 'PROVIDER',
+  STAFF = 'STAFF',
   ADMIN = 'ADMIN'
 }
 

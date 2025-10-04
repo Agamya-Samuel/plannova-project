@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import { Types } from 'mongoose';
 import Venue, { VenueType, VenueStatus, IVenue } from '../models/Venue.js';
-import { authenticateToken, requireProvider, AuthRequest } from '../middleware/auth.js';
+import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -115,15 +115,26 @@ router.get('/', async (req: Request, res: Response) => {
 // GET /api/venues/provider/my-venues - Get provider's venues
 router.get('/provider/my-venues', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, page = 1, limit = 10, search } = req.query;
 
     const filter: any = { 
       providerId: req.user!.id,
       isActive: true // Only show active venues
     };
     
-    if (status) {
+    if (status && status !== 'ALL') {
       filter.status = status;
+    }
+
+    // Add search functionality
+    if (search && search.toString().trim()) {
+      const searchTerm = search.toString().trim();
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'address.city': { $regex: searchTerm, $options: 'i' } },
+        { 'address.area': { $regex: searchTerm, $options: 'i' } }
+      ];
     }
 
     const pageNumber = parseInt(page as string);
@@ -483,6 +494,134 @@ router.post('/:id/reviews', authenticateToken, async (req: AuthRequest, res: Res
   } catch (error) {
     console.error('Error adding review:', error);
     res.status(500).json({ error: 'Failed to add review' });
+  }
+});
+
+// GET /api/venues/staff/pending - Get venues pending approval (Staff only)
+router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, page = 1, limit = 10, search } = req.query;
+
+    const filter: any = { 
+      isActive: true
+    };
+    
+    if (status && status !== 'ALL') {
+      filter.status = status;
+    } else {
+      // Default to pending venues if no status specified
+      filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED'] };
+    }
+
+    // Add search functionality
+    if (search && search.toString().trim()) {
+      const searchTerm = search.toString().trim();
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'address.city': { $regex: searchTerm, $options: 'i' } },
+        { 'address.area': { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const pageNumber = parseInt(page as string);
+    const limitNumber = parseInt(limit as string);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const venues = await Venue.find(filter)
+      .populate('providerId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const total = await Venue.countDocuments(filter);
+
+    res.json({
+      venues,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        pages: Math.ceil(total / limitNumber)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching pending venues:', error);
+    res.status(500).json({ error: 'Failed to fetch venues' });
+  }
+});
+
+// POST /api/venues/staff/:id/approve - Approve a venue (Staff only)
+router.post('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    
+    const venue = await Venue.findById(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    if (venue.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Only pending venues can be approved' });
+    }
+
+    venue.status = VenueStatus.APPROVED;
+    venue.updatedAt = new Date();
+    await venue.save();
+
+    res.json({
+      message: 'Venue approved successfully',
+      venue: {
+        id: venue._id,
+        name: venue.name,
+        status: venue.status
+      }
+    });
+  } catch (error) {
+    console.error('Error approving venue:', error);
+    res.status(500).json({ error: 'Failed to approve venue' });
+  }
+});
+
+// POST /api/venues/staff/:id/reject - Reject a venue (Staff only)
+router.post('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    const { reason } = req.body;
+    
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const venue = await Venue.findById(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    if (venue.status !== 'PENDING') {
+      return res.status(400).json({ error: 'Only pending venues can be rejected' });
+    }
+
+    venue.status = VenueStatus.REJECTED;
+    venue.updatedAt = new Date();
+    
+    // Store rejection reason in a separate field or in description
+    // For now, we'll add it to the description
+    venue.description += `\n\n[REJECTED: ${reason}]`;
+    
+    await venue.save();
+
+    res.json({
+      message: 'Venue rejected successfully',
+      venue: {
+        id: venue._id,
+        name: venue.name,
+        status: venue.status
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting venue:', error);
+    res.status(500).json({ error: 'Failed to reject venue' });
   }
 });
 
