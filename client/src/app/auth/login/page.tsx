@@ -10,7 +10,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
+import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { UserRole } from '../../../types/auth';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -23,7 +25,9 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { login, googleSignIn } = useAuth();
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
+  const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
+  const { login, googleSignIn, updateRole, user } = useAuth();
   const router = useRouter();
 
   const {
@@ -45,6 +49,20 @@ export default function LoginPage() {
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRoleSelection = async (role: UserRole) => {
+    setIsRoleUpdateLoading(true);
+    try {
+      await updateRole(role);
+      setShowRoleSelection(false);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Role update error:', error);
+      setError('Failed to update role. Please try again.');
+    } finally {
+      setIsRoleUpdateLoading(false);
     }
   };
 
@@ -201,6 +219,10 @@ export default function LoginPage() {
                     console.error('Navigation failed:', error);
                   }
                 }}
+                onRoleSelectionNeeded={() => {
+                  console.log('Role selection needed for new Google user');
+                  setShowRoleSelection(true);
+                }}
                 onError={(error) => {
                   console.error('GoogleSignInButton error:', error);
                   setError('Google sign-in failed. Please try again.');
@@ -246,6 +268,15 @@ export default function LoginPage() {
           </a>
         </p>
       </div>
+
+      {/* Role Selection Modal */}
+      <RoleSelectionModal
+        isOpen={showRoleSelection}
+        onRoleSelected={handleRoleSelection}
+        onClose={() => setShowRoleSelection(false)}
+        userDisplayName={user?.firstName || ''}
+        isLoading={isRoleUpdateLoading}
+      />
     </div>
   );
 }

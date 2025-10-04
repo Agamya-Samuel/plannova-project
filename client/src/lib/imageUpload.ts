@@ -1,68 +1,196 @@
-// Simple image upload service using placeholders
+// S3 image upload service using backend API
 
+import apiClient from './api';
+
+// Upload result interface
 interface UploadResult {
   url: string;
   key: string;
-  bucket: string;
+  name: string;
+  type: string;
+  size: number;
+  uploadedAt: string;
 }
 
-class ImageUploadService {
+// Upload progress interface
+interface UploadProgress {
+  loaded: number;
+  total: number;
+  percentage: number;
+}
+
+// Upload configuration
+interface UploadConfig {
+  allowedImageTypes: string[];
+  allowedDocumentTypes: string[];
+  maxFileSize: {
+    image: number;
+    document: number;
+  };
+  uploadTypes: string[];
+}
+
+// Upload types
+type UploadType = 'venue' | 'profile' | 'document';
+
+class S3ImageUploadService {
+  private uploadConfig: UploadConfig | null = null;
+
   /**
-   * Upload a single image (placeholder implementation)
+   * Get upload configuration from backend
+   */
+  async getUploadConfig(): Promise<UploadConfig> {
+    if (this.uploadConfig) {
+      return this.uploadConfig!;
+    }
+
+    try {
+      const response = await apiClient.get('/upload/config');
+      this.uploadConfig = response.data.data;
+      return this.uploadConfig!;
+    } catch (error) {
+      console.error('Failed to get upload config:', error);
+      // Return default config if API fails
+      return {
+        allowedImageTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'],
+        allowedDocumentTypes: ['application/pdf'],
+        maxFileSize: {
+          image: 10 * 1024 * 1024, // 10MB
+          document: 25 * 1024 * 1024, // 25MB
+        },
+        uploadTypes: ['venue', 'profile', 'document']
+      };
+    }
+  }
+
+  /**
+   * Validate file before upload
+   */
+  async validateFile(file: File, uploadType: UploadType): Promise<{ valid: boolean; error?: string }> {
+    try {
+      const config = await this.getUploadConfig();
+      
+      // Check file type
+      const isImage = config.allowedImageTypes.includes(file.type);
+      const isDocument = config.allowedDocumentTypes.includes(file.type);
+      
+      if (!isImage && !isDocument) {
+        return {
+          valid: false,
+          error: `Invalid file type. Allowed types: ${[...config.allowedImageTypes, ...config.allowedDocumentTypes].join(', ')}`
+        };
+      }
+      
+      // Check file size
+      const maxSize = isImage ? config.maxFileSize.image : config.maxFileSize.document;
+      if (file.size > maxSize) {
+        const maxSizeMB = Math.round(maxSize / (1024 * 1024));
+        return {
+          valid: false,
+          error: `File size exceeds limit. Maximum size: ${maxSizeMB}MB`
+        };
+      }
+      
+      return { valid: true };
+    } catch (error) {
+      return {
+        valid: false,
+        error: 'Failed to validate file'
+      };
+    }
+  }
+
+  /**
+   * Upload a single image using presigned URL from backend
    */
   async uploadImage(
     file: File, 
-    folder: string = 'venues',
-    venue_id?: string
+    uploadType: UploadType = 'venue',
+    venueId?: string,
+    onProgress?: (progress: UploadProgress) => void
   ): Promise<UploadResult> {
     try {
-      console.log('Uploading image (placeholder mode):', {
+      console.log('Starting presigned URL upload:', {
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
-        folder,
-        venue_id
+        uploadType,
+        venueId
       });
 
-      // Validate file type
-      const allowedTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-      const fileExtension = file.name.split('.').pop()?.toLowerCase();
-      
-      if (!fileExtension || !allowedTypes.includes(fileExtension)) {
-        throw new Error('Invalid file type. Only JPG, PNG, WebP, and GIF images are allowed.');
+      // Validate file
+      const validation = await this.validateFile(file, uploadType);
+      if (!validation.valid) {
+        throw new Error(validation.error || 'File validation failed');
       }
 
-      // Validate file size (max 10MB)
-      const maxSize = 10 * 1024 * 1024; // 10MB
-      if (file.size > maxSize) {
-        throw new Error('File size too large. Maximum allowed size is 10MB.');
-      }
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const randomString = Math.random().toString(36).substring(2, 15);
-      const key = venue_id 
-        ? `${folder}/${venue_id}/${timestamp}_${randomString}.${fileExtension}`
-        : `${folder}/${timestamp}_${randomString}.${fileExtension}`;
-
-      // Create a placeholder image URL with file name
-      const encodedFileName = encodeURIComponent(file.name.split('.')[0]);
-      const placeholderUrl = `https://via.placeholder.com/800x600/f472b6/ffffff?text=${encodedFileName}`;
+      // Upload via server to avoid CORS issues with Tebi S3
+      return await this.uploadViaServer(file, uploadType, venueId, onProgress);
       
-      console.log('Generated placeholder URL:', placeholderUrl);
-      
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      return {
-        url: placeholderUrl,
-        key: key,
-        bucket: 'placeholder-bucket'
-      };
-    } catch (error: any) {
-      console.error('Error processing image:', error);
-      throw new Error(`Upload failed: ${error.message}`);
+    } catch (error: unknown) {
+      console.error('Error uploading image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Upload failed: ${errorMessage}`);
     }
+  }
+
+
+
+
+  /**
+   * Upload via server (fallback for CORS issues)
+   */
+  private async uploadViaServer(
+    file: File,
+    uploadType: UploadType,
+    venueId?: string,
+    onProgress?: (progress: UploadProgress) => void
+  ): Promise<UploadResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('uploadType', uploadType);
+    if (venueId) {
+      formData.append('venueId', venueId);
+    }
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress({
+            loaded: e.loaded,
+            total: e.total,
+            percentage: Math.round((e.loaded / e.total) * 100)
+          });
+        }
+      });
+      
+      xhr.addEventListener('load', () => {
+        if (xhr.status === 200) {
+          const response = JSON.parse(xhr.responseText);
+          resolve(response.data);
+        } else {
+          reject(new Error(`Server upload failed with status: ${xhr.status}`));
+        }
+      });
+      
+      xhr.addEventListener('error', () => {
+        reject(new Error('Server upload failed - network error'));
+      });
+      
+      // Include authentication token
+      const token = localStorage.getItem('token');
+      
+      xhr.open('POST', `${apiClient.defaults.baseURL}/upload/direct`);
+      
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
+      
+      xhr.send(formData);
+    });
   }
 
   /**
@@ -70,8 +198,8 @@ class ImageUploadService {
    */
   async uploadMultipleImages(
     files: FileList, 
-    folder: string = 'venues',
-    venue_id?: string,
+    uploadType: UploadType = 'venue',
+    venueId?: string,
     onProgress?: (progress: number, current: number, total: number) => void
   ): Promise<UploadResult[]> {
     const results: UploadResult[] = [];
@@ -79,11 +207,22 @@ class ImageUploadService {
 
     for (let i = 0; i < total; i++) {
       try {
-        if (onProgress) {
-          onProgress(Math.round(((i + 1) / total) * 100), i + 1, total);
-        }
-
-        const result = await this.uploadImage(files[i], folder, venue_id);
+        const result = await this.uploadImage(
+          files[i], 
+          uploadType, 
+          venueId,
+          (fileProgress) => {
+            // Calculate overall progress
+            const baseProgress = (i / total) * 100;
+            const currentFileProgress = (fileProgress.percentage / total);
+            const overallProgress = Math.round(baseProgress + currentFileProgress);
+            
+            if (onProgress) {
+              onProgress(overallProgress, i + 1, total);
+            }
+          }
+        );
+        
         results.push(result);
       } catch (error) {
         console.error(`Error uploading file ${files[i].name}:`, error);
@@ -95,53 +234,100 @@ class ImageUploadService {
   }
 
   /**
-   * Delete an image (placeholder implementation)
+   * Delete an image from S3
    */
-  async deleteImage(key: string): Promise<void> {
-    console.log('Deleting image (placeholder mode):', key);
-    // Simulate delete delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+  async deleteImage(url: string): Promise<void> {
+    try {
+      console.log('Deleting image from S3:', url);
+      
+      await apiClient.delete('/upload/by-url', {
+        data: { url }
+      });
+      
+      console.log('Image deleted successfully');
+    } catch (error: unknown) {
+      console.error('Error deleting image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Delete failed: ${errorMessage}`);
+    }
   }
 
   /**
-   * Get public URL for an uploaded image
+   * Delete an image by S3 key
    */
-  getPublicUrl(key: string): string {
-    return `https://via.placeholder.com/800x600/f472b6/ffffff?text=${encodeURIComponent(key)}`;
+  async deleteImageByKey(key: string): Promise<void> {
+    try {
+      console.log('Deleting image by key:', key);
+      
+      await apiClient.delete(`/upload/${encodeURIComponent(key)}`);
+      
+      console.log('Image deleted successfully');
+    } catch (error: unknown) {
+      console.error('Error deleting image:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Delete failed: ${errorMessage}`);
+    }
   }
 
   /**
-   * Test connection (always returns success for placeholder mode)
+   * Test connection to upload service
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {
-    return {
-      success: true,
-      message: 'Placeholder mode - no external service required'
-    };
+    try {
+      const config = await this.getUploadConfig();
+      return {
+        success: true,
+        message: 'S3 upload service is connected and ready'
+      };
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      return {
+        success: false,
+        message: `Connection test failed: ${errorMessage}`
+      };
+    }
+  }
+
+  /**
+   * Get file metadata from S3
+   */
+  async getFileMetadata(key: string) {
+    try {
+      const response = await apiClient.get(`/upload/metadata/${encodeURIComponent(key)}`);
+      return response.data.data;
+    } catch (error: unknown) {
+      console.error('Error getting file metadata:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      throw new Error(`Failed to get metadata: ${errorMessage}`);
+    }
   }
 }
 
 // Create singleton instance
-let imageUploadService: ImageUploadService | null = null;
+let imageUploadService: S3ImageUploadService | null = null;
 
-export const getImageUploadService = (): ImageUploadService => {
+export const getImageUploadService = (): S3ImageUploadService => {
   if (!imageUploadService) {
-    imageUploadService = new ImageUploadService();
+    imageUploadService = new S3ImageUploadService();
   }
   return imageUploadService;
 };
 
-// Test connection (always succeeds for placeholder mode)
+// Test connection convenience function
 export const testConnection = async (): Promise<{ success: boolean; message: string }> => {
   const service = getImageUploadService();
   return await service.testConnection();
 };
 
-// Utility function for image optimization (simplified)
+// Utility function for image optimization (client-side)
 export const optimizeImageForUpload = (file: File): Promise<File> => {
   return new Promise((resolve, reject) => {
-    // For placeholder mode, just return the original file
-    // In a real implementation, you could still do client-side optimization
+    // For non-image files, return as-is
+    if (!file.type.startsWith('image/')) {
+      resolve(file);
+      return;
+    }
+
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
@@ -192,4 +378,7 @@ export const optimizeImageForUpload = (file: File): Promise<File> => {
   });
 };
 
-export default ImageUploadService;
+// Export types for external use
+export type { UploadResult, UploadProgress, UploadConfig, UploadType };
+
+export default S3ImageUploadService;
