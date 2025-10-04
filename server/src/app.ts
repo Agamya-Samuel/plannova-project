@@ -16,13 +16,21 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3001;
 
 // Security middleware
 app.use(helmet());
+
+// Parse FRONTEND_URL environment variable (comma-separated domains)
+const allowedOrigins = process.env.FRONTEND_URL!.split(',').map(url => url.trim())
+
+console.log('🌐 CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
 // Rate limiting
@@ -73,8 +81,3 @@ app.get("/api", (req, res) => {
 
 // Export the app for use by the server entry point
 export default app;
-
-// Only start the server if this file is run directly (not imported)
-if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(port);
-}
