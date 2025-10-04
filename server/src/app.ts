@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import venueRoutes from "./routes/venues.js";
 import uploadRoutes from "./routes/upload.js";
+import bookingRoutes from "./routes/bookings.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -52,6 +53,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/venues", venueRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
