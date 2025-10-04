@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { useAuth } from '../../contexts/AuthContext';
 import ProtectedRoute from '../../components/auth/ProtectedRoute';
 import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle } from 'lucide-react';
@@ -34,14 +35,16 @@ export default function DashboardPage() {
                     Welcome back, {user?.firstName}! 👋
                   </h1>
                   <p className="text-pink-100 text-lg">
-                    {getRoleMessage(user?.role)}
+                    {getRoleMessage(user?.role || undefined)}
                   </p>
                 </div>
                 <div className="hidden md:block">
                   {user?.photoURL ? (
-                    <img
+                    <Image
                       src={user.photoURL}
                       alt={`${user.firstName} ${user.lastName}`}
+                      width={80}
+                      height={80}
                       className="w-20 h-20 rounded-full border-4 border-white/30 object-cover shadow-lg"
                       onError={(e) => {
                         console.log('Dashboard profile image failed to load:', user.photoURL);
