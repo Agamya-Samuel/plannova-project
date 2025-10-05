@@ -2,10 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Search, MapPin, Users, Star, Heart, Filter, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Search, MapPin, Users, Star, Heart, SlidersHorizontal } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
-import { Venue as VenueType, VenueFilters, VenuesResponse } from '../../types/venue';
 import apiClient from '../../lib/api';
 
 interface Venue {

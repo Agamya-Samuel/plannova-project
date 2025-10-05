@@ -8,7 +8,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: UserRole;
+    role: UserRole | null;
     firstName: string;
     lastName: string;
   };
@@ -47,7 +47,7 @@ export const authenticateToken = async (
           email: decodedToken.email,
           firstName: nameParts[0] || 'User',
           lastName: nameParts.slice(1).join(' ') || '',
-          role: UserRole.CUSTOMER,
+          role: null, // New Google users need to select role
           isActive: true,
           isVerified: decodedToken.email_verified || false,
           provider: decodedToken.firebase?.sign_in_provider || 'email'
@@ -104,6 +104,11 @@ export const requireRole = (roles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // If user hasn't selected a role yet, they need to complete role selection
+    if (req.user.role === null) {
+      return res.status(403).json({ error: 'Role selection required' });
     }
 
     if (!roles.includes(req.user.role)) {

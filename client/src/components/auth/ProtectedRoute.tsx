@@ -28,7 +28,17 @@ export default function ProtectedRoute({
       return;
     }
 
-    if (user && !allowedRoles.includes(user.role)) {
+    // If user hasn't selected a role yet, don't redirect them from auth pages
+    if (user && user.role === null) {
+      // Allow access to auth pages for role selection, but block other pages
+      const currentPath = window.location.pathname;
+      if (!currentPath.startsWith('/auth/')) {
+        router.push('/auth/login'); // Redirect to login where role selection can happen
+        return;
+      }
+    }
+
+    if (user && user.role && !allowedRoles.includes(user.role)) {
       // User doesn't have required role, redirect to appropriate page
       const roleRedirects = {
         CUSTOMER: '/dashboard',
@@ -51,7 +61,7 @@ export default function ProtectedRoute({
   }
 
   // Show nothing while redirecting
-  if (!isAuthenticated || (user && !allowedRoles.includes(user.role))) {
+  if (!isAuthenticated || (user && user.role !== null && !allowedRoles.includes(user.role))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>

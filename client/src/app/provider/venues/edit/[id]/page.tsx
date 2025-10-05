@@ -61,6 +61,8 @@ export default function EditVenuePage() {
   const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('basic');
+  const [imageUploadProgress, setImageUploadProgress] = useState(0);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
 
   const venueId = params.id as string;
@@ -134,13 +136,6 @@ export default function EditVenuePage() {
         [field]: value
       }));
     }
-  };
-
-  const addImage = (imageUrl: string, alt: string, category: string) => {
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, { url: imageUrl, alt, category, isPrimary: prev.images.length === 0 }]
-    }));
   };
 
   const removeImage = (index: number) => {
@@ -511,28 +506,27 @@ export default function EditVenuePage() {
                 {tabs.map((tab, index) => {
                   const isCompleted = isTabCompleted(tab.id);
                   const isCurrent = activeTab === tab.id;
+                  const canAccess = isCompleted || isCurrent;
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (index <= currentTabIndex) {
+                          if (canAccess) {
                             setActiveTab(tab.id);
                             setError('');
                           }
                         }}
-                        disabled={index > currentTabIndex}
+                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
-                            : isCompleted && index < currentTabIndex
-                            ? 'bg-green-500 text-white'
-                            : index > currentTabIndex
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            : isCompleted
+                            ? 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        {isCompleted && index < currentTabIndex ? (
+                        {isCompleted ? (
                           <Check className="h-5 w-5" />
                         ) : (
                           <tab.icon className="h-5 w-5" />
@@ -540,7 +534,7 @@ export default function EditVenuePage() {
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
                         isCurrent ? 'text-pink-600 font-medium' : 
-                        index > currentTabIndex ? 'text-gray-400' : 'text-gray-600'
+                        isCompleted ? 'text-green-600 font-medium' : 'text-gray-400'
                       }`}>
                         {tab.label}
                       </span>
@@ -600,14 +594,14 @@ export default function EditVenuePage() {
                       onChange={(e) => handleInputChange('description', e.target.value)}
                       placeholder="Describe your venue..."
                       rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                       minLength={10}
                       maxLength={2000}
                     />
-                    <div className="flex justify-between text-sm text-gray-500 mt-1">
+                    <div className="flex justify-between text-sm text-black mt-1">
                       <span>Minimum 10 characters required</span>
-                      <span className={`${formData.description.length > 2000 ? 'text-red-500' : ''}`}>
+                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
                         {formData.description.length}/2000
                       </span>
                     </div>
@@ -796,7 +790,7 @@ export default function EditVenuePage() {
                       onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
                       placeholder="Describe your cancellation policy..."
                       rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                     />
                   </div>
@@ -869,7 +863,7 @@ export default function EditVenuePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Venue Images</h2>
                   
-                  {/* Image Upload Section */}
+                  {/* Simple Image Upload */}
                   <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
                     <div className="text-center">
                       <Upload className="mx-auto h-12 w-12 text-gray-400" />
@@ -888,19 +882,7 @@ export default function EditVenuePage() {
                           onChange={(e) => {
                             if (e.target.files && e.target.files.length > 0) {
                               // Handle file upload here
-                              Array.from(e.target.files).forEach((file, index) => {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    addImage(
-                                      event.target.result as string,
-                                      file.name.split('.')[0],
-                                      'gallery'
-                                    );
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              });
+                              console.log('Files selected:', e.target.files);
                             }
                           }}
                           className="hidden"
@@ -910,34 +892,28 @@ export default function EditVenuePage() {
                           className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-pink-600 hover:bg-pink-700 cursor-pointer transition-colors duration-200"
                         >
                           <Upload className="h-4 w-4 mr-2" />
-                          Import Images
+                          {isUploadingImages ? 'Uploading...' : 'Upload Images'}
                         </label>
                       </div>
                       
-                      {/* Demo URL Input (fallback) */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm text-gray-500 mb-2">Or add image URL:</p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const imageUrl = prompt('Enter image URL:');
-                            const alt = prompt('Enter image description:');
-                            const category = prompt('Enter category (main/gallery/room/food/decoration/amenity):') || 'gallery';
-                            if (imageUrl && alt) {
-                              addImage(imageUrl, alt, category);
-                            }
-                          }}
-                          className="text-gray-600"
-                        >
-                          Add Image URL
-                        </Button>
-                      </div>
+                      {/* Upload Progress */}
+                      {isUploadingImages && (
+                        <div className="mt-4">
+                          <div className="bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-pink-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${imageUploadProgress}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-2">
+                            Uploading images... {imageUploadProgress}%
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                   
-                  {/* Current Images Display */}
+                  {/* Current Images */}
                   {formData.images.length > 0 && (
                     <div>
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -950,9 +926,6 @@ export default function EditVenuePage() {
                               src={image.url}
                               alt={image.alt}
                               className="w-full h-48 object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y0ZjRmNCIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBub3QgZm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
-                              }}
                             />
                             
                             {/* Image overlay with controls */}
@@ -977,7 +950,6 @@ export default function EditVenuePage() {
                                 className="text-xs bg-white text-red-600 hover:bg-red-50"
                               >
                                 <Trash2 className="h-3 w-3" />
-                                Delete
                               </Button>
                             </div>
                             
@@ -997,19 +969,16 @@ export default function EditVenuePage() {
                     </div>
                   )}
                   
-                  {/* No Images State */}
-                  {formData.images.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No images uploaded yet. Click "Import Images" to get started.</p>
-                    </div>
-                  )}
-                  
-                  {/* Image Management Tips */}
+                  {/* Image Upload Tips */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Management Tips:</h4>
+                  <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• Upload at least 5-10 high-quality images of your venue</li>
                       <li>• Include exterior shots, interior spaces, seating arrangements, and decor</li>
+                      <li>• The first image will be used as the primary image in search results</li>
+                      <li>• Click the star icon to set a different image as primary</li>
+                      <li>• Images are automatically optimized for web display</li>
+                      <li>• Supported formats: JPEG, PNG, WebP, GIF (max 10MB each)</li>
                       <li>• Set one image as primary - it will be shown in search results</li>
                       <li>• Click "Delete" to remove unwanted images</li>
                       <li>• Use descriptive names for better organization</li>
