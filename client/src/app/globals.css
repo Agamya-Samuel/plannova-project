@@ -1,15 +1,21 @@
 @import "tailwindcss";
 
+/* Ensure dropdown options are visible */
+select option {
+  color: #111827 !important;
+  background-color: white !important;
+}
+
+select:focus option {
+  color: #111827 !important;
+  background-color: white !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {

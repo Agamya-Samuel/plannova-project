@@ -1,5 +1,4 @@
 'use client';
-'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '../lib/api';
@@ -133,7 +132,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
       console.log('✅ Google sign-in completed successfully');
-      
       return { needsRoleSelection };
     } catch (error: unknown) {
       console.error('❌ Google sign-in error details:', {
