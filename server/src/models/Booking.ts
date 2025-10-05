@@ -78,9 +78,8 @@ const BookingSchema: Schema<IBooking> = new Schema({
 });
 
 // Indexes for better query performance
-
-
 BookingSchema.index({ date: 1 });
 
 // Create and export the model
 const Booking = mongoose.model<IBooking>('Booking', BookingSchema);
+export default Booking;

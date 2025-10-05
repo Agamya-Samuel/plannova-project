@@ -50,7 +50,6 @@ export const getS3Config = (): S3Config => {
 // Create S3 Client instance
 export const createS3Client = (): S3Client => {
   const config = getS3Config();
-
   const clientConfig: any = {
     region: config.region,
     credentials: {
@@ -85,14 +84,13 @@ export const validateS3Connection = async (): Promise<boolean> => {
   try {
     const client = getS3Client();
     const config = getS3Config();
-
+    
     // Try to list objects in the bucket (limit to 1 to minimize cost)
     const { ListObjectsV2Command } = await import('@aws-sdk/client-s3');
     await client.send(new ListObjectsV2Command({
       Bucket: config.bucket,
       MaxKeys: 1,
     }));
-
     return true;
   } catch (error) {
     console.error('S3 connection validation failed:', error);
@@ -109,23 +107,21 @@ export const generateFileKey = (
 ): string => {
   const timestamp = Date.now();
   const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
-
+  
   if (type === 'venue' && venueId) {
     return `uploads/venue/${venueId}/${timestamp}_${sanitizedFilename}`;
   }
-
   return `uploads/${type}/${userId}/${timestamp}_${sanitizedFilename}`;
 };
 
 // Get full S3 URL for a given key
 export const getS3Url = (key: string): string => {
   const config = getS3Config();
-
+  
   if (config.endpoint) {
     // For local development or custom endpoints
     return `${config.endpoint}/${config.bucket}/${key}`;
   }
-
   // Standard AWS S3 URL
   return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
 };
@@ -134,14 +130,14 @@ export const getS3Url = (key: string): string => {
 export const extractS3Key = (url: string): string | null => {
   try {
     const config = getS3Config();
-
+    
     if (config.endpoint) {
       // Handle custom endpoint URLs
       const endpointPattern = new RegExp(`${config.endpoint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/${config.bucket}/(.+)`);
       const match = url.match(endpointPattern);
       return match ? match[1] : null;
     }
-
+    
     // Handle standard AWS S3 URLs
     const s3Pattern = new RegExp(`https://${config.bucket}\\.s3\\.${config.region}\\.amazonaws\\.com/(.+)`);
     const match = url.match(s3Pattern);

@@ -15,7 +15,7 @@ export interface IUser extends Document {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: UserRole;
+  role: UserRole | null;
   isActive: boolean;
   isVerified: boolean;
   firebaseUid?: string; // Firebase UID for Google Sign-In
@@ -71,7 +71,8 @@ const UserSchema: Schema<IUser> = new Schema({
   role: {
     type: String,
     enum: Object.values(UserRole),
-    default: UserRole.CUSTOMER
+    default: null, // Allow null for new Google users who haven't selected role yet
+    required: false
   },
   isActive: {
     type: Boolean,

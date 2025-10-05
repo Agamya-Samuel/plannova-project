@@ -296,10 +296,14 @@ router.post('/google', async (req: Request, res: Response) => {
     // Check if user needs to select a role
     const needsRoleSelection = user.role === null;
 
+    // Check if user needs to select a role
+    const needsRoleSelection = user.role === null;
+
     res.json({
       message: 'Google sign-in successful',
       user: userData,
       token: idToken, // Use Firebase ID token as auth token
+      needsRoleSelection, // Indicates if frontend should show role selection
     });
   } catch (error) {
     console.error('Google sign-in error:', error);

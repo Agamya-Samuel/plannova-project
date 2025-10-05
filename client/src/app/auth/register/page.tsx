@@ -36,7 +36,6 @@ export default function RegisterPage() {
   const [showRoleSelection, setShowRoleSelection] = useState(false);
   const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
   const { register: registerUser, googleSignIn, updateRole, user } = useAuth();
-  
   const router = useRouter();
 
   const {
@@ -382,7 +381,6 @@ export default function RegisterPage() {
         userDisplayName={user?.firstName || ''}
         isLoading={isRoleUpdateLoading}
       />
-      
     </div>
   );
 }

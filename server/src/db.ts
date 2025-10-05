@@ -7,14 +7,22 @@ dotenv.config();
 const connectDB = async (): Promise<void> => {
   try {
     const mongoURI = process.env.MONGODB_URI;
+    const dbName = process.env.DB_NAME;
     
     if (!mongoURI) {
       throw new Error('MONGODB_URI is not defined in environment variables');
     }
 
-    const conn = await mongoose.connect(mongoURI);
+    if (!dbName) {
+      throw new Error('DB_NAME is not defined in environment variables');
+    }
+
+    // Construct full MongoDB URI with database name
+    const fullMongoURI = `${mongoURI}/${dbName}`;
+
+    const conn = await mongoose.connect(fullMongoURI);
     
-    console.log(`✅ Connected to MongoDB: ${conn.connection.host}`);
+    console.log(`✅ Connected to MongoDB: ${conn.connection.host}/${conn.connection.name}`);
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
     process.exit(1);

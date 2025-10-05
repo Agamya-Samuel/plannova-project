@@ -21,6 +21,7 @@ import {
   Check
 } from 'lucide-react';
 import apiClient from '../../../../../lib/api';
+import { ImageUpload } from '../../../../../components/upload';
 
 interface VenueFormData {
   name: string;
@@ -863,115 +864,50 @@ export default function EditVenuePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Venue Images</h2>
                   
-                  {/* Simple Image Upload */}
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Upload venue images</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Upload high-quality images of your venue (PNG, JPG up to 10MB each)
-                      </p>
-                      
-                      {/* File Upload Input */}
-                      <div className="mt-6">
-                        <input
-                          type="file"
-                          id="venue-images"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                              // Handle file upload here
-                              console.log('Files selected:', e.target.files);
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="venue-images"
-                          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-pink-600 hover:bg-pink-700 cursor-pointer transition-colors duration-200"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          {isUploadingImages ? 'Uploading...' : 'Upload Images'}
-                        </label>
-                      </div>
-                      
-                      {/* Upload Progress */}
-                      {isUploadingImages && (
-                        <div className="mt-4">
-                          <div className="bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-pink-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${imageUploadProgress}%` }}
-                            ></div>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-2">
-                            Uploading images... {imageUploadProgress}%
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Current Images */}
-                  {formData.images.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Current Images ({formData.images.length})
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {formData.images.map((image, index) => (
-                          <div key={index} className="relative group border border-gray-200 rounded-lg overflow-hidden">
-                            <img
-                              src={image.url}
-                              alt={image.alt}
-                              className="w-full h-48 object-cover"
-                            />
-                            
-                            {/* Image overlay with controls */}
-                            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => setPrimaryImage(index)}
-                                className={`text-xs ${
-                                  image.isPrimary 
-                                    ? 'bg-green-600 hover:bg-green-700' 
-                                    : 'bg-blue-600 hover:bg-blue-700'
-                                }`}
-                              >
-                                {image.isPrimary ? '✓ Primary' : 'Set Primary'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeImage(index)}
-                                className="text-xs bg-white text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            
-                            {/* Image info */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
-                              <p className="text-white text-xs font-medium truncate">{image.alt}</p>
-                              <p className="text-gray-200 text-xs">{image.category}</p>
-                              {image.isPrimary && (
-                                <span className="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded mt-1">
-                                  Primary Image
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* S3 Image Upload Component */}
+                  <ImageUpload
+                    uploadType="venue"
+                    venueId={venueId}
+                    maxFiles={20}
+                    images={formData.images.map(img => ({
+                      ...img,
+                      key: undefined, // Will be populated after upload
+                      uploadStatus: 'success' as const,
+                      category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity'
+                    }))}
+                    onImagesChange={(images) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        images: images.map(img => ({
+                          url: img.url,
+                          alt: img.alt,
+                          category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity',
+                          isPrimary: img.isPrimary
+                        }))
+                      }));
+                    }}
+                    onUploadStart={() => {
+                      setIsUploadingImages(true);
+                      setError('');
+                    }}
+                    onUploadProgress={(progress) => {
+                      setImageUploadProgress(progress);
+                    }}
+                    onUploadError={(error) => {
+                      setError(`Image upload failed: ${error}`);
+                      setIsUploadingImages(false);
+                    }}
+                    onUploadComplete={() => {
+                      setIsUploadingImages(false);
+                      setImageUploadProgress(0);
+                    }}
+                    disabled={loading}
+                    className=""
+                  />
                   
                   {/* Image Upload Tips */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• Upload at least 5-10 high-quality images of your venue</li>
                       <li>• Include exterior shots, interior spaces, seating arrangements, and decor</li>
@@ -979,9 +915,6 @@ export default function EditVenuePage() {
                       <li>• Click the star icon to set a different image as primary</li>
                       <li>• Images are automatically optimized for web display</li>
                       <li>• Supported formats: JPEG, PNG, WebP, GIF (max 10MB each)</li>
-                      <li>• Set one image as primary - it will be shown in search results</li>
-                      <li>• Click "Delete" to remove unwanted images</li>
-                      <li>• Use descriptive names for better organization</li>
                     </ul>
                   </div>
                 </div>
@@ -1157,7 +1090,7 @@ export default function EditVenuePage() {
                             onChange={(e) => updateFoodOption(index, 'description', e.target.value)}
                             placeholder="Describe the menu items and offerings..."
                             rows={3}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                           />
                         </div>
                         
@@ -1245,8 +1178,8 @@ export default function EditVenuePage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Venue Details</h2>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Please review all information before submitting:</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
+                    <h4 className="text-sm font-medium text-black mb-2">Please review all information before submitting:</h4>
+                    <ul className="text-sm text-black space-y-1">
                       <li>• Ensure all required fields are completed</li>
                       <li>• Verify contact information is accurate</li>
                       <li>• Check that images represent your venue well</li>
@@ -1257,29 +1190,29 @@ export default function EditVenuePage() {
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
-                      <p><strong>Name:</strong> {formData.name}</p>
-                      <p><strong>Type:</strong> {formData.type}</p>
-                      <p><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
-                      <p><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
+                      <h3 className="font-semibold text-black mb-2">Basic Information</h3>
+                      <p className="text-black"><strong>Name:</strong> {formData.name}</p>
+                      <p className="text-black"><strong>Type:</strong> {formData.type}</p>
+                      <p className="text-black"><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
+                      <p className="text-black"><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Contact & Location</h3>
-                      <p><strong>Phone:</strong> {formData.contact.phone}</p>
-                      <p><strong>Email:</strong> {formData.contact.email}</p>
-                      <p><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
+                      <h3 className="font-semibold text-black mb-2">Contact & Location</h3>
+                      <p className="text-black"><strong>Phone:</strong> {formData.contact.phone}</p>
+                      <p className="text-black"><strong>Email:</strong> {formData.contact.email}</p>
+                      <p className="text-black"><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Images</h3>
-                      <p>{formData.images.length} image(s) uploaded</p>
+                      <h3 className="font-semibold text-black mb-2">Images</h3>
+                      <p className="text-black">{formData.images.length} image(s) uploaded</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Features & Food</h3>
-                      <p><strong>Features:</strong> {formData.features.length} selected</p>
-                      <p><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
+                      <h3 className="font-semibold text-black mb-2">Features & Food</h3>
+                      <p className="text-black"><strong>Features:</strong> {formData.features.length} selected</p>
+                      <p className="text-black"><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
                     </div>
                   </div>
                 </div>

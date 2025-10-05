@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, Heart, MapPin, Calendar, Users, Camera, Clock, Star } from 'lucide-react';
+import Image from 'next/image';
+import { Search, Heart, MapPin, Calendar, Users, Clock } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 
@@ -269,11 +270,14 @@ export default function RealWeddingsPage() {
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Featured Wedding</h2>
             <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
               <div className="md:flex">
-                <div className="md:w-1/2">
-                  <img 
+                <div className="md:w-1/2 relative">
+                  <Image 
                     src={filteredWeddings[0].coverImage} 
                     alt={filteredWeddings[0].title}
-                    className="w-full h-80 md:h-full object-cover"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 100vw, 50vw"
+                    priority
                   />
                 </div>
                 <div className="md:w-1/2 p-8">
@@ -333,11 +337,13 @@ export default function RealWeddingsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredWeddings.slice(1).map((wedding) => (
             <div key={wedding.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] group">
-              <div className="relative">
-                <img 
+              <div className="relative h-64">
+                <Image 
                   src={wedding.coverImage} 
                   alt={wedding.title}
-                  className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
+                  fill
+                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                 />
                 
                 <button
@@ -367,12 +373,15 @@ export default function RealWeddingsPage() {
                 <div className="absolute bottom-4 left-4 right-4">
                   <div className="flex -space-x-2">
                     {wedding.gallery.slice(0, 3).map((image, index) => (
-                      <img 
-                        key={index}
-                        src={image} 
-                        alt=""
-                        className="w-8 h-8 rounded-full border-2 border-white object-cover"
-                      />
+                      <div key={index} className="relative w-8 h-8 rounded-full border-2 border-white overflow-hidden">
+                        <Image 
+                          src={image} 
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="32px"
+                        />
+                      </div>
                     ))}
                     <div className="w-8 h-8 rounded-full border-2 border-white bg-gray-800 flex items-center justify-center text-white text-xs font-semibold">
                       +{wedding.gallery.length - 3}
