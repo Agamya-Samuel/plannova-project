@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import venueRoutes from "./routes/venues.js";
+import adminRoutes from "./routes/admin.js";
 import uploadRoutes from "./routes/upload.js";
 import bookingRoutes from "./routes/bookings.js";
 import connectDB from "./db.js";
@@ -52,6 +53,7 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/venues", venueRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/bookings", bookingRoutes);
 

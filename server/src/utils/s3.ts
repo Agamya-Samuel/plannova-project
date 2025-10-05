@@ -50,7 +50,6 @@ export const getS3Config = (): S3Config => {
 // Create S3 Client instance
 export const createS3Client = (): S3Client => {
   const config = getS3Config();
-  
   const clientConfig: any = {
     region: config.region,
     credentials: {
@@ -92,7 +91,6 @@ export const validateS3Connection = async (): Promise<boolean> => {
       Bucket: config.bucket,
       MaxKeys: 1,
     }));
-    
     return true;
   } catch (error) {
     console.error('S3 connection validation failed:', error);
@@ -113,7 +111,6 @@ export const generateFileKey = (
   if (type === 'venue' && venueId) {
     return `uploads/venue/${venueId}/${timestamp}_${sanitizedFilename}`;
   }
-  
   return `uploads/${type}/${userId}/${timestamp}_${sanitizedFilename}`;
 };
 
@@ -125,7 +122,6 @@ export const getS3Url = (key: string): string => {
     // For local development or custom endpoints
     return `${config.endpoint}/${config.bucket}/${key}`;
   }
-  
   // Standard AWS S3 URL
   return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
 };

@@ -2,11 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { UserRole } from '../../types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut } from 'lucide-react';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle } from 'lucide-react';
 import ProfileImage from '../ui/ProfileImage';
 
 interface NavItem {
@@ -23,6 +23,7 @@ const navItems: NavItem[] = [
   { label: 'Real Weddings', href: '/real-weddings', icon: <Heart className="h-4 w-4" /> },
   { label: 'My Bookings', href: '/bookings', roles: ['CUSTOMER'], icon: <Calendar className="h-4 w-4" /> },
   { label: 'My Venues', href: '/provider/venues', roles: ['PROVIDER'], icon: <Settings className="h-4 w-4" /> },
+  { label: 'Approvals', href: '/staff/approvals', roles: ['STAFF'], icon: <CheckCircle className="h-4 w-4" /> },
   { label: 'Admin Panel', href: '/admin', roles: ['ADMIN'], icon: <Settings className="h-4 w-4" /> },
 ];
 
@@ -31,6 +32,7 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const profileRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
@@ -59,6 +61,13 @@ export default function Navbar() {
     return item.roles.includes(user?.role as UserRole);
   });
 
+  const isActiveRoute = (href: string) => {
+    if (href === '/provider/venues') {
+      return pathname.startsWith('/provider/venues');
+    }
+    return pathname === href;
+  };
+
   return (
     <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -78,16 +87,23 @@ export default function Navbar() {
             
             {/* Desktop Navigation */}
             <div className="hidden lg:ml-8 lg:flex lg:space-x-1">
-              {filteredNavItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center space-x-1 text-gray-700 hover:text-pink-600 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-pink-50"
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
-              ))}
+              {filteredNavItems.map((item) => {
+                const isActive = isActiveRoute(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'text-pink-600 bg-pink-50 border-b-2 border-pink-600'
+                        : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -256,17 +272,24 @@ export default function Navbar() {
             />
           </div>
           
-          {filteredNavItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center space-x-3 text-gray-700 hover:text-pink-600 block px-4 py-3 rounded-xl font-medium hover:bg-pink-50 transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {filteredNavItems.map((item) => {
+            const isActive = isActiveRoute(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center space-x-3 block px-4 py-3 rounded-xl font-medium transition-colors ${
+                  isActive
+                    ? 'text-pink-600 bg-pink-50 border-l-4 border-pink-600'
+                    : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
           
           {isAuthenticated ? (
             <div className="border-t border-gray-200 pt-4 mt-4">

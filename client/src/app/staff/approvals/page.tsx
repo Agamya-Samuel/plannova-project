@@ -1,28 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { Button } from '../../../components/ui/button';
 import { 
-  Plus, 
-  Edit3, 
-  Eye, 
-  Trash2, 
-  Upload, 
-  MapPin, 
-  Users, 
-  DollarSign, 
-  Star, 
-  Clock, 
   CheckCircle, 
   XCircle, 
+  Eye, 
+  Clock, 
   AlertCircle,
   Filter,
   Search,
-  X
+  X,
+  MapPin,
+  Users,
+  DollarSign,
+  Star,
+  Upload
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
 
@@ -55,6 +50,12 @@ interface Venue {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  providerId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
 }
 
 interface VenuesResponse {
@@ -67,13 +68,12 @@ interface VenuesResponse {
   };
 }
 
-export default function ProviderVenuesPage() {
+export default function StaffApprovalsPage() {
   const { user } = useAuth();
-  const router = useRouter();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('PENDING');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({
@@ -85,7 +85,7 @@ export default function ProviderVenuesPage() {
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
 
-  const fetchVenues = async (page = 1, status = 'ALL', search = '') => {
+  const fetchVenues = async (page = 1, status = 'PENDING', search = '') => {
     try {
       setLoading(true);
       const params = new URLSearchParams({
@@ -101,7 +101,7 @@ export default function ProviderVenuesPage() {
         params.append('search', search);
       }
 
-      const response = await apiClient.get<VenuesResponse>(`/venues/provider/my-venues?${params}`);
+      const response = await apiClient.get<VenuesResponse>(`/venues/staff/pending?${params}`);
       setVenues(response.data.venues);
       setPagination(response.data.pagination);
       setError('');
@@ -117,36 +117,27 @@ export default function ProviderVenuesPage() {
     fetchVenues(currentPage, statusFilter, searchTerm);
   }, [currentPage, statusFilter]);
 
-  const handleSearch = () => {
-    setCurrentPage(1);
-    fetchVenues(1, statusFilter, searchTerm);
-  };
-
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
     
-    // Clear existing timeout
     if (searchTimeout) {
       clearTimeout(searchTimeout);
     }
     
-    // If search is empty, search immediately
     if (value.trim() === '') {
       setCurrentPage(1);
       fetchVenues(1, statusFilter, '');
       return;
     }
     
-    // Set searching state
     setIsSearching(true);
     
-    // Set new timeout for debounced search with shorter delay
     const timeout = setTimeout(() => {
       setCurrentPage(1);
       fetchVenues(1, statusFilter, value.trim()).finally(() => {
         setIsSearching(false);
       });
-    }, 300); // Reduced to 300ms for faster response
+    }, 300);
     
     setSearchTimeout(timeout);
   };
@@ -157,67 +148,42 @@ export default function ProviderVenuesPage() {
     fetchVenues(1, value, searchTerm);
   };
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
-      }
-    };
-  }, [searchTimeout]);
-
-  const handleDeleteVenue = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to delete this venue? This action cannot be undone.')) {
+  const handleApproveVenue = async (venueId: string) => {
+    if (!window.confirm('Are you sure you want to approve this venue?')) {
       return;
     }
 
     try {
-      console.log('Deleting venue:', venueId);
-      await apiClient.delete(`/venues/${venueId}`);
-      alert('Venue deleted successfully!');
+      await apiClient.post(`/venues/staff/${venueId}/approve`);
+      alert('Venue approved successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
     } catch (err: any) {
-      console.error('Error deleting venue:', err);
-      
-      let errorMessage = 'Failed to delete venue';
+      console.error('Error approving venue:', err);
+      let errorMessage = 'Failed to approve venue';
       if (err.response?.data?.error) {
         errorMessage = err.response.data.error;
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Venue not found';
-      } else if (err.response?.status === 403) {
-        errorMessage = 'You do not have permission to delete this venue';
       }
-      
       alert(errorMessage);
     }
   };
 
-  const handleSubmitForApproval = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to submit this venue for approval?')) {
+  const handleRejectVenue = async (venueId: string) => {
+    const reason = window.prompt('Please provide a reason for rejection:');
+    if (!reason || reason.trim() === '') {
+      alert('Rejection reason is required');
       return;
     }
 
     try {
-      console.log('Submitting venue for approval:', venueId);
-      console.log('API endpoint:', `${apiClient.defaults.baseURL}/venues/${venueId}/submit`);
-      
-      const response = await apiClient.post(`/venues/${venueId}/submit`);
-      console.log('Submit response:', response.data);
-      
-      alert('Venue submitted for approval successfully!');
+      await apiClient.post(`/venues/staff/${venueId}/reject`, { reason: reason.trim() });
+      alert('Venue rejected successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
     } catch (err: any) {
-      console.error('Error submitting venue:', err);
-      
-      let errorMessage = 'Failed to submit venue for approval';
+      console.error('Error rejecting venue:', err);
+      let errorMessage = 'Failed to reject venue';
       if (err.response?.data?.error) {
         errorMessage = err.response.data.error;
-      } else if (err.response?.status === 404) {
-        errorMessage = 'Venue not found or submit endpoint not available';
-      } else if (err.response?.status === 400) {
-        errorMessage = 'Invalid venue data for submission';
       }
-      
       alert(errorMessage);
     }
   };
@@ -225,7 +191,7 @@ export default function ProviderVenuesPage() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'DRAFT':
-        return <Edit3 className="h-4 w-4 text-gray-500" />;
+        return <AlertCircle className="h-4 w-4 text-gray-500" />;
       case 'PENDING':
         return <Clock className="h-4 w-4 text-yellow-500" />;
       case 'APPROVED':
@@ -256,13 +222,13 @@ export default function ProviderVenuesPage() {
     }
   };
 
-  if (user?.role !== 'PROVIDER') {
-    return <div>Access denied. Provider access required.</div>;
+  if (user?.role !== 'STAFF' && user?.role !== 'ADMIN') {
+    return <div>Access denied. Staff access required.</div>;
   }
 
   return (
-    <ProtectedRoute>
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
+    <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
@@ -270,18 +236,16 @@ export default function ProviderVenuesPage() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                    My Venues
+                    Venue Approvals
                   </h1>
                   <p className="text-gray-600 text-lg">
-                    Manage your wedding venues and track their performance
+                    Review and approve provider venue submissions
                   </p>
                 </div>
-                <Link href="/provider/venues/create">
-                  <Button className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold px-6 py-3 rounded-xl flex items-center space-x-2">
-                    <Plus className="h-5 w-5" />
-                    <span>Add New Venue</span>
-                  </Button>
-                </Link>
+                <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span>Staff Portal</span>
+                </div>
               </div>
             </div>
           </div>
@@ -296,11 +260,10 @@ export default function ProviderVenuesPage() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                     <input
                       type="text"
-                      placeholder="Search by venue name, location, or description..."
+                      placeholder="Search by venue name, provider, or location..."
                       value={searchTerm}
                       onChange={(e) => handleSearchTermChange(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                     />
                     {searchTerm && (
                       <button
@@ -323,47 +286,49 @@ export default function ProviderVenuesPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => handleStatusFilterChange(e.target.value)}
-                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="ALL">All Status</option>
-                    <option value="DRAFT">Draft</option>
-                    <option value="PENDING">Pending</option>
+                    <option value="PENDING">Pending Approval</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Rejected</option>
-                    <option value="SUSPENDED">Suspended</option>
+                    <option value="ALL">All Status</option>
                   </select>
-                </div>
-                
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={handleSearch}
-                    className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-xl"
-                  >
-                    Search
-                  </Button>
-                  {(searchTerm || statusFilter !== 'ALL') && (
-                    <Button
-                      onClick={() => {
-                        setSearchTerm('');
-                        setStatusFilter('ALL');
-                        setCurrentPage(1);
-                        fetchVenues(1, 'ALL', '');
-                      }}
-                      variant="outline"
-                      className="px-6 py-3 rounded-xl border-gray-200 hover:bg-gray-50"
-                    >
-                      Clear
-                    </Button>
-                  )}
                 </div>
               </div>
             </div>
           </div>
 
+          {/* Search Results Info */}
+          {!loading && !error && (searchTerm || statusFilter !== 'PENDING') && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Search className="h-5 w-5 text-blue-600" />
+                  <span className="text-blue-800 font-medium">
+                    {venues.length} venue{venues.length !== 1 ? 's' : ''} found
+                    {searchTerm && ` for "${searchTerm}"`}
+                    {statusFilter !== 'PENDING' && ` with status "${statusFilter}"`}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('PENDING');
+                    setCurrentPage(1);
+                    fetchVenues(1, 'PENDING', '');
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Clear filters
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Loading State */}
           {loading && (
             <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             </div>
           )}
 
@@ -374,61 +339,26 @@ export default function ProviderVenuesPage() {
             </div>
           )}
 
-          {/* Search Results Info */}
-          {!loading && !error && (searchTerm || statusFilter !== 'ALL') && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Search className="h-5 w-5 text-blue-600" />
-                  <span className="text-blue-800 font-medium">
-                    {venues.length} venue{venues.length !== 1 ? 's' : ''} found
-                    {searchTerm && ` for "${searchTerm}"`}
-                    {statusFilter !== 'ALL' && ` with status "${statusFilter}"`}
-                  </span>
-                </div>
-                <button
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter('ALL');
-                    setCurrentPage(1);
-                    fetchVenues(1, 'ALL', '');
-                  }}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                >
-                  Clear filters
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Venues Grid */}
           {!loading && !error && (
             <div className="space-y-6">
               {venues.length === 0 ? (
                 <div className="bg-white rounded-xl shadow-lg p-12 text-center">
                   <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MapPin className="h-12 w-12 text-gray-400" />
+                    <CheckCircle className="h-12 w-12 text-gray-400" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">
                     No venues found
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    {searchTerm && statusFilter !== 'ALL'
+                    {searchTerm && statusFilter !== 'PENDING'
                       ? `No venues found matching "${searchTerm}" with status "${statusFilter}".`
                       : searchTerm
                       ? `No venues found matching "${searchTerm}".`
-                      : statusFilter !== 'ALL'
+                      : statusFilter !== 'PENDING'
                       ? `No venues found with status "${statusFilter}".`
-                      : "You haven't created any venues yet."}
+                      : "No venues are currently pending approval."}
                   </p>
-                  {statusFilter === 'ALL' && !searchTerm && (
-                    <Link href="/provider/venues/create">
-                      <Button className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white">
-                        <Plus className="h-5 w-5 mr-2" />
-                        Create Your First Venue
-                      </Button>
-                    </Link>
-                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-6">
@@ -467,6 +397,9 @@ export default function ProviderVenuesPage() {
                               <p className="text-gray-600 mb-2">
                                 <MapPin className="h-4 w-4 inline mr-1" />
                                 {venue.address.area}, {venue.address.city}, {venue.address.state}
+                              </p>
+                              <p className="text-sm text-gray-500 mb-2">
+                                <strong>Provider:</strong> {venue.providerId.firstName} {venue.providerId.lastName} ({venue.providerId.email})
                               </p>
                               <p className="text-sm text-gray-500 line-clamp-2">{venue.description}</p>
                             </div>
@@ -509,48 +442,36 @@ export default function ProviderVenuesPage() {
                               size="sm" 
                               variant="outline" 
                               onClick={() => {
-                                // Redirect to create page with venue data for editing
-                                router.push(`/provider/venues/edit/${venue._id}`);
-                              }}
-                              className="flex items-center space-x-1"
-                            >
-                              <Edit3 className="h-4 w-4" />
-                              <span>Edit</span>
-                            </Button>
-                            
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              onClick={() => {
-                                // View venue details in provider context
-                                router.push(`/provider/venues/view/${venue._id}`);
+                                // View venue details
+                                window.open(`/venues/${venue._id}`, '_blank');
                               }}
                               className="flex items-center space-x-1"
                             >
                               <Eye className="h-4 w-4" />
-                              <span>View</span>
+                              <span>View Details</span>
                             </Button>
                             
-                            {venue.status === 'DRAFT' && (
-                              <Button
-                                size="sm"
-                                onClick={() => handleSubmitForApproval(venue._id)}
-                                className="bg-blue-600 hover:bg-blue-700 text-white flex items-center space-x-1"
-                              >
-                                <CheckCircle className="h-4 w-4" />
-                                <span>Submit</span>
-                              </Button>
+                            {venue.status === 'PENDING' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveVenue(venue._id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white flex items-center space-x-1"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span>Approve</span>
+                                </Button>
+                                
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleRejectVenue(venue._id)}
+                                  className="bg-red-600 hover:bg-red-700 text-white flex items-center space-x-1"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  <span>Reject</span>
+                                </Button>
+                              </>
                             )}
-                            
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteVenue(venue._id)}
-                              className="text-red-600 border-red-200 hover:bg-red-50 flex items-center space-x-1"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                              <span>Delete</span>
-                            </Button>
                           </div>
                         </div>
                       </div>
