@@ -296,9 +296,6 @@ router.post('/google', async (req: Request, res: Response) => {
     // Check if user needs to select a role
     const needsRoleSelection = user.role === null;
 
-    // Check if user needs to select a role
-    const needsRoleSelection = user.role === null;
-
     res.json({
       message: 'Google sign-in successful',
       user: userData,
