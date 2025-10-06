@@ -20,6 +20,17 @@ import {
   Upload
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
+import { sonnerConfirm } from '../../../lib/sonner-confirm';
+import { sonnerPrompt } from '../../../lib/sonner-prompt';
+
+interface ApiError extends Error {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+}
 
 interface Venue {
   _id: string;
@@ -149,42 +160,48 @@ export default function StaffApprovalsPage() {
   };
 
   const handleApproveVenue = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to approve this venue?')) {
+    const confirmed = await sonnerConfirm('Are you sure you want to approve this venue?');
+    if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.post(`/venues/staff/${venueId}/approve`);
-      alert('Venue approved successfully!');
+      toast.success('Venue approved successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error approving venue:', err);
       let errorMessage = 'Failed to approve venue';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleRejectVenue = async (venueId: string) => {
-    const reason = window.prompt('Please provide a reason for rejection:');
+    const reason = await sonnerPrompt('Please provide a reason for rejection:', {
+      placeholder: 'Enter rejection reason...'
+    });
+    
     if (!reason || reason.trim() === '') {
-      alert('Rejection reason is required');
+      toast.error('Rejection reason is required');
       return;
     }
 
     try {
       await apiClient.post(`/venues/staff/${venueId}/reject`, { reason: reason.trim() });
-      alert('Venue rejected successfully!');
+      toast.success('Venue rejected successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error rejecting venue:', err);
       let errorMessage = 'Failed to reject venue';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
