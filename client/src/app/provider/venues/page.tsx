@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { Button } from '../../../components/ui/button';
@@ -456,9 +457,11 @@ export default function ProviderVenuesPage() {
                         <div className="md:w-1/3">
                           <div className="h-64 md:h-full">
                             {venue.images.length > 0 ? (
-                              <img
+                              <Image
                                 src={venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url}
                                 alt={venue.name}
+                                width={800}
+                                height={600}
                                 className="w-full h-full object-cover"
                               />
                             ) : (
