@@ -102,7 +102,7 @@ export default function AdminDashboardPage() {
     if (currentUser?.role === 'ADMIN') {
       fetchUsers(currentPage, roleFilter, searchTerm);
     }
-  }, [currentPage, roleFilter, currentUser]);
+  }, [currentPage, roleFilter, currentUser, searchTerm]);
 
 
   const handleSearchTermChange = (value: string) => {
