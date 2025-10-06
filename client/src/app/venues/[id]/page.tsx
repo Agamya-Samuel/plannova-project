@@ -113,7 +113,7 @@ export default function VenueDetailsPage() {
       const response = await apiClient.get(`/venues/${params.id}`);
       setVenue(response.data);
       setError('');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching venue:', err);
       setError('Failed to fetch venue details');
     } finally {
@@ -121,9 +121,21 @@ export default function VenueDetailsPage() {
     }
   };
 
+  // Check if venue is already favorited
+  const checkIfFavorited = async () => {
+    try {
+      const response = await apiClient.get('/venues/favorites');
+      const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
+      setFavorite(favoriteIds.has(params.id as string));
+    } catch (err) {
+      console.error('Error checking favorite status:', err);
+    }
+  };
+
   useEffect(() => {
     if (params.id) {
       fetchVenue();
+      checkIfFavorited();
     }
   }, [params.id]);
 
@@ -134,7 +146,13 @@ export default function VenueDetailsPage() {
 
     try {
       // For now, just show an alert. In a real app, this would create a booking
-      alert(`Booking request submitted for ${venue.name}!\n\nEvent Date: ${bookingData.eventDate}\nGuest Count: ${bookingData.guestCount}\nEvent Type: ${bookingData.eventType}\n\nWe'll contact you soon to confirm the booking.`);
+      alert(`Booking request submitted for ${venue.name}!
+
+Event Date: ${bookingData.eventDate}
+Guest Count: ${bookingData.guestCount}
+Event Type: ${bookingData.eventType}
+
+We'll contact you soon to confirm the booking.`);
       
       // Reset form
       setBookingData({
@@ -144,14 +162,30 @@ export default function VenueDetailsPage() {
         specialRequests: ''
       });
       setShowBookingForm(false);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error submitting booking:', err);
       alert('Failed to submit booking request. Please try again.');
     }
   };
 
-  const toggleFavorite = () => {
-    setFavorite(!favorite);
+  const toggleFavorite = async () => {
+    try {
+      console.log('Toggling favorite for venue:', params.id);
+      if (favorite) {
+        // Remove from favorites
+        console.log('Removing from favorites');
+        await apiClient.delete(`/venues/${params.id}/favorite`);
+        setFavorite(false);
+      } else {
+        // Add to favorites
+        console.log('Adding to favorites');
+        await apiClient.post(`/venues/${params.id}/favorite`);
+        setFavorite(true);
+      }
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+      alert('Failed to update favorite. Please try again.');
+    }
   };
 
   if (loading) {

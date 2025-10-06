@@ -11,6 +11,7 @@ export interface User {
   isVerified: boolean;
   photoURL?: string;
   provider?: string;
+  favorites?: string[]; // Array of favorite venue IDs
   createdAt: string;
   updatedAt: string;
 }

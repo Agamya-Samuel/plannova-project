@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import { Types } from 'mongoose';
 import Venue, { VenueType, VenueStatus, IVenue } from '../models/Venue.js';
+import User from '../models/User.js';
 import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { extractS3Key, getS3Url } from '../utils/s3.js';
 import { deleteFromS3, bulkDeleteFromS3 } from '../services/uploadService.js';
@@ -182,6 +183,37 @@ router.get('/provider/:id', authenticateToken, requireProvider, async (req: Auth
   } catch (error) {
     console.error('Error fetching provider venue:', error);
     res.status(500).json({ error: 'Failed to fetch venue' });
+  }
+});
+
+// GET /api/venues/favorites - Get user's favorite venues
+router.get('/favorites', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.user!.id;
+
+    // Get user with populated favorites
+    const user = await User.findById(userId).populate({
+      path: 'favorites',
+      match: { 
+        status: VenueStatus.APPROVED,
+        isActive: true
+      },
+      select: '-reviews' // Exclude reviews for performance
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Filter out any null values that might have occurred from populate
+    const favorites = (user.favorites || []).filter((venue: any) => venue !== null);
+
+    res.json({
+      venues: favorites
+    });
+  } catch (error) {
+    console.error('Error fetching favorite venues:', error);
+    res.status(500).json({ error: 'Failed to fetch favorite venues' });
   }
 });
 
@@ -685,6 +717,94 @@ router.post('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (
   } catch (error) {
     console.error('Error rejecting venue:', error);
     res.status(500).json({ error: 'Failed to reject venue' });
+  }
+});
+
+// POST /api/venues/:id/favorite - Add venue to user's favorites
+router.post('/:id/favorite', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    const userId = req.user!.id;
+
+    // Check if venue exists and is approved
+    const venue = await Venue.findOne({
+      _id: venueId,
+      status: VenueStatus.APPROVED,
+      isActive: true
+    });
+
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    // Add venue to user's favorites
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if venue is already in favorites
+    const isFavorite = user.favorites?.some((fav: any) => fav.toString() === venueId);
+    
+    if (isFavorite) {
+      // Venue is already favorited
+      return res.json({
+        message: 'Venue is already in favorites',
+        isFavorite: true
+      });
+    }
+    
+    if (!user.favorites) {
+      user.favorites = [];
+    }
+    user.favorites.push(new Types.ObjectId(venueId));
+    await user.save();
+
+    res.json({
+      message: 'Venue added to favorites',
+      isFavorite: true
+    });
+  } catch (error) {
+    console.error('Error adding venue to favorites:', error);
+    res.status(500).json({ error: 'Failed to add venue to favorites' });
+  }
+});
+
+// DELETE /api/venues/:id/favorite - Remove venue from user's favorites
+router.delete('/:id/favorite', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    const userId = req.user!.id;
+
+    // Remove venue from user's favorites
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if venue is in favorites
+    const isFavorite = user.favorites?.some((fav: any) => fav.toString() === venueId);
+    
+    if (!isFavorite) {
+      // Venue is not in favorites
+      return res.json({
+        message: 'Venue is not in favorites',
+        isFavorite: false
+      });
+    }
+
+    if (user.favorites) {
+      user.favorites = user.favorites.filter((fav: any) => fav.toString() !== venueId);
+      await user.save();
+    }
+
+    res.json({
+      message: 'Venue removed from favorites',
+      isFavorite: false
+    });
+  } catch (error) {
+    console.error('Error removing venue from favorites:', error);
+    res.status(500).json({ error: 'Failed to remove venue from favorites' });
   }
 });
 
