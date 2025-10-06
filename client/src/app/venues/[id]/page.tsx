@@ -3,8 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { 
-  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, 
-  Clock, Wifi, Car, Utensils, Music, Camera, Shield, CheckCircle,
+  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
   DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
