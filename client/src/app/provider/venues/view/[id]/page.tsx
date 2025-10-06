@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
 import { Button } from '../../../../../components/ui/button';
@@ -211,9 +212,11 @@ export default function ProviderVenueViewPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {venue.images.map((image, index) => (
                       <div key={index} className="relative group">
-                        <img
+                        <Image
                           src={image.url}
                           alt={image.alt}
+                          width={400}
+                          height={192}
                           className="w-full h-48 object-cover rounded-lg"
                         />
                         {image.isPrimary && (
