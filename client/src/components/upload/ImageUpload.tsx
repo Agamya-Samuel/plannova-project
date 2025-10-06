@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, } from 'react';
 import Image from 'next/image';
-import { Upload, X, Eye, Star, ImageIcon } from 'lucide-react';
-import { getImageUploadService, optimizeImageForUpload } from '../../lib/imageUpload';
+import {X, Eye, Star, } from 'lucide-react';
+import { getImageUploadService, } from '../../lib/imageUpload';
 import type {
   ImageUploadComponentProps,
   UploadResult,
