@@ -10,6 +10,15 @@ import {
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
+
+interface ApiError extends Error {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+}
 
 interface FoodOption {
   name: string;
@@ -146,7 +155,7 @@ export default function VenueDetailsPage() {
 
     try {
       // For now, just show an alert. In a real app, this would create a booking
-      alert(`Booking request submitted for ${venue.name}!
+      toast.success(`Booking request submitted for ${venue.name}!
 
 Event Date: ${bookingData.eventDate}
 Guest Count: ${bookingData.guestCount}
@@ -162,9 +171,9 @@ We'll contact you soon to confirm the booking.`);
         specialRequests: ''
       });
       setShowBookingForm(false);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error submitting booking:', err);
-      alert('Failed to submit booking request. Please try again.');
+      toast.error('Failed to submit booking request. Please try again.');
     }
   };
 
@@ -182,9 +191,9 @@ We'll contact you soon to confirm the booking.`);
         await apiClient.post(`/venues/${params.id}/favorite`);
         setFavorite(true);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error toggling favorite:', err);
-      alert('Failed to update favorite. Please try again.');
+      toast.error('Failed to update favorite. Please try again.');
     }
   };
 
