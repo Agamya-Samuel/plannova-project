@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
   MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
-  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus
+  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -488,7 +488,7 @@ We'll contact you soon to confirm the booking.`);
             {venue.decorationOptions && venue.decorationOptions.length > 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Sparkles className="h-6 w-6 text-purple-600 mr-2" />
+                  <Palette className="h-6 w-6 text-purple-600 mr-2" />
                   Decoration Options
                 </h2>
                 <div className="space-y-6">
