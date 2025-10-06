@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Search, MapPin, Users, Star, Heart, SlidersHorizontal } from 'lucide-react';
@@ -46,7 +46,7 @@ interface Venue {
   };
 }
 
-export default function VenuesPage() {
+function VenuesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -436,5 +436,47 @@ export default function VenuesPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function VenuesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold mb-4">Wedding Venues in Mumbai</h1>
+              <p className="text-xl text-pink-100 mb-8">
+                Loading venues...
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div className="w-full h-64 bg-gray-200"></div>
+                  <div className="p-6">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/4 mb-4"></div>
+                    <div className="flex justify-between items-center">
+                      <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                      <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <VenuesContent />
+    </Suspense>
   );
 }
