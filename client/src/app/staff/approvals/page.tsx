@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { Button } from '../../../components/ui/button';
 import { 
@@ -23,6 +24,7 @@ import {
 import apiClient from '../../../lib/api';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '../../../lib/sonner-confirm';
+import { sonnerPrompt } from '../../../lib/sonner-prompt';
 
 interface ApiError extends Error {
   response?: {
