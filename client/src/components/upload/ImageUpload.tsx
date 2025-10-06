@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import { Upload, X, Eye, Star, ImageIcon } from 'lucide-react';
 import { getImageUploadService, optimizeImageForUpload } from '../../lib/imageUpload';
 import type {
@@ -148,9 +149,11 @@ export default function ImageUpload({
                 className="relative group border rounded-lg overflow-hidden bg-gray-100 aspect-square"
               >
                 {/* Image */}
-                <img
+                <Image
                   src={image.url}
                   alt={image.alt}
+                  width={400}
+                  height={400}
                   className="w-full h-full object-cover"
                 />
                 
@@ -239,9 +242,11 @@ export default function ImageUpload({
       {previewImage && (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
           <div className="relative max-w-4xl max-h-full">
-            <img
+            <Image
               src={previewImage}
               alt="Preview"
+              width={800}
+              height={600}
               className="max-w-full max-h-full object-contain"
             />
             <Button
