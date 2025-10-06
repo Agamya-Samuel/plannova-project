@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
   MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
   DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus
@@ -257,9 +258,11 @@ We'll contact you soon to confirm the booking.`);
             {/* Image Gallery */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="relative">
-                <img 
+                <Image 
                   src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : 'https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} 
                   alt={venue.name}
+                  width={1170}
+                  height={600}
                   className="w-full h-96 object-cover"
                 />
                 <div className="absolute top-4 left-4">
@@ -281,9 +284,11 @@ We'll contact you soon to confirm the booking.`);
                           selectedImageIndex === index ? 'border-pink-500' : 'border-gray-200'
                         }`}
                       >
-                        <img 
+                        <Image 
                           src={image.url} 
                           alt={image.alt || venue.name}
+                          width={80}
+                          height={80}
                           className="w-full h-full object-cover"
                         />
                       </button>
@@ -291,6 +296,7 @@ We'll contact you soon to confirm the booking.`);
                   </div>
                 </div>
               )}
+
             </div>
 
             {/* Venue Information */}
