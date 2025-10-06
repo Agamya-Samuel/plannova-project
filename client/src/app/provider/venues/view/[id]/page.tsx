@@ -15,7 +15,6 @@ import {
   Phone,
   Mail,
   Globe,
-  Calendar,
   CheckCircle,
   XCircle,
   Edit3
@@ -115,7 +114,7 @@ export default function ProviderVenueViewPage() {
       setLoading(true);
       const response = await apiClient.get(`/venues/provider/${venueId}`);
       setVenue(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching venue:', err);
       setError('Failed to load venue details');
     } finally {
