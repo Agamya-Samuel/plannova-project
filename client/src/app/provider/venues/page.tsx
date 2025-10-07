@@ -127,7 +127,7 @@ export default function ProviderVenuesPage() {
 
   useEffect(() => {
     fetchVenues(currentPage, statusFilter, searchTerm);
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, searchTerm]);
 
   const handleSearch = () => {
     setCurrentPage(1);
