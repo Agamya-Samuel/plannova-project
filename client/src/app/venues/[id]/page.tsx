@@ -12,14 +12,6 @@ import { Input } from '../../../components/ui/input';
 import apiClient from '../../../lib/api';
 import { toast } from 'sonner';
 
-interface ApiError extends Error {
-  response?: {
-    data?: {
-      error?: string;
-    };
-  };
-}
-
 interface FoodOption {
   name: string;
   description: string;
