@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '../../../../../contexts/AuthContext';
@@ -103,13 +103,7 @@ export default function ProviderVenueViewPage() {
 
   const venueId = params.id as string;
 
-  useEffect(() => {
-    if (venueId) {
-      fetchVenue();
-    }
-  }, [venueId]);
-
-  const fetchVenue = async () => {
+  const fetchVenue = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/venues/provider/${venueId}`);
@@ -120,7 +114,13 @@ export default function ProviderVenueViewPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [venueId]);
+
+  useEffect(() => {
+    if (venueId) {
+      fetchVenue();
+    }
+  }, [venueId, fetchVenue]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
