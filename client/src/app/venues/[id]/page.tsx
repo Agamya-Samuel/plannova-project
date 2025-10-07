@@ -116,32 +116,32 @@ export default function VenueDetailsPage() {
     specialRequests: ''
   });
 
-  const fetchVenue = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get(`/venues/${params.id}`);
-      setVenue(response.data);
-      setError('');
-    } catch (err) {
-      console.error('Error fetching venue:', err);
-      setError('Failed to fetch venue details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Check if venue is already favorited
-  const checkIfFavorited = async () => {
-    try {
-      const response = await apiClient.get('/venues/favorites');
-      const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
-      setFavorite(favoriteIds.has(params.id as string));
-    } catch (err) {
-      console.error('Error checking favorite status:', err);
-    }
-  };
-
   useEffect(() => {
+    const fetchVenue = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get(`/venues/${params.id}`);
+        setVenue(response.data);
+        setError('');
+      } catch (err) {
+        console.error('Error fetching venue:', err);
+        setError('Failed to fetch venue details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Check if venue is already favorited
+    const checkIfFavorited = async () => {
+      try {
+        const response = await apiClient.get('/venues/favorites');
+        const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
+        setFavorite(favoriteIds.has(params.id as string));
+      } catch (err) {
+        console.error('Error checking favorite status:', err);
+      }
+    };
+
     if (params.id) {
       fetchVenue();
       checkIfFavorited();
