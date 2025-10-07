@@ -13,6 +13,7 @@ import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
 import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import { UserRole } from '../../../types/auth';
+import { toast } from 'sonner';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -44,9 +45,11 @@ export default function LoginPage() {
 
     try {
       await login(data.email, data.password);
+      toast.success('Welcome back! You have been successfully logged in.');
       router.push('/dashboard');
     } catch (err: unknown) {
       setError((err as Error).message);
+      toast.error('Login failed. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -57,10 +60,12 @@ export default function LoginPage() {
     try {
       await updateRole(role);
       setShowRoleSelection(false);
+      toast.success(`Role successfully set to ${role.toLowerCase()}.`);
       router.push('/dashboard');
     } catch (error) {
       console.error('Role update error:', error);
       setError('Failed to update role. Please try again.');
+      toast.error('Failed to update role. Please try again.');
     } finally {
       setIsRoleUpdateLoading(false);
     }
@@ -172,9 +177,7 @@ export default function LoginPage() {
               <div className="rounded-2xl bg-red-50 border-2 border-red-200 p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
-                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                    </div>
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-red-700 font-medium">{error}</p>
@@ -213,6 +216,7 @@ export default function LoginPage() {
               <GoogleSignInButton
                 onSuccess={async () => {
                   console.log('Google authentication successful');
+                  toast.success('Welcome back! You have been successfully logged in with Google.');
                   try {
                     router.push('/dashboard');
                   } catch (error) {
