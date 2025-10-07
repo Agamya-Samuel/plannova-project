@@ -127,7 +127,7 @@ export default function StaffApprovalsPage() {
 
   useEffect(() => {
     fetchVenues(currentPage, statusFilter, searchTerm);
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, searchTerm]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
