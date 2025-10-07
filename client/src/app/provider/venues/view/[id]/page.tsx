@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
 import { Button } from '../../../../../components/ui/button';
@@ -14,7 +15,6 @@ import {
   Phone,
   Mail,
   Globe,
-  Calendar,
   CheckCircle,
   XCircle,
   Edit3
@@ -103,24 +103,24 @@ export default function ProviderVenueViewPage() {
 
   const venueId = params.id as string;
 
-  useEffect(() => {
-    if (venueId) {
-      fetchVenue();
-    }
-  }, [venueId]);
-
-  const fetchVenue = async () => {
+  const fetchVenue = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/venues/provider/${venueId}`);
       setVenue(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching venue:', err);
       setError('Failed to load venue details');
     } finally {
       setLoading(false);
     }
-  };
+  }, [venueId]);
+
+  useEffect(() => {
+    if (venueId) {
+      fetchVenue();
+    }
+  }, [venueId, fetchVenue]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -211,9 +211,11 @@ export default function ProviderVenueViewPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {venue.images.map((image, index) => (
                       <div key={index} className="relative group">
-                        <img
+                        <Image
                           src={image.url}
                           alt={image.alt}
+                          width={400}
+                          height={192}
                           className="w-full h-48 object-cover rounded-lg"
                         />
                         {image.isPrimary && (

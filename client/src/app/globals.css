@@ -16,12 +16,26 @@ select:focus option {
   --foreground: #171717;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  
+  /* Sonner toast variables for better visibility */
+  --popover: #ffffff;
+  --popover-foreground: #171717;
+  --border: #e5e5e5;
+  
+  /* Adding some opacity variables for better contrast */
+  --popover-opacity: 0.95;
+  --border-opacity: 1;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    
+    /* Sonner toast variables for dark mode */
+    --popover: #1a1a1a;
+    --popover-foreground: #ededed;
+    --border: #2a2a2a;
   }
 }
 

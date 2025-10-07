@@ -7,7 +7,6 @@ import { Button } from '../../../components/ui/button';
 import { 
   Users, 
   Trash2, 
-  Eye, 
   Search,
   X,
   Filter,
@@ -17,9 +16,18 @@ import {
   User,
   Building,
   CheckCircle,
-  AlertTriangle
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
+import { sonnerConfirm } from '../../../lib/sonner-confirm';
+
+interface ApiError extends Error {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+}
 
 interface AdminUser {
   _id: string;
@@ -94,7 +102,7 @@ export default function AdminDashboardPage() {
     if (currentUser?.role === 'ADMIN') {
       fetchUsers(currentPage, roleFilter, searchTerm);
     }
-  }, [currentPage, roleFilter, currentUser]);
+  }, [currentPage, roleFilter, currentUser, searchTerm]);
 
 
   const handleSearchTermChange = (value: string) => {
@@ -129,60 +137,66 @@ export default function AdminDashboardPage() {
   };
 
   const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+    const confirmed = await sonnerConfirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`);
+    if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.delete(`/admin/users/${userId}`);
-      alert('User deleted successfully!');
+      toast.success('User deleted successfully!');
       fetchUsers(currentPage, roleFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting user:', err);
       let errorMessage = 'Failed to delete user';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean, userName: string) => {
     const action = currentStatus ? 'deactivate' : 'activate';
-    if (!window.confirm(`Are you sure you want to ${action} user "${userName}"?`)) {
+    const confirmed = await sonnerConfirm(`Are you sure you want to ${action} user "${userName}"?`);
+    if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.patch(`/admin/users/${userId}/status`, { isActive: !currentStatus });
-      alert(`User ${action}d successfully!`);
+      toast.success(`User ${action}d successfully!`);
       fetchUsers(currentPage, roleFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`Error ${action}ing user:`, err);
       let errorMessage = `Failed to ${action} user`;
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleRoleChange = async (userId: string, newRole: string, userName: string) => {
-    if (!window.confirm(`Are you sure you want to change "${userName}" role to ${newRole}?`)) {
+    const confirmed = await sonnerConfirm(`Are you sure you want to change "${userName}" role to ${newRole}?`);
+    if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.patch(`/admin/users/${userId}/role`, { role: newRole });
-      alert(`User role updated to ${newRole} successfully!`);
+      toast.success(`User role updated to ${newRole} successfully!`);
       fetchUsers(currentPage, roleFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating user role:', err);
       let errorMessage = 'Failed to update user role';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
       }
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -237,7 +251,7 @@ export default function AdminDashboardPage() {
                   </p>
                   <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>💡 Tip:</strong> You can create staff by changing any user's role to "Staff" using the role dropdown below. 
+                      <strong>&#128161; Tip:</strong> You can create staff by changing any user&apos;s role to &quot;Staff&quot; using the role dropdown below. 
                       Staff members will then have access to approve/reject venues.
                     </p>
                   </div>

@@ -21,6 +21,7 @@ export interface IUser extends Document {
   firebaseUid?: string; // Firebase UID for Google Sign-In
   provider?: string; // Authentication provider (email, google.com, etc.)
   photoURL?: string; // Profile picture URL
+  favorites?: mongoose.Types.ObjectId[]; // Array of favorite venue IDs
   createdAt: Date;
   updatedAt: Date;
 }
@@ -81,7 +82,11 @@ const UserSchema: Schema<IUser> = new Schema({
   isVerified: {
     type: Boolean,
     default: false
-  }
+  },
+  favorites: [{
+    type: Schema.Types.ObjectId,
+    ref: 'Venue'
+  }]
 }, {
   timestamps: true, // This adds createdAt and updatedAt automatically
   collection: 'users'

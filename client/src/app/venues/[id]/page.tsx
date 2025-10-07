@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
-  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, 
-  Clock, Wifi, Car, Utensils, Music, Camera, Shield, CheckCircle,
-  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus
+  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
+  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
 
 interface FoodOption {
   name: string;
@@ -107,23 +108,35 @@ export default function VenueDetailsPage() {
     specialRequests: ''
   });
 
-  const fetchVenue = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get(`/venues/${params.id}`);
-      setVenue(response.data);
-      setError('');
-    } catch (err: any) {
-      console.error('Error fetching venue:', err);
-      setError('Failed to fetch venue details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchVenue = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get(`/venues/${params.id}`);
+        setVenue(response.data);
+        setError('');
+      } catch (err) {
+        console.error('Error fetching venue:', err);
+        setError('Failed to fetch venue details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Check if venue is already favorited
+    const checkIfFavorited = async () => {
+      try {
+        const response = await apiClient.get('/venues/favorites');
+        const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
+        setFavorite(favoriteIds.has(params.id as string));
+      } catch (err) {
+        console.error('Error checking favorite status:', err);
+      }
+    };
+
     if (params.id) {
       fetchVenue();
+      checkIfFavorited();
     }
   }, [params.id]);
 
@@ -134,7 +147,13 @@ export default function VenueDetailsPage() {
 
     try {
       // For now, just show an alert. In a real app, this would create a booking
-      alert(`Booking request submitted for ${venue.name}!\n\nEvent Date: ${bookingData.eventDate}\nGuest Count: ${bookingData.guestCount}\nEvent Type: ${bookingData.eventType}\n\nWe'll contact you soon to confirm the booking.`);
+      toast.success(`Booking request submitted for ${venue.name}!
+
+Event Date: ${bookingData.eventDate}
+Guest Count: ${bookingData.guestCount}
+Event Type: ${bookingData.eventType}
+
+We'll contact you soon to confirm the booking.`);
       
       // Reset form
       setBookingData({
@@ -144,14 +163,30 @@ export default function VenueDetailsPage() {
         specialRequests: ''
       });
       setShowBookingForm(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting booking:', err);
-      alert('Failed to submit booking request. Please try again.');
+      toast.error('Failed to submit booking request. Please try again.');
     }
   };
 
-  const toggleFavorite = () => {
-    setFavorite(!favorite);
+  const toggleFavorite = async () => {
+    try {
+      console.log('Toggling favorite for venue:', params.id);
+      if (favorite) {
+        // Remove from favorites
+        console.log('Removing from favorites');
+        await apiClient.delete(`/venues/${params.id}/favorite`);
+        setFavorite(false);
+      } else {
+        // Add to favorites
+        console.log('Adding to favorites');
+        await apiClient.post(`/venues/${params.id}/favorite`);
+        setFavorite(true);
+      }
+    } catch (err: unknown) {
+      console.error('Error toggling favorite:', err);
+      toast.error('Failed to update favorite. Please try again.');
+    }
   };
 
   if (loading) {
@@ -215,9 +250,11 @@ export default function VenueDetailsPage() {
             {/* Image Gallery */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="relative">
-                <img 
+                <Image 
                   src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : 'https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} 
                   alt={venue.name}
+                  width={1170}
+                  height={600}
                   className="w-full h-96 object-cover"
                 />
                 <div className="absolute top-4 left-4">
@@ -239,9 +276,11 @@ export default function VenueDetailsPage() {
                           selectedImageIndex === index ? 'border-pink-500' : 'border-gray-200'
                         }`}
                       >
-                        <img 
+                        <Image 
                           src={image.url} 
                           alt={image.alt || venue.name}
+                          width={80}
+                          height={80}
                           className="w-full h-full object-cover"
                         />
                       </button>
@@ -249,6 +288,7 @@ export default function VenueDetailsPage() {
                   </div>
                 </div>
               )}
+
             </div>
 
             {/* Venue Information */}
@@ -440,7 +480,7 @@ export default function VenueDetailsPage() {
             {venue.decorationOptions && venue.decorationOptions.length > 0 && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Sparkles className="h-6 w-6 text-purple-600 mr-2" />
+                  <Palette className="h-6 w-6 text-purple-600 mr-2" />
                   Decoration Options
                 </h2>
                 <div className="space-y-6">
