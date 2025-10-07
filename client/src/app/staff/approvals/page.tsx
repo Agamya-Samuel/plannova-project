@@ -1,23 +1,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { Button } from '../../../components/ui/button';
 import { 
+  Eye, 
+  Upload, 
+  MapPin, 
+  Users, 
+  DollarSign, 
+  Star, 
+  Clock, 
   CheckCircle, 
   XCircle, 
-  Eye, 
-  Clock, 
   AlertCircle,
   Filter,
   Search,
-  X,
-  MapPin,
-  Users,
-  DollarSign,
-  Star,
-  Upload
+  X
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
 import { toast } from 'sonner';
@@ -126,7 +127,7 @@ export default function StaffApprovalsPage() {
 
   useEffect(() => {
     fetchVenues(currentPage, statusFilter, searchTerm);
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, searchTerm]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
@@ -386,9 +387,11 @@ export default function StaffApprovalsPage() {
                         <div className="md:w-1/3">
                           <div className="h-64 md:h-full">
                             {venue.images.length > 0 ? (
-                              <img
+                              <Image
                                 src={venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url}
                                 alt={venue.name}
+                                width={800}
+                                height={600}
                                 className="w-full h-full object-cover"
                               />
                             ) : (

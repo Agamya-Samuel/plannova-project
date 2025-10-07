@@ -7,7 +7,6 @@ import { Button } from '../../../components/ui/button';
 import { 
   Users, 
   Trash2, 
-  Eye, 
   Search,
   X,
   Filter,
@@ -17,7 +16,6 @@ import {
   User,
   Building,
   CheckCircle,
-  AlertTriangle
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
 import { toast } from 'sonner';
@@ -104,7 +102,7 @@ export default function AdminDashboardPage() {
     if (currentUser?.role === 'ADMIN') {
       fetchUsers(currentPage, roleFilter, searchTerm);
     }
-  }, [currentPage, roleFilter, currentUser]);
+  }, [currentPage, roleFilter, currentUser, searchTerm]);
 
 
   const handleSearchTermChange = (value: string) => {
