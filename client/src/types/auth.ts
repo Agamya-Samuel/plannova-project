@@ -6,7 +6,7 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: UserRole;
+  role: UserRole | null; // Allow null for new Google users who haven't selected role
   isActive: boolean;
   isVerified: boolean;
   photoURL?: string;
@@ -22,7 +22,8 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
-  googleSignIn: () => Promise<void>;
+  googleSignIn: () => Promise<{ needsRoleSelection?: boolean }>;
+  updateRole: (role: UserRole) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
 
@@ -39,6 +40,16 @@ export interface LoginResponse {
   message: string;
   user: User;
   token: string;
+  needsRoleSelection?: boolean; // For Google sign-in new users
+}
+
+export interface RoleUpdateRequest {
+  role: UserRole;
+}
+
+export interface RoleUpdateResponse {
+  message: string;
+  user: User;
 }
 
 export interface ApiError {

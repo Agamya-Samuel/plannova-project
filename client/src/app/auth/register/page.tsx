@@ -9,7 +9,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
+import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
 import { Heart, User, Mail, Lock, Phone, Users, Eye, EyeOff } from 'lucide-react';
+import { UserRole } from '../../../types/auth';
 
 const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -31,7 +33,9 @@ export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register: registerUser, googleSignIn } = useAuth();
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
+  const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
+  const { register: registerUser, googleSignIn, updateRole, user } = useAuth();
   const router = useRouter();
 
   const {
@@ -58,6 +62,20 @@ export default function RegisterPage() {
       setError((err as Error).message);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRoleSelection = async (role: UserRole) => {
+    setIsRoleUpdateLoading(true);
+    try {
+      await updateRole(role);
+      setShowRoleSelection(false);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Role update error:', error);
+      setError('Failed to update role. Please try again.');
+    } finally {
+      setIsRoleUpdateLoading(false);
     }
   };
 
@@ -317,6 +335,10 @@ export default function RegisterPage() {
                   console.log('Google sign-in successful');
                   router.push('/dashboard');
                 }}
+                onRoleSelectionNeeded={() => {
+                  console.log('Role selection needed for new Google user');
+                  setShowRoleSelection(true);
+                }}
                 onError={() => setError('Google sign-in failed')}
                 disabled={isLoading}
                 className="w-full h-14 !bg-white !text-gray-700 border-2 border-gray-300 hover:border-pink-300 hover:!bg-pink-50 font-semibold text-lg rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
@@ -350,6 +372,15 @@ export default function RegisterPage() {
           </a>
         </p>
       </div>
+
+      {/* Role Selection Modal */}
+      <RoleSelectionModal
+        isOpen={showRoleSelection}
+        onRoleSelected={handleRoleSelection}
+        onClose={() => setShowRoleSelection(false)}
+        userDisplayName={user?.firstName || ''}
+        isLoading={isRoleUpdateLoading}
+      />
     </div>
   );
 }
