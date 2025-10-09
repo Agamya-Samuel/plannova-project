@@ -151,7 +151,7 @@ export default function PrivacyPolicy() {
                   If you have any questions about this Privacy Policy, please contact us at:
                 </p>
                 <p className="text-gray-700 mt-2">
-                  <strong>Email:</strong> privacy@plannova.com
+                  <strong>Email:</strong> privacy@plannova.in
                 </p>
                 <p className="text-gray-700 mt-1">
                   <strong>Address:</strong> Plannova Inc., 123 Wedding Plaza, San Francisco, CA 94102
