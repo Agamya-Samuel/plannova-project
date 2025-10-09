@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
   MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
-  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette
+  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette, Clock
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
@@ -52,7 +52,7 @@ interface Venue {
   name: string;
   description: string;
   type: string;
-  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT';
   address: {
     street: string;
     area: string;
@@ -90,6 +90,8 @@ interface Venue {
   addonServices?: AddonService[];
   cancellationPolicy?: string;
   advancePayment?: number;
+  // Add pendingEdits field
+  pendingEdits?: any;
 }
 
 export default function VenueDetailsPage() {
@@ -257,14 +259,21 @@ We'll contact you soon to confirm the booking.`);
                   height={600}
                   className="w-full h-96 object-cover"
                 />
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-4 left-4 flex space-x-2">
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
                     {venue.type}
                   </span>
+                  {/* Show a badge when there are pending edits */}
+                  {venue.status === 'PENDING_EDIT' && (
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Edit Pending
+                    </span>
+                  )}
                 </div>
               </div>
               
-              {/* Image Thumbnails */}
+              {/* Image Thumbnails - Only show if there are more than 1 image */}
               {venue.images.length > 1 && (
                 <div className="p-4">
                   <div className="flex space-x-2 overflow-x-auto">
@@ -288,18 +297,27 @@ We'll contact you soon to confirm the booking.`);
                   </div>
                 </div>
               )}
-
             </div>
 
             {/* Venue Information */}
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{venue.name}</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    {/* Show pending name if there are pending edits, otherwise show current name */}
+                    {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.name 
+                      ? venue.pendingEdits.name 
+                      : venue.name}
+                  </h1>
                   <div className="flex items-center space-x-4 text-gray-600">
                     <div className="flex items-center space-x-1">
                       <MapPin className="h-4 w-4" />
-                      <span>{venue.address.area}, {venue.address.city}, {venue.address.state}</span>
+                      <span>
+                        {/* Show pending address if there are pending edits, otherwise show current address */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.address
+                          ? `${venue.pendingEdits.address.area}, ${venue.pendingEdits.address.city}, ${venue.pendingEdits.address.state}`
+                          : `${venue.address.area}, ${venue.address.city}, ${venue.address.state}`}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Star className="h-4 w-4 text-yellow-400 fill-current" />
@@ -310,7 +328,12 @@ We'll contact you soon to confirm the booking.`);
               </div>
 
               <div className="prose max-w-none">
-                <p className="text-gray-700 text-lg leading-relaxed">{venue.description}</p>
+                <p className="text-gray-700 text-lg leading-relaxed">
+                  {/* Show pending description if there are pending edits, otherwise show current description */}
+                  {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.description 
+                    ? venue.pendingEdits.description 
+                    : venue.description}
+                </p>
               </div>
             </div>
 
@@ -324,7 +347,12 @@ We'll contact you soon to confirm the booking.`);
                     <Users className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Capacity</p>
-                      <p className="text-gray-600">{venue.capacity.min} - {venue.capacity.max} guests</p>
+                      <p className="text-gray-600">
+                        {/* Show pending capacity if there are pending edits, otherwise show current capacity */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.capacity
+                          ? `${venue.pendingEdits.capacity.min} - ${venue.pendingEdits.capacity.max} guests`
+                          : `${venue.capacity.min} - ${venue.capacity.max} guests`}
+                      </p>
                     </div>
                   </div>
                   
@@ -332,7 +360,12 @@ We'll contact you soon to confirm the booking.`);
                     <Building className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Venue Type</p>
-                      <p className="text-gray-600">{venue.type}</p>
+                      <p className="text-gray-600">
+                        {/* Show pending type if there are pending edits, otherwise show current type */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.type
+                          ? venue.pendingEdits.type
+                          : venue.type}
+                      </p>
                     </div>
                   </div>
                   
@@ -341,8 +374,12 @@ We'll contact you soon to confirm the booking.`);
                     <div>
                       <p className="font-semibold text-gray-900">Full Address</p>
                       <p className="text-gray-600">
-                        {venue.address.street}, {venue.address.area}<br />
-                        {venue.address.city}, {venue.address.state} - {venue.address.pincode}
+                        {/* Show pending address if there are pending edits, otherwise show current address */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.address
+                          ? `${venue.pendingEdits.address.street}, ${venue.pendingEdits.address.area}<br />
+                            ${venue.pendingEdits.address.city}, ${venue.pendingEdits.address.state} - ${venue.pendingEdits.address.pincode}`
+                          : `${venue.address.street}, ${venue.address.area}<br />
+                            ${venue.address.city}, ${venue.address.state} - ${venue.address.pincode}`}
                       </p>
                     </div>
                   </div>
@@ -353,7 +390,12 @@ We'll contact you soon to confirm the booking.`);
                     <DollarSign className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Base Price</p>
-                      <p className="text-gray-600">₹{venue.basePrice.toLocaleString()} per event</p>
+                      <p className="text-gray-600">
+                        {/* Show pending price if there are pending edits, otherwise show current price */}
+                        ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice
+                          ? venue.pendingEdits.basePrice
+                          : venue.basePrice).toLocaleString()} per event
+                      </p>
                     </div>
                   </div>
                   
@@ -369,7 +411,9 @@ We'll contact you soon to confirm the booking.`);
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Status</p>
-                      <p className="text-green-600 font-medium">{venue.status}</p>
+                      <p className={`font-medium ${venue.status === 'PENDING_EDIT' ? 'text-blue-600' : 'text-green-600'}`}>
+                        {venue.status === 'PENDING_EDIT' ? 'Edit Pending Approval' : venue.status}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -377,14 +421,17 @@ We'll contact you soon to confirm the booking.`);
             </div>
 
             {/* Features */}
-            {venue.features && venue.features.length > 0 && (
+            {(venue.features && venue.features.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Sparkles className="h-6 w-6 text-pink-600 mr-2" />
                   Features
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {venue.features.map((feature, index) => (
+                  {/* Show pending features if there are pending edits, otherwise show current features */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.features 
+                    ? venue.pendingEdits.features 
+                    : venue.features).map((feature: string, index: number) => (
                     <div key={index} className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
                       <CheckCircle className="h-5 w-5 text-pink-600 flex-shrink-0" />
                       <span className="text-gray-700 font-medium">{feature}</span>
@@ -395,14 +442,17 @@ We'll contact you soon to confirm the booking.`);
             )}
 
             {/* Food Options */}
-            {venue.foodOptions && venue.foodOptions.length > 0 && (
+            {(venue.foodOptions && venue.foodOptions.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <ChefHat className="h-6 w-6 text-orange-600 mr-2" />
                   Food Options
                 </h2>
                 <div className="space-y-6">
-                  {venue.foodOptions.map((food, index) => (
+                  {/* Show pending food options if there are pending edits, otherwise show current food options */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.foodOptions 
+                    ? venue.pendingEdits.foodOptions 
+                    : venue.foodOptions).map((food: FoodOption, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -433,7 +483,7 @@ We'll contact you soon to confirm the booking.`);
                       
                       {food.cuisine && food.cuisine.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {food.cuisine.map((cuisine, cuisineIndex) => (
+                          {food.cuisine.map((cuisine: string, cuisineIndex: number) => (
                             <span key={cuisineIndex} className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
                               {cuisine}
                             </span>
@@ -447,14 +497,17 @@ We'll contact you soon to confirm the booking.`);
             )}
 
             {/* Amenities */}
-            {venue.amenities && venue.amenities.length > 0 && (
+            {(venue.amenities && venue.amenities.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <CheckCircle className="h-6 w-6 text-green-600 mr-2" />
                   Amenities
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {venue.amenities.map((amenity, index) => (
+                  {/* Show pending amenities if there are pending edits, otherwise show current amenities */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.amenities 
+                    ? venue.pendingEdits.amenities 
+                    : venue.amenities).map((amenity: Amenity, index: number) => (
                     <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                       <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
@@ -477,14 +530,17 @@ We'll contact you soon to confirm the booking.`);
             )}
 
             {/* Decoration Options */}
-            {venue.decorationOptions && venue.decorationOptions.length > 0 && (
+            {(venue.decorationOptions && venue.decorationOptions.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Palette className="h-6 w-6 text-purple-600 mr-2" />
                   Decoration Options
                 </h2>
                 <div className="space-y-6">
-                  {venue.decorationOptions.map((decoration, index) => (
+                  {/* Show pending decoration options if there are pending edits, otherwise show current decoration options */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.decorationOptions 
+                    ? venue.pendingEdits.decorationOptions 
+                    : venue.decorationOptions).map((decoration: DecorationOption, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -510,7 +566,7 @@ We'll contact you soon to confirm the booking.`);
                         <div>
                           <h4 className="text-sm font-medium text-gray-900 mb-2">Includes:</h4>
                           <div className="flex flex-wrap gap-2">
-                            {decoration.includes.map((item, itemIndex) => (
+                            {decoration.includes.map((item: string, itemIndex: number) => (
                               <span key={itemIndex} className="px-2 py-1 bg-purple-50 text-purple-700 rounded-full text-xs">
                                 {item}
                               </span>
@@ -525,14 +581,17 @@ We'll contact you soon to confirm the booking.`);
             )}
 
             {/* Addon Services */}
-            {venue.addonServices && venue.addonServices.length > 0 && (
+            {(venue.addonServices && venue.addonServices.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Plus className="h-6 w-6 text-blue-600 mr-2" />
                   Additional Services
                 </h2>
                 <div className="space-y-6">
-                  {venue.addonServices.map((service, index) => (
+                  {/* Show pending addon services if there are pending edits, otherwise show current addon services */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.addonServices 
+                    ? venue.pendingEdits.addonServices 
+                    : venue.addonServices).map((service: AddonService, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -558,7 +617,7 @@ We'll contact you soon to confirm the booking.`);
                         <div>
                           <h4 className="text-sm font-medium text-gray-900 mb-2">Includes:</h4>
                           <div className="flex flex-wrap gap-2">
-                            {service.includes.map((item, itemIndex) => (
+                            {service.includes.map((item: string, itemIndex: number) => (
                               <span key={itemIndex} className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
                                 {item}
                               </span>
@@ -573,29 +632,45 @@ We'll contact you soon to confirm the booking.`);
             )}
 
             {/* Policies */}
-            {(venue.cancellationPolicy || venue.advancePayment) && (
+            {((venue.cancellationPolicy || venue.advancePayment) || 
+              (venue.status === 'PENDING_EDIT' && 
+               (venue.pendingEdits?.cancellationPolicy || venue.pendingEdits?.advancePayment))) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Shield className="h-6 w-6 text-blue-600 mr-2" />
                   Policies
                 </h2>
                 <div className="space-y-4">
-                  {venue.advancePayment && (
+                  {/* Show pending advance payment if there are pending edits, otherwise show current advance payment */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.advancePayment 
+                    ? venue.pendingEdits.advancePayment 
+                    : venue.advancePayment) && (
                     <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
                       <DollarSign className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <h3 className="font-semibold text-gray-900">Advance Payment</h3>
-                        <p className="text-gray-700">{venue.advancePayment}% of total amount required as advance</p>
+                        <p className="text-gray-700">
+                          {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.advancePayment 
+                            ? venue.pendingEdits.advancePayment 
+                            : venue.advancePayment)}% of total amount required as advance
+                        </p>
                       </div>
                     </div>
                   )}
                   
-                  {venue.cancellationPolicy && (
+                  {/* Show pending cancellation policy if there are pending edits, otherwise show current cancellation policy */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.cancellationPolicy 
+                    ? venue.pendingEdits.cancellationPolicy 
+                    : venue.cancellationPolicy) && (
                     <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-lg">
                       <Shield className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <h3 className="font-semibold text-gray-900">Cancellation Policy</h3>
-                        <p className="text-gray-700">{venue.cancellationPolicy}</p>
+                        <p className="text-gray-700">
+                          {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.cancellationPolicy 
+                            ? venue.pendingEdits.cancellationPolicy 
+                            : venue.cancellationPolicy}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -610,7 +685,10 @@ We'll contact you soon to confirm the booking.`);
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
               <div className="text-center mb-6">
                 <div className="text-3xl font-bold text-gray-900 mb-2">
-                  ₹{venue.basePrice.toLocaleString()}
+                  {/* Show pending price if there are pending edits, otherwise show current price */}
+                  ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice
+                    ? venue.pendingEdits.basePrice
+                    : venue.basePrice).toLocaleString()}
                 </div>
                 <p className="text-gray-600">per event</p>
               </div>
@@ -628,6 +706,18 @@ We'll contact you soon to confirm the booking.`);
                   Contact provider for custom pricing
                 </p>
               </div>
+              
+              {/* Show a note when there are pending edits */}
+              {venue.status === 'PENDING_EDIT' && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center">
+                    <Clock className="h-5 w-5 text-blue-600 mr-2" />
+                    <p className="text-sm text-blue-800">
+                      This venue has pending edits awaiting approval. The displayed information reflects the proposed changes.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Contact Information */}
