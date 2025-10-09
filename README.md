@@ -189,3 +189,6 @@ See `FIREBASE_SETUP.md` for detailed Firebase configuration.
 ## 📄 License
 
 [Your License Here]
+
+Aditya
+Jaish
