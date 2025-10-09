@@ -48,7 +48,7 @@ export interface PresignedPostRequest {
   fileName: string;
   fileType: string;
   fileSize: number;
-  uploadType: 'venue' | 'profile' | 'document';
+  uploadType: 'venue' | 'profile' | 'document' | 'catering';
   venueId?: string;
 }
 
@@ -76,7 +76,7 @@ export interface UploadConfig {
   image: FileValidation;
   document: FileValidation;
   maxFilesPerUpload: number;
-  allowedUploadTypes: ('venue' | 'profile' | 'document')[];
+  allowedUploadTypes: ('venue' | 'profile' | 'document' | 'catering')[];
 }
 
 // Extended venue image interface

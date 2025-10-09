@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { Button } from '../../../components/ui/button';
@@ -25,6 +26,17 @@ import {
   X
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
+import { sonnerConfirm } from '../../../lib/sonner-confirm';
+
+interface ApiError extends Error {
+  response?: {
+    data?: {
+      error?: string;
+    };
+    status?: number;
+  };
+}
 
 interface Venue {
   _id: string;
@@ -115,7 +127,7 @@ export default function ProviderVenuesPage() {
 
   useEffect(() => {
     fetchVenues(currentPage, statusFilter, searchTerm);
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, searchTerm]);
 
   const handleSearch = () => {
     setCurrentPage(1);
@@ -167,33 +179,37 @@ export default function ProviderVenuesPage() {
   }, [searchTimeout]);
 
   const handleDeleteVenue = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to delete this venue? This action cannot be undone.')) {
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this venue? This action cannot be undone.');
+    if (!confirmed) {
       return;
     }
 
     try {
       console.log('Deleting venue:', venueId);
       await apiClient.delete(`/venues/${venueId}`);
-      alert('Venue deleted successfully!');
+      toast.success('Venue deleted successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting venue:', err);
       
       let errorMessage = 'Failed to delete venue';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.response?.status === 404) {
+      const apiError = err as ApiError;
+      
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError.response?.status === 404) {
         errorMessage = 'Venue not found';
-      } else if (err.response?.status === 403) {
+      } else if (apiError.response?.status === 403) {
         errorMessage = 'You do not have permission to delete this venue';
       }
       
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleSubmitForApproval = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to submit this venue for approval?')) {
+    const confirmed = await sonnerConfirm('Are you sure you want to submit this venue for approval?');
+    if (!confirmed) {
       return;
     }
 
@@ -204,21 +220,23 @@ export default function ProviderVenuesPage() {
       const response = await apiClient.post(`/venues/${venueId}/submit`);
       console.log('Submit response:', response.data);
       
-      alert('Venue submitted for approval successfully!');
+      toast.success('Venue submitted for approval successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting venue:', err);
       
       let errorMessage = 'Failed to submit venue for approval';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.response?.status === 404) {
+      const apiError = err as ApiError;
+      
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError.response?.status === 404) {
         errorMessage = 'Venue not found or submit endpoint not available';
-      } else if (err.response?.status === 400) {
+      } else if (apiError.response?.status === 400) {
         errorMessage = 'Invalid venue data for submission';
       }
       
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -439,9 +457,11 @@ export default function ProviderVenuesPage() {
                         <div className="md:w-1/3">
                           <div className="h-64 md:h-full">
                             {venue.images.length > 0 ? (
-                              <img
+                              <Image
                                 src={venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url}
                                 alt={venue.name}
+                                width={800}
+                                height={600}
                                 className="w-full h-full object-cover"
                               />
                             ) : (

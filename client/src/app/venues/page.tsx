@@ -3,17 +3,18 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Search, MapPin, Users, Star, Heart, SlidersHorizontal } from 'lucide-react';
+import { Search, MapPin, Users, Star, Heart, SlidersHorizontal, Clock, Edit3 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../lib/api';
+import useFavorites from '../../hooks/useFavorites';
 
 interface Venue {
   _id: string;
   name: string;
   description: string;
   type: string;
-  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT';
   address: {
     street: string;
     area: string;
@@ -43,9 +44,10 @@ interface Venue {
     lastName: string;
     email: string;
   };
+  // Add pendingEdits field to handle pending edits
+  pendingEdits?: any;
 }
 
-// Component that uses useSearchParams - needs to be wrapped in Suspense
 function VenuesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -59,7 +61,9 @@ function VenuesContent() {
     priceRange: ''
   });
   const [showFilters, setShowFilters] = useState(false);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  
+  // Use the favorites hook
+  const { favorites, toggleFavorite, loading: favoritesLoading, error: favoritesError } = useFavorites();
 
   // Fetch approved venues from API
   const fetchVenues = async () => {
@@ -68,7 +72,7 @@ function VenuesContent() {
       const response = await apiClient.get('/venues');
       setVenues(response.data.venues || []);
       setError('');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching venues:', err);
       setError('Failed to fetch venues');
     } finally {
@@ -90,16 +94,6 @@ function VenuesContent() {
     }
   }, [searchParams]);
 
-  const toggleFavorite = (venueId: string) => {
-    const newFavorites = new Set(favorites);
-    if (newFavorites.has(venueId)) {
-      newFavorites.delete(venueId);
-    } else {
-      newFavorites.add(venueId);
-    }
-    setFavorites(newFavorites);
-  };
-
   // Filter venues based on selected filters
   const filteredVenues = venues.filter((venue) => {
     if (selectedFilters.venueType && venue.type !== selectedFilters.venueType) {
@@ -109,8 +103,61 @@ function VenuesContent() {
     return true;
   });
 
+  // Handle favorite toggle with error feedback
+  const handleToggleFavorite = async (venueId: string) => {
+    const success = await toggleFavorite(venueId);
+    
+    if (!success) {
+      // Show error message to user
+      setError('Failed to update favorite. Please try again.');
+      // Clear error after 3 seconds
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  // Loading component for Suspense fallback
+  if (loading || favoritesLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold mb-4">Wedding Venues in Mumbai</h1>
+              <p className="text-xl text-pink-100 mb-8">
+                Loading venues...
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div className="w-full h-64 bg-gray-200"></div>
+                  <div className="p-6">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/4 mb-4"></div>
+                    <div className="flex justify-between items-center">
+                      <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                      <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -280,22 +327,15 @@ function VenuesContent() {
           </div>
         )}
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex justify-center items-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
-          </div>
-        )}
-
         {/* Error State */}
-        {error && (
+        {(error || favoritesError) && (
           <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <p className="text-red-800">{error}</p>
+            <p className="text-red-800">{error || favoritesError}</p>
           </div>
         )}
 
         {/* Venues Grid */}
-        {!loading && !error && (
+        {!error && !favoritesError && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {filteredVenues.map((venue) => (
             <div key={venue._id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
@@ -309,7 +349,7 @@ function VenuesContent() {
                   priority={venue._id === venues[0]?._id} // Prioritize loading the first image
                 />
                 <button
-                  onClick={() => toggleFavorite(venue._id)}
+                  onClick={() => handleToggleFavorite(venue._id)}
                   className={`absolute top-4 right-4 p-2 rounded-full transition-all duration-300 ${
                     favorites.has(venue._id) 
                       ? 'bg-pink-600 text-white' 
@@ -318,10 +358,17 @@ function VenuesContent() {
                 >
                   <Heart className={`h-5 w-5 ${favorites.has(venue._id) ? 'fill-current' : ''}`} />
                 </button>
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-4 left-4 flex space-x-2">
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
                     {venue.type}
                   </span>
+                  {/* Show a badge when there are pending edits */}
+                  {venue.status === 'PENDING_EDIT' && (
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Edit Pending
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -346,12 +393,22 @@ function VenuesContent() {
                 </div>
                 
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 line-clamp-2">{venue.description}</p>
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {/* Show pending description if there are pending edits, otherwise show current description */}
+                    {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.description 
+                      ? venue.pendingEdits.description 
+                      : venue.description}
+                  </p>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="text-2xl font-bold text-gray-900">₹{venue.basePrice.toLocaleString()}</span>
+                    <span className="text-2xl font-bold text-gray-900">
+                      {/* Show pending price if there are pending edits, otherwise show current price */}
+                      ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice 
+                        ? venue.pendingEdits.basePrice 
+                        : venue.basePrice).toLocaleString()}
+                    </span>
                     <span className="text-sm text-gray-500 ml-1">per event</span>
                   </div>
                   <Button 
@@ -369,7 +426,7 @@ function VenuesContent() {
         )}
 
         {/* No Venues Message */}
-        {!loading && !error && filteredVenues.length === 0 && (
+        {!error && !favoritesError && filteredVenues.length === 0 && (
           <div className="text-center py-12">
             <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <MapPin className="h-12 w-12 text-gray-400" />
@@ -385,7 +442,7 @@ function VenuesContent() {
         )}
 
         {/* Load More */}
-        {!loading && !error && filteredVenues.length > 0 && (
+        {!error && !favoritesError && filteredVenues.length > 0 && (
           <div className="text-center mt-12">
             <Button 
               variant="outline" 
@@ -397,58 +454,48 @@ function VenuesContent() {
           </div>
         )}
       </div>
-    </>
-  );
-}
-
-// Loading component for Suspense fallback
-function VenuesLoading() {
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">Wedding Venues in Mumbai</h1>
-            <p className="text-xl text-pink-100 mb-8">
-              Loading venues...
-            </p>
-          </div>
-        </div>
-      </div>
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-lg overflow-hidden">
-                <div className="w-full h-64 bg-gray-200"></div>
-                <div className="p-6">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/4 mb-4"></div>
-                  <div className="flex justify-between items-center">
-                    <div className="h-6 bg-gray-200 rounded w-1/3"></div>
-                    <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
 
-// Main page component
 export default function VenuesPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Suspense fallback={<VenuesLoading />}>
-        <VenuesContent />
-      </Suspense>
-    </div>
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50">
+        <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-4xl font-bold mb-4">Wedding Venues in Mumbai</h1>
+              <p className="text-xl text-pink-100 mb-8">
+                Loading venues...
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse">
+            <div className="h-4 bg-gray-200 rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                  <div className="w-full h-64 bg-gray-200"></div>
+                  <div className="p-6">
+                    <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                    <div className="h-3 bg-gray-200 rounded w-1/4 mb-4"></div>
+                    <div className="flex justify-between items-center">
+                      <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+                      <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <VenuesContent />
+    </Suspense>
   );
 }

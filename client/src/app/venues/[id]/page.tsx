@@ -2,14 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { 
-  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, 
-  Clock, Wifi, Car, Utensils, Music, Camera, Shield, CheckCircle,
-  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus
+  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
+  DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette, Clock
 } from 'lucide-react';
 import { Button } from '../../../components/ui/button';
 import { Input } from '../../../components/ui/input';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
 
 interface FoodOption {
   name: string;
@@ -51,7 +52,7 @@ interface Venue {
   name: string;
   description: string;
   type: string;
-  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT';
   address: {
     street: string;
     area: string;
@@ -89,6 +90,8 @@ interface Venue {
   addonServices?: AddonService[];
   cancellationPolicy?: string;
   advancePayment?: number;
+  // Add pendingEdits field
+  pendingEdits?: any;
 }
 
 export default function VenueDetailsPage() {
@@ -107,23 +110,35 @@ export default function VenueDetailsPage() {
     specialRequests: ''
   });
 
-  const fetchVenue = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get(`/venues/${params.id}`);
-      setVenue(response.data);
-      setError('');
-    } catch (err: any) {
-      console.error('Error fetching venue:', err);
-      setError('Failed to fetch venue details');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchVenue = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get(`/venues/${params.id}`);
+        setVenue(response.data);
+        setError('');
+      } catch (err) {
+        console.error('Error fetching venue:', err);
+        setError('Failed to fetch venue details');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // Check if venue is already favorited
+    const checkIfFavorited = async () => {
+      try {
+        const response = await apiClient.get('/venues/favorites');
+        const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
+        setFavorite(favoriteIds.has(params.id as string));
+      } catch (err) {
+        console.error('Error checking favorite status:', err);
+      }
+    };
+
     if (params.id) {
       fetchVenue();
+      checkIfFavorited();
     }
   }, [params.id]);
 
@@ -134,7 +149,13 @@ export default function VenueDetailsPage() {
 
     try {
       // For now, just show an alert. In a real app, this would create a booking
-      alert(`Booking request submitted for ${venue.name}!\n\nEvent Date: ${bookingData.eventDate}\nGuest Count: ${bookingData.guestCount}\nEvent Type: ${bookingData.eventType}\n\nWe'll contact you soon to confirm the booking.`);
+      toast.success(`Booking request submitted for ${venue.name}!
+
+Event Date: ${bookingData.eventDate}
+Guest Count: ${bookingData.guestCount}
+Event Type: ${bookingData.eventType}
+
+We'll contact you soon to confirm the booking.`);
       
       // Reset form
       setBookingData({
@@ -144,14 +165,30 @@ export default function VenueDetailsPage() {
         specialRequests: ''
       });
       setShowBookingForm(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting booking:', err);
-      alert('Failed to submit booking request. Please try again.');
+      toast.error('Failed to submit booking request. Please try again.');
     }
   };
 
-  const toggleFavorite = () => {
-    setFavorite(!favorite);
+  const toggleFavorite = async () => {
+    try {
+      console.log('Toggling favorite for venue:', params.id);
+      if (favorite) {
+        // Remove from favorites
+        console.log('Removing from favorites');
+        await apiClient.delete(`/venues/${params.id}/favorite`);
+        setFavorite(false);
+      } else {
+        // Add to favorites
+        console.log('Adding to favorites');
+        await apiClient.post(`/venues/${params.id}/favorite`);
+        setFavorite(true);
+      }
+    } catch (err: unknown) {
+      console.error('Error toggling favorite:', err);
+      toast.error('Failed to update favorite. Please try again.');
+    }
   };
 
   if (loading) {
@@ -215,19 +252,28 @@ export default function VenueDetailsPage() {
             {/* Image Gallery */}
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="relative">
-                <img 
+                <Image 
                   src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : 'https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} 
                   alt={venue.name}
+                  width={1170}
+                  height={600}
                   className="w-full h-96 object-cover"
                 />
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-4 left-4 flex space-x-2">
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
                     {venue.type}
                   </span>
+                  {/* Show a badge when there are pending edits */}
+                  {venue.status === 'PENDING_EDIT' && (
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Edit Pending
+                    </span>
+                  )}
                 </div>
               </div>
               
-              {/* Image Thumbnails */}
+              {/* Image Thumbnails - Only show if there are more than 1 image */}
               {venue.images.length > 1 && (
                 <div className="p-4">
                   <div className="flex space-x-2 overflow-x-auto">
@@ -239,9 +285,11 @@ export default function VenueDetailsPage() {
                           selectedImageIndex === index ? 'border-pink-500' : 'border-gray-200'
                         }`}
                       >
-                        <img 
+                        <Image 
                           src={image.url} 
                           alt={image.alt || venue.name}
+                          width={80}
+                          height={80}
                           className="w-full h-full object-cover"
                         />
                       </button>
@@ -255,11 +303,21 @@ export default function VenueDetailsPage() {
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900 mb-2">{venue.name}</h1>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    {/* Show pending name if there are pending edits, otherwise show current name */}
+                    {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.name 
+                      ? venue.pendingEdits.name 
+                      : venue.name}
+                  </h1>
                   <div className="flex items-center space-x-4 text-gray-600">
                     <div className="flex items-center space-x-1">
                       <MapPin className="h-4 w-4" />
-                      <span>{venue.address.area}, {venue.address.city}, {venue.address.state}</span>
+                      <span>
+                        {/* Show pending address if there are pending edits, otherwise show current address */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.address
+                          ? `${venue.pendingEdits.address.area}, ${venue.pendingEdits.address.city}, ${venue.pendingEdits.address.state}`
+                          : `${venue.address.area}, ${venue.address.city}, ${venue.address.state}`}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Star className="h-4 w-4 text-yellow-400 fill-current" />
@@ -270,7 +328,12 @@ export default function VenueDetailsPage() {
               </div>
 
               <div className="prose max-w-none">
-                <p className="text-gray-700 text-lg leading-relaxed">{venue.description}</p>
+                <p className="text-gray-700 text-lg leading-relaxed">
+                  {/* Show pending description if there are pending edits, otherwise show current description */}
+                  {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.description 
+                    ? venue.pendingEdits.description 
+                    : venue.description}
+                </p>
               </div>
             </div>
 
@@ -284,7 +347,12 @@ export default function VenueDetailsPage() {
                     <Users className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Capacity</p>
-                      <p className="text-gray-600">{venue.capacity.min} - {venue.capacity.max} guests</p>
+                      <p className="text-gray-600">
+                        {/* Show pending capacity if there are pending edits, otherwise show current capacity */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.capacity
+                          ? `${venue.pendingEdits.capacity.min} - ${venue.pendingEdits.capacity.max} guests`
+                          : `${venue.capacity.min} - ${venue.capacity.max} guests`}
+                      </p>
                     </div>
                   </div>
                   
@@ -292,7 +360,12 @@ export default function VenueDetailsPage() {
                     <Building className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Venue Type</p>
-                      <p className="text-gray-600">{venue.type}</p>
+                      <p className="text-gray-600">
+                        {/* Show pending type if there are pending edits, otherwise show current type */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.type
+                          ? venue.pendingEdits.type
+                          : venue.type}
+                      </p>
                     </div>
                   </div>
                   
@@ -301,8 +374,12 @@ export default function VenueDetailsPage() {
                     <div>
                       <p className="font-semibold text-gray-900">Full Address</p>
                       <p className="text-gray-600">
-                        {venue.address.street}, {venue.address.area}<br />
-                        {venue.address.city}, {venue.address.state} - {venue.address.pincode}
+                        {/* Show pending address if there are pending edits, otherwise show current address */}
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.address
+                          ? `${venue.pendingEdits.address.street}, ${venue.pendingEdits.address.area}<br />
+                            ${venue.pendingEdits.address.city}, ${venue.pendingEdits.address.state} - ${venue.pendingEdits.address.pincode}`
+                          : `${venue.address.street}, ${venue.address.area}<br />
+                            ${venue.address.city}, ${venue.address.state} - ${venue.address.pincode}`}
                       </p>
                     </div>
                   </div>
@@ -313,7 +390,12 @@ export default function VenueDetailsPage() {
                     <DollarSign className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Base Price</p>
-                      <p className="text-gray-600">₹{venue.basePrice.toLocaleString()} per event</p>
+                      <p className="text-gray-600">
+                        {/* Show pending price if there are pending edits, otherwise show current price */}
+                        ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice
+                          ? venue.pendingEdits.basePrice
+                          : venue.basePrice).toLocaleString()} per event
+                      </p>
                     </div>
                   </div>
                   
@@ -329,7 +411,9 @@ export default function VenueDetailsPage() {
                     <CheckCircle className="h-5 w-5 text-green-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Status</p>
-                      <p className="text-green-600 font-medium">{venue.status}</p>
+                      <p className={`font-medium ${venue.status === 'PENDING_EDIT' ? 'text-blue-600' : 'text-green-600'}`}>
+                        {venue.status === 'PENDING_EDIT' ? 'Edit Pending Approval' : venue.status}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -337,14 +421,17 @@ export default function VenueDetailsPage() {
             </div>
 
             {/* Features */}
-            {venue.features && venue.features.length > 0 && (
+            {(venue.features && venue.features.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Sparkles className="h-6 w-6 text-pink-600 mr-2" />
                   Features
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {venue.features.map((feature, index) => (
+                  {/* Show pending features if there are pending edits, otherwise show current features */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.features 
+                    ? venue.pendingEdits.features 
+                    : venue.features).map((feature: string, index: number) => (
                     <div key={index} className="flex items-center space-x-3 p-3 bg-pink-50 rounded-lg">
                       <CheckCircle className="h-5 w-5 text-pink-600 flex-shrink-0" />
                       <span className="text-gray-700 font-medium">{feature}</span>
@@ -355,14 +442,17 @@ export default function VenueDetailsPage() {
             )}
 
             {/* Food Options */}
-            {venue.foodOptions && venue.foodOptions.length > 0 && (
+            {(venue.foodOptions && venue.foodOptions.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <ChefHat className="h-6 w-6 text-orange-600 mr-2" />
                   Food Options
                 </h2>
                 <div className="space-y-6">
-                  {venue.foodOptions.map((food, index) => (
+                  {/* Show pending food options if there are pending edits, otherwise show current food options */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.foodOptions 
+                    ? venue.pendingEdits.foodOptions 
+                    : venue.foodOptions).map((food: FoodOption, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -393,7 +483,7 @@ export default function VenueDetailsPage() {
                       
                       {food.cuisine && food.cuisine.length > 0 && (
                         <div className="flex flex-wrap gap-2">
-                          {food.cuisine.map((cuisine, cuisineIndex) => (
+                          {food.cuisine.map((cuisine: string, cuisineIndex: number) => (
                             <span key={cuisineIndex} className="px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-xs font-medium">
                               {cuisine}
                             </span>
@@ -407,14 +497,17 @@ export default function VenueDetailsPage() {
             )}
 
             {/* Amenities */}
-            {venue.amenities && venue.amenities.length > 0 && (
+            {(venue.amenities && venue.amenities.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <CheckCircle className="h-6 w-6 text-green-600 mr-2" />
                   Amenities
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {venue.amenities.map((amenity, index) => (
+                  {/* Show pending amenities if there are pending edits, otherwise show current amenities */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.amenities 
+                    ? venue.pendingEdits.amenities 
+                    : venue.amenities).map((amenity: Amenity, index: number) => (
                     <div key={index} className="flex items-start space-x-3 p-3 bg-gray-50 rounded-lg">
                       <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5" />
                       <div className="flex-1">
@@ -437,14 +530,17 @@ export default function VenueDetailsPage() {
             )}
 
             {/* Decoration Options */}
-            {venue.decorationOptions && venue.decorationOptions.length > 0 && (
+            {(venue.decorationOptions && venue.decorationOptions.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <Sparkles className="h-6 w-6 text-purple-600 mr-2" />
+                  <Palette className="h-6 w-6 text-purple-600 mr-2" />
                   Decoration Options
                 </h2>
                 <div className="space-y-6">
-                  {venue.decorationOptions.map((decoration, index) => (
+                  {/* Show pending decoration options if there are pending edits, otherwise show current decoration options */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.decorationOptions 
+                    ? venue.pendingEdits.decorationOptions 
+                    : venue.decorationOptions).map((decoration: DecorationOption, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -470,7 +566,7 @@ export default function VenueDetailsPage() {
                         <div>
                           <h4 className="text-sm font-medium text-gray-900 mb-2">Includes:</h4>
                           <div className="flex flex-wrap gap-2">
-                            {decoration.includes.map((item, itemIndex) => (
+                            {decoration.includes.map((item: string, itemIndex: number) => (
                               <span key={itemIndex} className="px-2 py-1 bg-purple-50 text-purple-700 rounded-full text-xs">
                                 {item}
                               </span>
@@ -485,14 +581,17 @@ export default function VenueDetailsPage() {
             )}
 
             {/* Addon Services */}
-            {venue.addonServices && venue.addonServices.length > 0 && (
+            {(venue.addonServices && venue.addonServices.length > 0) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Plus className="h-6 w-6 text-blue-600 mr-2" />
                   Additional Services
                 </h2>
                 <div className="space-y-6">
-                  {venue.addonServices.map((service, index) => (
+                  {/* Show pending addon services if there are pending edits, otherwise show current addon services */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.addonServices 
+                    ? venue.pendingEdits.addonServices 
+                    : venue.addonServices).map((service: AddonService, index: number) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-md transition-shadow">
                       <div className="flex justify-between items-start mb-3">
                         <div>
@@ -518,7 +617,7 @@ export default function VenueDetailsPage() {
                         <div>
                           <h4 className="text-sm font-medium text-gray-900 mb-2">Includes:</h4>
                           <div className="flex flex-wrap gap-2">
-                            {service.includes.map((item, itemIndex) => (
+                            {service.includes.map((item: string, itemIndex: number) => (
                               <span key={itemIndex} className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs">
                                 {item}
                               </span>
@@ -533,29 +632,45 @@ export default function VenueDetailsPage() {
             )}
 
             {/* Policies */}
-            {(venue.cancellationPolicy || venue.advancePayment) && (
+            {((venue.cancellationPolicy || venue.advancePayment) || 
+              (venue.status === 'PENDING_EDIT' && 
+               (venue.pendingEdits?.cancellationPolicy || venue.pendingEdits?.advancePayment))) && (
               <div className="bg-white rounded-2xl shadow-lg p-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
                   <Shield className="h-6 w-6 text-blue-600 mr-2" />
                   Policies
                 </h2>
                 <div className="space-y-4">
-                  {venue.advancePayment && (
+                  {/* Show pending advance payment if there are pending edits, otherwise show current advance payment */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.advancePayment 
+                    ? venue.pendingEdits.advancePayment 
+                    : venue.advancePayment) && (
                     <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
                       <DollarSign className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <h3 className="font-semibold text-gray-900">Advance Payment</h3>
-                        <p className="text-gray-700">{venue.advancePayment}% of total amount required as advance</p>
+                        <p className="text-gray-700">
+                          {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.advancePayment 
+                            ? venue.pendingEdits.advancePayment 
+                            : venue.advancePayment)}% of total amount required as advance
+                        </p>
                       </div>
                     </div>
                   )}
                   
-                  {venue.cancellationPolicy && (
+                  {/* Show pending cancellation policy if there are pending edits, otherwise show current cancellation policy */}
+                  {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.cancellationPolicy 
+                    ? venue.pendingEdits.cancellationPolicy 
+                    : venue.cancellationPolicy) && (
                     <div className="flex items-start space-x-3 p-4 bg-orange-50 rounded-lg">
                       <Shield className="h-5 w-5 text-orange-600 flex-shrink-0 mt-0.5" />
                       <div>
                         <h3 className="font-semibold text-gray-900">Cancellation Policy</h3>
-                        <p className="text-gray-700">{venue.cancellationPolicy}</p>
+                        <p className="text-gray-700">
+                          {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.cancellationPolicy 
+                            ? venue.pendingEdits.cancellationPolicy 
+                            : venue.cancellationPolicy}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -570,7 +685,10 @@ export default function VenueDetailsPage() {
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
               <div className="text-center mb-6">
                 <div className="text-3xl font-bold text-gray-900 mb-2">
-                  ₹{venue.basePrice.toLocaleString()}
+                  {/* Show pending price if there are pending edits, otherwise show current price */}
+                  ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice
+                    ? venue.pendingEdits.basePrice
+                    : venue.basePrice).toLocaleString()}
                 </div>
                 <p className="text-gray-600">per event</p>
               </div>
@@ -588,6 +706,18 @@ export default function VenueDetailsPage() {
                   Contact provider for custom pricing
                 </p>
               </div>
+              
+              {/* Show a note when there are pending edits */}
+              {venue.status === 'PENDING_EDIT' && (
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center">
+                    <Clock className="h-5 w-5 text-blue-600 mr-2" />
+                    <p className="text-sm text-blue-800">
+                      This venue has pending edits awaiting approval. The displayed information reflects the proposed changes.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Contact Information */}

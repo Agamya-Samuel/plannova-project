@@ -97,22 +97,32 @@ export default function EditVenuePage() {
       const response = await apiClient.get(`/venues/provider/${venueId}`);
       const venue = response.data;
       
+      // If venue is in PENDING_EDIT status, use pendingEdits data if available
+      const venueData = venue.status === 'PENDING_EDIT' && venue.pendingEdits 
+        ? { ...venue, ...venue.pendingEdits }
+        : venue;
+      
       setFormData({
-        name: venue.name || '',
-        description: venue.description || '',
-        type: venue.type || '',
-        basePrice: venue.basePrice || 0,
-        pricePerGuest: venue.pricePerGuest || 0,
-        advancePayment: venue.advancePayment || 25,
-        cancellationPolicy: venue.cancellationPolicy || '',
-        capacity: venue.capacity || { min: 0, max: 0 },
-        contact: venue.contact || { phone: '', email: '', whatsapp: '', website: '' },
-        address: venue.address || { street: '', area: '', city: '', state: '', pincode: '', landmark: '' },
-        images: venue.images || [],
-        amenities: venue.amenities || [],
-        features: venue.features || [],
-        foodOptions: venue.foodOptions || []
+        name: venueData.name || '',
+        description: venueData.description || '',
+        type: venueData.type || '',
+        basePrice: venueData.basePrice || 0,
+        pricePerGuest: venueData.pricePerGuest || 0,
+        advancePayment: venueData.advancePayment || 25,
+        cancellationPolicy: venueData.cancellationPolicy || '',
+        capacity: venueData.capacity || { min: 0, max: 0 },
+        contact: venueData.contact || { phone: '', email: '', whatsapp: '', website: '' },
+        address: venueData.address || { street: '', area: '', city: '', state: '', pincode: '', landmark: '' },
+        images: venueData.images || [],
+        amenities: venueData.amenities || [],
+        features: venueData.features || [],
+        foodOptions: venueData.foodOptions || []
       });
+      
+      // Show notification if venue is in pending edit status
+      if (venue.status === 'PENDING_EDIT') {
+        setError('This venue has pending edits that are awaiting staff approval. Any changes you make now will replace your previous pending edits.');
+      }
     } catch (err: any) {
       console.error('Error fetching venue for edit:', err);
       setError('Failed to load venue data for editing');
@@ -378,8 +388,15 @@ export default function EditVenuePage() {
       
       console.log('Updating venue with cleaned data:', cleanFormData);
 
-      await apiClient.put(`/venues/${venueId}`, cleanFormData);
-      router.push('/provider/venues');
+      const response = await apiClient.put(`/venues/${venueId}`, cleanFormData);
+      
+      // Show appropriate message based on response
+      if (response.data.message.includes('submitted for approval')) {
+        router.push('/provider/venues');
+        // You might want to show a toast notification here
+      } else {
+        router.push('/provider/venues');
+      }
     } catch (err: any) {
       console.error('Error updating venue:', err);
       console.error('Error response:', err.response?.data);

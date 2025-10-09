@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
 import { Button } from '../../../../../components/ui/button';
@@ -14,10 +15,10 @@ import {
   Phone,
   Mail,
   Globe,
-  Calendar,
   CheckCircle,
   XCircle,
-  Edit3
+  Edit3,
+  AlertCircle,
 } from 'lucide-react';
 import apiClient from '../../../../../lib/api';
 
@@ -91,6 +92,7 @@ interface Venue {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  pendingEdits?: any; // Add this to show pending edits
 }
 
 export default function ProviderVenueViewPage() {
@@ -103,24 +105,24 @@ export default function ProviderVenueViewPage() {
 
   const venueId = params.id as string;
 
-  useEffect(() => {
-    if (venueId) {
-      fetchVenue();
-    }
-  }, [venueId]);
-
-  const fetchVenue = async () => {
+  const fetchVenue = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/venues/provider/${venueId}`);
       setVenue(response.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error fetching venue:', err);
       setError('Failed to load venue details');
     } finally {
       setLoading(false);
     }
-  };
+  }, [venueId]);
+
+  useEffect(() => {
+    if (venueId) {
+      fetchVenue();
+    }
+  }, [venueId, fetchVenue]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -134,6 +136,8 @@ export default function ProviderVenueViewPage() {
         return 'bg-red-100 text-red-800';
       case 'SUSPENDED':
         return 'bg-orange-100 text-orange-800';
+      case 'PENDING_EDIT':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -172,14 +176,14 @@ export default function ProviderVenueViewPage() {
                 {venue && (
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(venue.status)}`}>
-                      {venue.status}
+                      {venue.status === 'PENDING_EDIT' ? 'Pending Edit Review' : venue.status}
                     </span>
                     <Button
                       onClick={() => router.push(`/provider/venues/edit/${venue._id}`)}
                       className="bg-pink-600 hover:bg-pink-700 text-white"
                     >
                       <Edit3 className="h-4 w-4 mr-2" />
-                      Edit Venue
+                      {venue.status === 'PENDING_EDIT' ? 'View Pending Edits' : 'Edit Venue'}
                     </Button>
                   </div>
                 )}
@@ -201,19 +205,34 @@ export default function ProviderVenueViewPage() {
             </div>
           )}
 
+          {/* Pending Edit Notice */}
+          {venue && venue.status === 'PENDING_EDIT' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-blue-600" />
+                <p className="text-blue-800 font-medium">
+                  Your venue edits are pending review by our staff. The changes will be applied once approved.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Venue Details */}
           {venue && !loading && !error && (
             <div className="space-y-6">
               {/* Images Gallery */}
-              {venue.images.length > 0 && (
+              {(venue.images.length > 0 || (venue.pendingEdits?.images && venue.pendingEdits.images.length > 0)) && (
                 <div className="bg-white rounded-xl shadow-lg p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">Venue Images</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {venue.images.map((image, index) => (
+                    {/* Show pending images if in pending edit status, otherwise show current images */}
+                    {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images ? venue.pendingEdits.images : venue.images).map((image: any, index: number) => (
                       <div key={index} className="relative group">
-                        <img
+                        <Image
                           src={image.url}
                           alt={image.alt}
+                          width={400}
+                          height={192}
                           className="w-full h-48 object-cover rounded-lg"
                         />
                         {image.isPrimary && (

@@ -177,7 +177,7 @@ export default function FileUpload({
   const getAcceptString = () => {
     if (accept) return accept;
     if (allowedTypes) return allowedTypes.join(',');
-    return uploadType === 'venue' ? 'image/*' : '*/*';
+    return (uploadType === 'venue' || uploadType === 'catering') ? 'image/*' : '*/*';
   };
 
   return (
