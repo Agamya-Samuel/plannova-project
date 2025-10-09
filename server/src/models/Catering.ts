@@ -4,7 +4,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 export enum ApprovalStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
-  REJECTED = 'REJECTED'
+  REJECTED = 'REJECTED',
+  PENDING_EDIT = 'PENDING_EDIT' // New status for pending edits
 }
 
 // Define the Catering interface
@@ -43,6 +44,9 @@ export interface ICatering extends Document {
   rating: number;
   reviewCount: number;
   status: ApprovalStatus;
+  // Add pending edits field for approved services
+  pendingEdits?: Partial<ICatering>;
+  pendingEditSubmittedAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -177,6 +181,14 @@ const CateringSchema: Schema<ICatering> = new Schema({
     type: String,
     enum: Object.values(ApprovalStatus),
     default: ApprovalStatus.PENDING
+  },
+  // Add pending edits field for approved services
+  pendingEdits: {
+    type: Schema.Types.Mixed,
+    default: null
+  },
+  pendingEditSubmittedAt: {
+    type: Date
   },
   isActive: {
     type: Boolean,
