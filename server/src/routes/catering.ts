@@ -27,7 +27,7 @@ const createCateringValidation = [
 router.get('/', async (req: Request, res: Response) => {
   try {
     const caterings = await Catering.find({ 
-      status: ApprovalStatus.APPROVED,
+      status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
       isActive: true 
     })
     .populate('provider', 'firstName lastName email phone')
@@ -163,8 +163,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Catering service not found' });
     }
 
-    // If service is not approved, only provider and staff can view it
-    if (catering.status !== ApprovalStatus.APPROVED) {
+    // Allow viewing of approved and pending edit services
+    if (catering.status !== ApprovalStatus.APPROVED && catering.status !== ApprovalStatus.PENDING_EDIT) {
       // In a real implementation, we would check if the user is the provider or staff
       // For now, we'll return it but in a real app you'd add authentication checks
     }
@@ -237,24 +237,45 @@ router.put('/:id', authenticateToken, createCateringValidation, async (req: Auth
       paymentTerms
     } = req.body;
 
-    // Update the service
-    catering.name = name;
-    catering.description = description;
-    catering.serviceLocation = serviceLocation;
-    catering.contact = contact;
-    catering.images = images || [];
-    catering.cuisineTypes = cuisineTypes;
-    catering.serviceTypes = serviceTypes;
-    catering.dietaryOptions = dietaryOptions || [];
-    catering.addons = addons || [];
-    catering.basePrice = basePrice;
-    catering.minGuests = minGuests;
-    catering.cancellationPolicy = cancellationPolicy;
-    catering.paymentTerms = paymentTerms;
-
-    // If service was approved, set it back to pending for re-approval
+    // For approved services, store edits in pendingEdits instead of directly updating
     if (catering.status === ApprovalStatus.APPROVED) {
-      catering.status = ApprovalStatus.PENDING;
+      // Store the edits in pendingEdits field
+      catering.pendingEdits = {
+        name,
+        description,
+        serviceLocation,
+        contact,
+        images: images || [],
+        cuisineTypes,
+        serviceTypes,
+        dietaryOptions: dietaryOptions || [],
+        addons: addons || [],
+        basePrice,
+        minGuests,
+        cancellationPolicy,
+        paymentTerms,
+        updatedAt: new Date()
+      };
+      catering.pendingEditSubmittedAt = new Date();
+      catering.status = ApprovalStatus.PENDING_EDIT;
+    } else {
+      // Update the service directly for non-approved services (PENDING or PENDING_EDIT)
+      catering.name = name;
+      catering.description = description;
+      catering.serviceLocation = serviceLocation;
+      catering.contact = contact;
+      catering.images = images || [];
+      catering.cuisineTypes = cuisineTypes;
+      catering.serviceTypes = serviceTypes;
+      catering.dietaryOptions = dietaryOptions || [];
+      catering.addons = addons || [];
+      catering.basePrice = basePrice;
+      catering.minGuests = minGuests;
+      catering.cancellationPolicy = cancellationPolicy;
+      catering.paymentTerms = paymentTerms;
+
+      // If service was pending and now has edits, keep it as pending
+      // If it was already in PENDING_EDIT status, keep it that way
     }
 
     await catering.save();
@@ -360,7 +381,7 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
       filter.status = status;
     } else {
       // Default to pending services if no status specified
-      filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED'] };
+      filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED', 'PENDING_EDIT'] };
     }
 
     // Add search functionality
@@ -487,12 +508,19 @@ router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Resp
       isActive: true 
     });
 
+    // Get count of services with pending edits
+    const pendingEditCount = await Catering.countDocuments({ 
+      status: ApprovalStatus.PENDING_EDIT,
+      isActive: true 
+    });
+
     res.json({
       message: 'Catering stats retrieved successfully',
       data: {
         pending: pendingCount,
         approved: approvedCount,
-        rejected: rejectedCount
+        rejected: rejectedCount,
+        pendingEdit: pendingEditCount
       }
     });
   } catch (error) {
@@ -580,6 +608,92 @@ router.put('/:id/reject', authenticateToken, async (req: AuthRequest, res: Respo
   } catch (error) {
     console.error('Error rejecting catering service:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// POST /api/catering/:id/approve-edit - Approve catering service edit (Staff only)
+router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid catering service ID' });
+    }
+
+    const catering = await Catering.findById(id);
+    if (!catering) {
+      return res.status(404).json({ error: 'Catering service not found' });
+    }
+
+    if (catering.status !== ApprovalStatus.PENDING_EDIT) {
+      return res.status(400).json({ error: 'Only catering services with pending edits can be approved' });
+    }
+
+    // Apply the pending edits to the service
+    if (catering.pendingEdits) {
+      // Merge pending edits with the current service data
+      Object.assign(catering, catering.pendingEdits);
+    }
+
+    // Clear pending edits and update status
+    catering.pendingEdits = undefined;
+    catering.pendingEditSubmittedAt = undefined;
+    catering.status = ApprovalStatus.APPROVED;
+    catering.updatedAt = new Date();
+    
+    await catering.save();
+
+    res.json({
+      message: 'Catering service edits approved successfully',
+      data: catering
+    });
+  } catch (error) {
+    console.error('Error approving catering service edits:', error);
+    res.status(500).json({ error: 'Failed to approve catering service edits' });
+  }
+});
+
+// POST /api/catering/:id/reject-edit - Reject catering service edit (Staff only)
+router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid catering service ID' });
+    }
+
+    const catering = await Catering.findById(id);
+    if (!catering) {
+      return res.status(404).json({ error: 'Catering service not found' });
+    }
+
+    if (catering.status !== ApprovalStatus.PENDING_EDIT) {
+      return res.status(400).json({ error: 'Only catering services with pending edits can be rejected' });
+    }
+
+    // Clear pending edits and update status
+    catering.pendingEdits = undefined;
+    catering.pendingEditSubmittedAt = undefined;
+    catering.status = ApprovalStatus.APPROVED; // Revert to approved status
+    catering.updatedAt = new Date();
+    
+    // Store rejection reason
+    console.log(`Catering service ${id} edits rejected. Reason: ${reason}`);
+    
+    await catering.save();
+
+    res.json({
+      message: 'Catering service edits rejected successfully',
+      data: catering
+    });
+  } catch (error) {
+    console.error('Error rejecting catering service edits:', error);
+    res.status(500).json({ error: 'Failed to reject catering service edits' });
   }
 });
 
