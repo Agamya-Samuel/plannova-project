@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
@@ -49,7 +49,8 @@ interface CateringService {
   paymentTerms?: string;
 }
 
-export default function EditCateringServicePage() {
+// Create a separate component for the main content that uses useSearchParams
+function EditCateringServiceContent() {
   const router = useRouter();
   const { user } = useAuth();
   const searchParams = useSearchParams();
@@ -856,6 +857,19 @@ export default function EditCateringServicePage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+// Export the main component wrapped in Suspense
+export default function EditCateringServicePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-pink-600" />
+      </div>
+    }>
+      <EditCateringServiceContent />
+    </Suspense>
   );
 }
 
