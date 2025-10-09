@@ -8,6 +8,16 @@ export enum UserRole {
   ADMIN = 'ADMIN'
 }
 
+// Define service categories
+export type ServiceCategory = 
+  | 'venue'
+  | 'catering'
+  | 'photography'
+  | 'videography'
+  | 'music'
+  | 'makeup'
+  | 'decoration';
+
 // Define the User interface
 export interface IUser extends Document {
   email: string;
@@ -16,6 +26,7 @@ export interface IUser extends Document {
   lastName: string;
   phone?: string;
   role: UserRole | null;
+  serviceCategories?: ServiceCategory[]; // Array of service categories for providers (only one allowed)
   isActive: boolean;
   isVerified: boolean;
   firebaseUid?: string; // Firebase UID for Google Sign-In
@@ -75,6 +86,10 @@ const UserSchema: Schema<IUser> = new Schema({
     default: null, // Allow null for new Google users who haven't selected role yet
     required: false
   },
+  serviceCategories: [{
+    type: String,
+    enum: ['venue', 'catering', 'photography', 'videography', 'music', 'makeup', 'decoration']
+  }],
   isActive: {
     type: Boolean,
     default: true

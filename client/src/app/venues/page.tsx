@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Search, MapPin, Users, Star, Heart, SlidersHorizontal } from 'lucide-react';
+import { Search, MapPin, Users, Star, Heart, SlidersHorizontal, Clock, Edit3 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import apiClient from '../../lib/api';
@@ -14,7 +14,7 @@ interface Venue {
   name: string;
   description: string;
   type: string;
-  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT';
   address: {
     street: string;
     area: string;
@@ -44,6 +44,8 @@ interface Venue {
     lastName: string;
     email: string;
   };
+  // Add pendingEdits field to handle pending edits
+  pendingEdits?: any;
 }
 
 function VenuesContent() {
@@ -356,10 +358,17 @@ function VenuesContent() {
                 >
                   <Heart className={`h-5 w-5 ${favorites.has(venue._id) ? 'fill-current' : ''}`} />
                 </button>
-                <div className="absolute top-4 left-4">
+                <div className="absolute top-4 left-4 flex space-x-2">
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
                     {venue.type}
                   </span>
+                  {/* Show a badge when there are pending edits */}
+                  {venue.status === 'PENDING_EDIT' && (
+                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
+                      <Clock className="h-4 w-4 mr-1" />
+                      Edit Pending
+                    </span>
+                  )}
                 </div>
               </div>
               
@@ -384,12 +393,22 @@ function VenuesContent() {
                 </div>
                 
                 <div className="mb-4">
-                  <p className="text-sm text-gray-600 line-clamp-2">{venue.description}</p>
+                  <p className="text-sm text-gray-600 line-clamp-2">
+                    {/* Show pending description if there are pending edits, otherwise show current description */}
+                    {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.description 
+                      ? venue.pendingEdits.description 
+                      : venue.description}
+                  </p>
                 </div>
                 
                 <div className="flex justify-between items-center">
                   <div>
-                    <span className="text-2xl font-bold text-gray-900">₹{venue.basePrice.toLocaleString()}</span>
+                    <span className="text-2xl font-bold text-gray-900">
+                      {/* Show pending price if there are pending edits, otherwise show current price */}
+                      ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice 
+                        ? venue.pendingEdits.basePrice 
+                        : venue.basePrice).toLocaleString()}
+                    </span>
                     <span className="text-sm text-gray-500 ml-1">per event</span>
                   </div>
                   <Button 

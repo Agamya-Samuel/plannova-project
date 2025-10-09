@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower } from 'lucide-react';
+import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
+import apiClient from '../../lib/api';
 
 interface Vendor {
   id: string;
@@ -19,80 +20,28 @@ interface Vendor {
   isVerified: boolean;
 }
 
-const sampleVendors: Vendor[] = [
-  {
-    id: '1',
-    name: 'Pixel Perfect Photography',
-    category: 'Photography',
-    location: 'Mumbai, Maharashtra',
-    rating: 4.9,
-    reviews: 187,
-    startingPrice: '₹75,000',
-    image: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Pre-Wedding Shoot', 'Wedding Photography', 'Candid Photography'],
-    isVerified: true
-  },
-  {
-    id: '2',
-    name: 'Royal Catering Services',
-    category: 'Catering',
-    location: 'Delhi, NCR',
-    rating: 4.8,
-    reviews: 156,
-    startingPrice: '₹1,200/plate',
-    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Multi-Cuisine', 'Live Counters', 'Dessert Station'],
-    isVerified: true
-  },
-  {
-    id: '3',
-    name: 'Melodic Wedding DJs',
-    category: 'Music & Entertainment',
-    location: 'Bangalore, Karnataka',
-    rating: 4.7,
-    reviews: 94,
-    startingPrice: '₹35,000',
-    image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['DJ Services', 'Sound System', 'Lighting'],
-    isVerified: false
-  },
-  {
-    id: '4',
-    name: 'Blossom Floral Designs',
-    category: 'Decoration',
-    location: 'Mumbai, Maharashtra',
-    rating: 4.8,
-    reviews: 132,
-    startingPrice: '₹50,000',
-    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Floral Arrangements', 'Stage Decoration', 'Mandap Setup'],
-    isVerified: true
-  },
-  {
-    id: '5',
-    name: 'Cinema Wedding Films',
-    category: 'Videography',
-    location: 'Chennai, Tamil Nadu',
-    rating: 4.9,
-    reviews: 78,
-    startingPrice: '₹85,000',
-    image: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Wedding Films', 'Highlights Reel', 'Drone Shots'],
-    isVerified: true
-  },
-  {
-    id: '6',
-    name: 'Spice Route Caterers',
-    category: 'Catering',
-    location: 'Pune, Maharashtra',
-    rating: 4.6,
-    reviews: 203,
-    startingPrice: '₹950/plate',
-    image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Traditional Cuisine', 'Buffet Setup', 'Live Cooking'],
-    isVerified: true
-  }
-];
+// Define the CateringService interface to match the backend model
+interface CateringService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  cuisineTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+}
 
 const categories = [
   { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
@@ -107,6 +56,27 @@ export default function VendorsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [cateringServices, setCateringServices] = useState<CateringService[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Fetch approved catering services
+  useEffect(() => {
+    const fetchCateringServices = async () => {
+      try {
+        setLoading(true);
+        const response = await apiClient.get('/catering');
+        setCateringServices(response.data.data);
+      } catch (err) {
+        console.error('Error fetching catering services:', err);
+        setError('Failed to load catering services');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCateringServices();
+  }, []);
 
   const toggleFavorite = (vendorId: string) => {
     const newFavorites = new Set(favorites);
@@ -118,9 +88,31 @@ export default function VendorsPage() {
     setFavorites(newFavorites);
   };
 
+  // Transform catering services to vendor format for display
+  const cateringVendors: Vendor[] = cateringServices.map(service => ({
+    id: service._id,
+    name: service.name,
+    category: 'Catering',
+    location: `${service.serviceLocation.city}, ${service.serviceLocation.state}`,
+    rating: service.rating,
+    reviews: service.reviewCount,
+    startingPrice: `₹${service.basePrice.toLocaleString()}/plate`,
+    image: service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.cuisineTypes.slice(0, 3),
+    isVerified: true
+  }));
+
   const filteredVendors = selectedCategory === 'All' 
-    ? sampleVendors 
-    : sampleVendors.filter(vendor => vendor.category === selectedCategory);
+    ? cateringVendors 
+    : cateringVendors.filter(vendor => vendor.category === selectedCategory);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-pink-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -291,6 +283,13 @@ export default function VendorsPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <p className="text-red-800">{error}</p>
           </div>
         )}
 

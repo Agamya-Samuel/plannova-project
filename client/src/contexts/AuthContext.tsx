@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '../lib/api';
 import { signInWithGoogle, logout as firebaseLogout } from '../lib/firebase-auth';
-import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole } from '../types/auth';
+import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole, ServiceCategory } from '../types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -110,14 +110,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       // Test API connectivity first
       try {
+        console.log('🔍 Testing API connectivity...');
         const healthCheck = await apiClient.get('/health/db');
         console.log('✅ API connectivity test passed:', healthCheck.data);
-      } catch (connectivityError) {
-        console.error('❌ API connectivity test failed:', connectivityError);
-        throw new Error('Unable to connect to authentication server. Please check if the server is running.');
+      } catch (connectivityError: any) {
+        console.error('❌ API connectivity test failed:', {
+          message: connectivityError.message,
+          status: connectivityError.response?.status,
+          statusText: connectivityError.response?.statusText,
+          data: connectivityError.response?.data
+        });
+        
+        // More specific error messages based on the type of error
+        if (connectivityError.response?.status === 429) {
+          throw new Error('Too many requests. Please wait a moment and try again.');
+        } else if (!connectivityError.response) {
+          throw new Error('Unable to connect to authentication server. Please check if the server is running and accessible.');
+        } else {
+          throw new Error(`Server error (${connectivityError.response?.status}). Please try again later.`);
+        }
       }
       
       // Send to backend for user creation/verification
+      console.log('📡 Sending request to backend /auth/google endpoint...');
       const response = await apiClient.post<LoginResponse>('/auth/google', {
         idToken,
       });
@@ -163,10 +178,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // API errors
         const status = (error as { response?: { status?: number } })?.response?.status;
         const apiError = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
-        
+      
         switch (status) {
           case 401:
             errorMessage = 'Authentication failed. Please try again.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait a moment and try again.';
             break;
           case 500:
             errorMessage = apiError || 'Server error. Please try again later.';
@@ -177,6 +195,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           default:
             errorMessage = apiError || `Request failed with status ${status}`;
         }
+      } else if ((error as Error)?.message?.includes('Network Error')) {
+        // Network errors
+        errorMessage = 'Network error. Please check your connection and ensure the server is running.';
       } else {
         // Network or other errors
         errorMessage = (error as Error)?.message || 'Network error. Please check your connection and try again.';
@@ -201,6 +222,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateServiceCategories = async (serviceCategories: ServiceCategory[]): Promise<void> => {
+    try {
+      // Validate that only one service category is selected
+      if (serviceCategories.length !== 1) {
+        throw new Error('Providers can only select one service category');
+      }
+
+      const response = await apiClient.post('/auth/update-service-categories', {
+        serviceCategories,
+      });
+
+      const { user: updatedUser } = response.data;
+      
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error: unknown) {
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Service categories update failed');
+    }
+  };
+
   const updateProfile = async (data: Partial<User>): Promise<void> => {
     try {
       const response = await apiClient.put('/auth/profile', data);
@@ -222,6 +263,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     googleSignIn,
     updateRole,
+    updateServiceCategories,
     updateProfile,
   };
 
