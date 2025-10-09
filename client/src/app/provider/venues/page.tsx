@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { Button } from '../../../components/ui/button';
@@ -21,9 +22,21 @@ import {
   XCircle, 
   AlertCircle,
   Filter,
-  Search
+  Search,
+  X
 } from 'lucide-react';
 import apiClient from '../../../lib/api';
+import { toast } from 'sonner';
+import { sonnerConfirm } from '../../../lib/sonner-confirm';
+
+interface ApiError extends Error {
+  response?: {
+    data?: {
+      error?: string;
+    };
+    status?: number;
+  };
+}
 
 interface Venue {
   _id: string;
@@ -81,6 +94,8 @@ export default function ProviderVenuesPage() {
     total: 0,
     pages: 0
   });
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   const fetchVenues = async (page = 1, status = 'ALL', search = '') => {
     try {
@@ -112,41 +127,89 @@ export default function ProviderVenuesPage() {
 
   useEffect(() => {
     fetchVenues(currentPage, statusFilter, searchTerm);
-  }, [currentPage, statusFilter]);
+  }, [currentPage, statusFilter, searchTerm]);
 
   const handleSearch = () => {
     setCurrentPage(1);
     fetchVenues(1, statusFilter, searchTerm);
   };
 
+  const handleSearchTermChange = (value: string) => {
+    setSearchTerm(value);
+    
+    // Clear existing timeout
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+    
+    // If search is empty, search immediately
+    if (value.trim() === '') {
+      setCurrentPage(1);
+      fetchVenues(1, statusFilter, '');
+      return;
+    }
+    
+    // Set searching state
+    setIsSearching(true);
+    
+    // Set new timeout for debounced search with shorter delay
+    const timeout = setTimeout(() => {
+      setCurrentPage(1);
+      fetchVenues(1, statusFilter, value.trim()).finally(() => {
+        setIsSearching(false);
+      });
+    }, 300); // Reduced to 300ms for faster response
+    
+    setSearchTimeout(timeout);
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setCurrentPage(1);
+    fetchVenues(1, value, searchTerm);
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchTimeout]);
+
   const handleDeleteVenue = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to delete this venue? This action cannot be undone.')) {
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this venue? This action cannot be undone.');
+    if (!confirmed) {
       return;
     }
 
     try {
       console.log('Deleting venue:', venueId);
       await apiClient.delete(`/venues/${venueId}`);
-      alert('Venue deleted successfully!');
+      toast.success('Venue deleted successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error deleting venue:', err);
       
       let errorMessage = 'Failed to delete venue';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.response?.status === 404) {
+      const apiError = err as ApiError;
+      
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError.response?.status === 404) {
         errorMessage = 'Venue not found';
-      } else if (err.response?.status === 403) {
+      } else if (apiError.response?.status === 403) {
         errorMessage = 'You do not have permission to delete this venue';
       }
       
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
   const handleSubmitForApproval = async (venueId: string) => {
-    if (!window.confirm('Are you sure you want to submit this venue for approval?')) {
+    const confirmed = await sonnerConfirm('Are you sure you want to submit this venue for approval?');
+    if (!confirmed) {
       return;
     }
 
@@ -157,21 +220,23 @@ export default function ProviderVenuesPage() {
       const response = await apiClient.post(`/venues/${venueId}/submit`);
       console.log('Submit response:', response.data);
       
-      alert('Venue submitted for approval successfully!');
+      toast.success('Venue submitted for approval successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting venue:', err);
       
       let errorMessage = 'Failed to submit venue for approval';
-      if (err.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err.response?.status === 404) {
+      const apiError = err as ApiError;
+      
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      } else if (apiError.response?.status === 404) {
         errorMessage = 'Venue not found or submit endpoint not available';
-      } else if (err.response?.status === 400) {
+      } else if (apiError.response?.status === 400) {
         errorMessage = 'Invalid venue data for submission';
       }
       
-      alert(errorMessage);
+      toast.error(errorMessage);
     }
   };
 
@@ -249,12 +314,24 @@ export default function ProviderVenuesPage() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                     <input
                       type="text"
-                      placeholder="Search venues..."
+                      placeholder="Search by venue name, location, or description..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => handleSearchTermChange(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900 placeholder-gray-500"
                     />
+                    {searchTerm && (
+                      <button
+                        onClick={() => handleSearchTermChange('')}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {isSearching ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-400"></div>
+                        ) : (
+                          <X className="h-4 w-4" />
+                        )}
+                      </button>
+                    )}
                   </div>
                 </div>
                 
@@ -263,7 +340,7 @@ export default function ProviderVenuesPage() {
                   <Filter className="h-5 w-5 text-gray-400" />
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(e) => handleStatusFilterChange(e.target.value)}
                     className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
                   >
                     <option value="ALL">All Status</option>
@@ -275,12 +352,28 @@ export default function ProviderVenuesPage() {
                   </select>
                 </div>
                 
-                <Button
-                  onClick={handleSearch}
-                  className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-xl"
-                >
-                  Search
-                </Button>
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={handleSearch}
+                    className="bg-pink-600 hover:bg-pink-700 text-white px-6 py-3 rounded-xl"
+                  >
+                    Search
+                  </Button>
+                  {(searchTerm || statusFilter !== 'ALL') && (
+                    <Button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setStatusFilter('ALL');
+                        setCurrentPage(1);
+                        fetchVenues(1, 'ALL', '');
+                      }}
+                      variant="outline"
+                      className="px-6 py-3 rounded-xl border-gray-200 hover:bg-gray-50"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -299,6 +392,33 @@ export default function ProviderVenuesPage() {
             </div>
           )}
 
+          {/* Search Results Info */}
+          {!loading && !error && (searchTerm || statusFilter !== 'ALL') && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Search className="h-5 w-5 text-blue-600" />
+                  <span className="text-blue-800 font-medium">
+                    {venues.length} venue{venues.length !== 1 ? 's' : ''} found
+                    {searchTerm && ` for "${searchTerm}"`}
+                    {statusFilter !== 'ALL' && ` with status "${statusFilter}"`}
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setStatusFilter('ALL');
+                    setCurrentPage(1);
+                    fetchVenues(1, 'ALL', '');
+                  }}
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  Clear filters
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Venues Grid */}
           {!loading && !error && (
             <div className="space-y-6">
@@ -311,8 +431,12 @@ export default function ProviderVenuesPage() {
                     No venues found
                   </h3>
                   <p className="text-gray-600 mb-6">
-                    {statusFilter !== 'ALL' || searchTerm 
-                      ? 'No venues match your current filters.'
+                    {searchTerm && statusFilter !== 'ALL'
+                      ? `No venues found matching "${searchTerm}" with status "${statusFilter}".`
+                      : searchTerm
+                      ? `No venues found matching "${searchTerm}".`
+                      : statusFilter !== 'ALL'
+                      ? `No venues found with status "${statusFilter}".`
                       : "You haven't created any venues yet."}
                   </p>
                   {statusFilter === 'ALL' && !searchTerm && (
@@ -333,9 +457,11 @@ export default function ProviderVenuesPage() {
                         <div className="md:w-1/3">
                           <div className="h-64 md:h-full">
                             {venue.images.length > 0 ? (
-                              <img
+                              <Image
                                 src={venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url}
                                 alt={venue.name}
+                                width={800}
+                                height={600}
                                 className="w-full h-full object-cover"
                               />
                             ) : (

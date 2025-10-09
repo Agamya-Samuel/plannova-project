@@ -16,7 +16,8 @@ export enum VenueStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
   REJECTED = 'REJECTED',
-  SUSPENDED = 'SUSPENDED'
+  SUSPENDED = 'SUSPENDED',
+  PENDING_EDIT = 'PENDING_EDIT' // New status for pending edits
 }
 
 // Interface for Food Options
@@ -151,6 +152,10 @@ export interface IVenue extends Document {
   reviews: IReview[];
   averageRating: number;
   totalReviews: number;
+  
+  // Pending edits for approved venues
+  pendingEdits?: Partial<IVenue>; // Store pending edits for approved venues
+  pendingEditSubmittedAt?: Date; // When the pending edit was submitted
   
   // Metadata
   isActive: boolean;
@@ -320,6 +325,15 @@ const VenueSchema: Schema<IVenue> = new Schema({
     type: Number,
     default: 0,
     min: 0
+  },
+  
+  // Pending edits for approved venues
+  pendingEdits: {
+    type: Schema.Types.Mixed,
+    default: null
+  },
+  pendingEditSubmittedAt: {
+    type: Date
   },
   
   // Metadata

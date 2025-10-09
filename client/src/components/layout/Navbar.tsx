@@ -2,11 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../ui/button';
 import { UserRole } from '../../types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut } from 'lucide-react';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
 import ProfileImage from '../ui/ProfileImage';
 
 interface NavItem {
@@ -22,16 +22,20 @@ const navItems: NavItem[] = [
   { label: 'Photos', href: '/photos', icon: <Camera className="h-4 w-4" /> },
   { label: 'Real Weddings', href: '/real-weddings', icon: <Heart className="h-4 w-4" /> },
   { label: 'My Bookings', href: '/bookings', roles: ['CUSTOMER'], icon: <Calendar className="h-4 w-4" /> },
-  { label: 'My Venues', href: '/provider/venues', roles: ['PROVIDER'], icon: <Settings className="h-4 w-4" /> },
+  // My Service dropdown will be added dynamically for providers
+  { label: 'Approvals', href: '/staff/approvals', roles: ['STAFF'], icon: <CheckCircle className="h-4 w-4" /> },
   { label: 'Admin Panel', href: '/admin', roles: ['ADMIN'], icon: <Settings className="h-4 w-4" /> },
 ];
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isServicesOpen, setIsServicesOpen] = useState(false);
   const { user, isAuthenticated, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const profileRef = useRef<HTMLDivElement>(null);
+  const servicesRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     logout();
@@ -39,11 +43,14 @@ export default function Navbar() {
     setIsProfileOpen(false);
   };
 
-  // Close profile dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
         setIsProfileOpen(false);
+      }
+      if (servicesRef.current && !servicesRef.current.contains(event.target as Node)) {
+        setIsServicesOpen(false);
       }
     }
 
@@ -58,6 +65,36 @@ export default function Navbar() {
     if (!isAuthenticated) return false;
     return item.roles.includes(user?.role as UserRole);
   });
+
+  // Add service navigation item for providers
+  const allNavItems = [...filteredNavItems];
+  if (user?.role === 'PROVIDER') {
+    // Insert the My Service dropdown at the correct position
+    allNavItems.splice(5, 0, { 
+      label: 'My Service', 
+      href: '#', 
+      roles: ['PROVIDER'], 
+      icon: <Settings className="h-4 w-4" /> 
+    });
+  }
+
+  const isActiveRoute = (href: string) => {
+    if (href === '/provider/venues') {
+      return pathname.startsWith('/provider/venues');
+    }
+    return pathname === href;
+  };
+
+  // Service options for the dropdown
+  const serviceOptions = [
+    { id: 'venue', name: 'Venue Service', icon: <MapPin className="h-4 w-4" />, path: '/provider/venues' },
+    { id: 'catering', name: 'Catering Service', icon: <Utensils className="h-4 w-4" />, path: '/provider/catering' },
+    { id: 'photography', name: 'Photography Service', icon: <Camera className="h-4 w-4" />, path: '/provider/photography' },
+    { id: 'videography', name: 'Videography Service', icon: <Video className="h-4 w-4" />, path: '/provider/videography' },
+    { id: 'makeup', name: 'Bridal Makeup Service', icon: <Heart className="h-4 w-4" />, path: '/provider/beauty' },
+    { id: 'decoration', name: 'Decoration Service', icon: <Flower className="h-4 w-4" />, path: '/provider/decoration' },
+    { id: 'music', name: 'Music & Entertainment Service', icon: <Music className="h-4 w-4" />, path: '/provider/entertainment' },
+  ];
 
   return (
     <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
@@ -78,16 +115,65 @@ export default function Navbar() {
             
             {/* Desktop Navigation */}
             <div className="hidden lg:ml-8 lg:flex lg:space-x-1">
-              {filteredNavItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="flex items-center space-x-1 text-gray-700 hover:text-pink-600 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 hover:bg-pink-50"
-                >
-                  {item.icon}
-                  <span>{item.label}</span>
-                </Link>
-              ))}
+              {allNavItems.map((item, index) => {
+                // Special handling for the My Service dropdown
+                if (item.label === 'My Service' && user?.role === 'PROVIDER') {
+                  return (
+                    <div key={index} className="relative" ref={servicesRef}>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setIsServicesOpen(!isServicesOpen);
+                        }}
+                        className="flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 text-gray-700 hover:text-pink-600 hover:bg-pink-50"
+                      >
+                        {item.icon}
+                        <span>{item.label}</span>
+                        <ChevronDown className={`h-4 w-4 transition-transform ${isServicesOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {isServicesOpen && (
+                        <div className="absolute left-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50">
+                          <div className="px-4 py-2 border-b border-gray-100">
+                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Select a service</p>
+                          </div>
+                          <div className="max-h-96 overflow-y-auto">
+                            {serviceOptions.map((service) => (
+                              <Link
+                                key={service.id}
+                                href={service.path}
+                                className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                                onClick={() => setIsServicesOpen(false)}
+                              >
+                                <div className="flex items-center space-x-3">
+                                  {service.icon}
+                                  <span>{service.name}</span>
+                                </div>
+                              </Link>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                const isActive = isActiveRoute(item.href);
+                return (
+                  <Link
+                    key={index}
+                    href={item.href}
+                    className={`flex items-center space-x-1 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                      isActive
+                        ? 'text-pink-600 bg-pink-50 border-b-2 border-pink-600'
+                        : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
 
@@ -256,17 +342,66 @@ export default function Navbar() {
             />
           </div>
           
-          {filteredNavItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="flex items-center space-x-3 text-gray-700 hover:text-pink-600 block px-4 py-3 rounded-xl font-medium hover:bg-pink-50 transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              {item.icon}
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {allNavItems.map((item, index) => {
+            // Special handling for the My Service dropdown on mobile
+            if (item.label === 'My Service' && user?.role === 'PROVIDER') {
+              return (
+                <div key={index}>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setIsServicesOpen(!isServicesOpen);
+                    }}
+                    className="flex items-center justify-between w-full px-4 py-3 rounded-xl font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50 transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      {item.icon}
+                      <span>{item.label}</span>
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isServicesOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {isServicesOpen && (
+                    <div className="pl-8 pr-4 py-2 space-y-1">
+                      {serviceOptions.map((service) => (
+                        <Link
+                          key={service.id}
+                          href={service.path}
+                          className="block px-4 py-2 rounded-lg text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                          onClick={() => {
+                            setIsServicesOpen(false);
+                            setIsOpen(false);
+                          }}
+                        >
+                          <div className="flex items-center space-x-3">
+                            {service.icon}
+                            <span>{service.name}</span>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+
+            const isActive = isActiveRoute(item.href);
+            return (
+              <Link
+                key={index}
+                href={item.href}
+                className={`flex items-center space-x-3 block px-4 py-3 rounded-xl font-medium transition-colors ${
+                  isActive
+                    ? 'text-pink-600 bg-pink-50 border-l-4 border-pink-600'
+                    : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'
+                }`}
+                onClick={() => setIsOpen(false)}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
           
           {isAuthenticated ? (
             <div className="border-t border-gray-200 pt-4 mt-4">

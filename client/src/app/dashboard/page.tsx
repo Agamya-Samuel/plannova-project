@@ -1,9 +1,11 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../contexts/AuthContext';
 import ProtectedRoute from '../../components/auth/ProtectedRoute';
-import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle } from 'lucide-react';
+import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -34,14 +36,16 @@ export default function DashboardPage() {
                     Welcome back, {user?.firstName}! 👋
                   </h1>
                   <p className="text-pink-100 text-lg">
-                    {getRoleMessage(user?.role)}
+                    {getRoleMessage(user?.role || undefined)}
                   </p>
                 </div>
                 <div className="hidden md:block">
                   {user?.photoURL ? (
-                    <img
+                    <Image
                       src={user.photoURL}
                       alt={`${user.firstName} ${user.lastName}`}
+                      width={80}
+                      height={80}
                       className="w-20 h-20 rounded-full border-4 border-white/30 object-cover shadow-lg"
                       onError={(e) => {
                         console.log('Dashboard profile image failed to load:', user.photoURL);
@@ -74,7 +78,7 @@ function getRoleMessage(role?: string) {
     case 'CUSTOMER':
       return "Let's find the perfect venue for your dream wedding";
     case 'PROVIDER':
-      return "Manage your venues and connect with couples";
+      return "Manage your service offerings and connect with couples";
     case 'ADMIN':
       return "Oversee the platform and support our community";
     default:
@@ -144,6 +148,27 @@ function CustomerDashboard() {
 }
 
 function ProviderDashboard() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  // Redirect to onboarding if provider hasn't selected service categories yet
+  useEffect(() => {
+    if (user?.role === 'PROVIDER' && (!user.serviceCategories || user.serviceCategories.length === 0)) {
+      router.push('/provider/onboarding');
+    }
+  }, [user, router]);
+
+  // If user hasn't completed onboarding, show nothing while redirecting
+  if (user?.role === 'PROVIDER' && (!user.serviceCategories || user.serviceCategories.length === 0)) {
+    return null;
+  }
+
+  // If user has a service category selected, show the relevant dashboard
+  if (user?.role === 'PROVIDER' && user.serviceCategories && user.serviceCategories.length > 0) {
+    const selectedService = user.serviceCategories[0]; // Only one service category allowed
+    return <ServiceSpecificDashboard serviceType={selectedService} />;
+  }
+
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
@@ -270,6 +295,532 @@ function ProviderDashboard() {
           color="gray"
         />
       </div>
+    </div>
+  );
+}
+
+function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
+  const getServiceDashboard = () => {
+    switch (serviceType) {
+      case 'venue':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="My Venues"
+              description="Manage your wedding venues and listings"
+              icon={<MapPin className="h-8 w-8 text-pink-600" />}
+              action="Manage Venues"
+              href="/provider/venues"
+              stats="3 Active"
+              color="pink"
+            />
+            <DashboardCard
+              title="Venue Bookings"
+              description="View and manage incoming booking requests"
+              icon={<Calendar className="h-8 w-8 text-purple-600" />}
+              action="View Bookings"
+              href="/provider/bookings"
+              stats="8 Pending"
+              color="purple"
+            />
+            <DashboardCard
+              title="Venue Calendar"
+              description="Check availability and schedule events"
+              icon={<Calendar className="h-8 w-8 text-blue-600" />}
+              action="View Calendar"
+              href="/provider/calendar"
+              stats="Next: Tomorrow"
+              color="blue"
+            />
+            <DashboardCard
+              title="Venue Analytics"
+              description="Track your venue performance and bookings"
+              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
+              action="View Analytics"
+              href="/provider/analytics"
+              stats="+18% Growth"
+              color="green"
+            />
+            <DashboardCard
+              title="Venue Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/messages"
+              stats="5 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Venue Settings"
+              description="Manage your business profile and settings"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/settings"
+              stats="Profile 90%"
+              color="gray"
+            />
+          </div>
+        );
+      case 'catering':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="Catering Services"
+              description="Manage your catering packages and menus"
+              icon={<Utensils className="h-8 w-8 text-blue-600" />}
+              action="Manage Catering"
+              href="/provider/catering"
+              stats="5 Packages"
+              color="blue"
+            />
+            <DashboardCard
+              title="Catering Bookings"
+              description="View and manage catering booking requests"
+              icon={<Calendar className="h-8 w-8 text-purple-600" />}
+              action="View Bookings"
+              href="/provider/catering/bookings"
+              stats="3 Pending"
+              color="purple"
+            />
+            <DashboardCard
+              title="Catering Menu"
+              description="Create and manage your catering menus"
+              icon={<Utensils className="h-8 w-8 text-green-600" />}
+              action="Manage Menus"
+              href="/provider/catering/menus"
+              stats="12 Items"
+              color="green"
+            />
+            <DashboardCard
+              title="Catering Analytics"
+              description="Track your catering performance and revenue"
+              icon={<BarChart3 className="h-8 w-8 text-yellow-600" />}
+              action="View Analytics"
+              href="/provider/catering/analytics"
+              stats="+12% Growth"
+              color="yellow"
+            />
+            <DashboardCard
+              title="Catering Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/catering/messages"
+              stats="2 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Catering Settings"
+              description="Manage your catering business profile"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/catering/settings"
+              stats="Profile 85%"
+              color="gray"
+            />
+          </div>
+        );
+      case 'photography':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="Photography Services"
+              description="Manage your photography packages and portfolio"
+              icon={<Camera className="h-8 w-8 text-purple-600" />}
+              action="Manage Photography"
+              href="/provider/photography"
+              stats="15 Packages"
+              color="purple"
+            />
+            <DashboardCard
+              title="Photography Bookings"
+              description="View and manage photography booking requests"
+              icon={<Calendar className="h-8 w-8 text-pink-600" />}
+              action="View Bookings"
+              href="/provider/photography/bookings"
+              stats="4 Pending"
+              color="pink"
+            />
+            <DashboardCard
+              title="Photo Gallery"
+              description="Manage your photography portfolio and galleries"
+              icon={<Camera className="h-8 w-8 text-blue-600" />}
+              action="Manage Gallery"
+              href="/provider/photography/gallery"
+              stats="42 Photos"
+              color="blue"
+            />
+            <DashboardCard
+              title="Photography Analytics"
+              description="Track your photography performance and revenue"
+              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
+              action="View Analytics"
+              href="/provider/photography/analytics"
+              stats="+8% Growth"
+              color="green"
+            />
+            <DashboardCard
+              title="Photography Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/photography/messages"
+              stats="3 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Photography Settings"
+              description="Manage your photography business profile"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/photography/settings"
+              stats="Profile 92%"
+              color="gray"
+            />
+          </div>
+        );
+      case 'videography':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="Videography Services"
+              description="Manage your videography packages and portfolio"
+              icon={<Video className="h-8 w-8 text-blue-600" />}
+              action="Manage Videography"
+              href="/provider/videography"
+              stats="8 Packages"
+              color="blue"
+            />
+            <DashboardCard
+              title="Videography Bookings"
+              description="View and manage videography booking requests"
+              icon={<Calendar className="h-8 w-8 text-purple-600" />}
+              action="View Bookings"
+              href="/provider/videography/bookings"
+              stats="2 Pending"
+              color="purple"
+            />
+            <DashboardCard
+              title="Video Gallery"
+              description="Manage your videography portfolio and reels"
+              icon={<Video className="h-8 w-8 text-pink-600" />}
+              action="Manage Gallery"
+              href="/provider/videography/gallery"
+              stats="18 Videos"
+              color="pink"
+            />
+            <DashboardCard
+              title="Videography Analytics"
+              description="Track your videography performance and revenue"
+              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
+              action="View Analytics"
+              href="/provider/videography/analytics"
+              stats="+15% Growth"
+              color="green"
+            />
+            <DashboardCard
+              title="Videography Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/videography/messages"
+              stats="1 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Videography Settings"
+              description="Manage your videography business profile"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/videography/settings"
+              stats="Profile 78%"
+              color="gray"
+            />
+          </div>
+        );
+      case 'music':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="Entertainment Services"
+              description="Manage your music and entertainment packages"
+              icon={<Music className="h-8 w-8 text-green-600" />}
+              action="Manage Entertainment"
+              href="/provider/entertainment"
+              stats="7 Packages"
+              color="green"
+            />
+            <DashboardCard
+              title="Entertainment Bookings"
+              description="View and manage entertainment booking requests"
+              icon={<Calendar className="h-8 w-8 text-blue-600" />}
+              action="View Bookings"
+              href="/provider/entertainment/bookings"
+              stats="5 Pending"
+              color="blue"
+            />
+            <DashboardCard
+              title="Performance Portfolio"
+              description="Manage your performance portfolio and demos"
+              icon={<Music className="h-8 w-8 text-purple-600" />}
+              action="Manage Portfolio"
+              href="/provider/entertainment/portfolio"
+              stats="12 Demos"
+              color="purple"
+            />
+            <DashboardCard
+              title="Entertainment Analytics"
+              description="Track your entertainment performance and revenue"
+              icon={<BarChart3 className="h-8 w-8 text-yellow-600" />}
+              action="View Analytics"
+              href="/provider/entertainment/analytics"
+              stats="+22% Growth"
+              color="yellow"
+            />
+            <DashboardCard
+              title="Entertainment Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/entertainment/messages"
+              stats="4 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Entertainment Settings"
+              description="Manage your entertainment business profile"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/entertainment/settings"
+              stats="Profile 88%"
+              color="gray"
+            />
+          </div>
+        );
+      case 'makeup':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="Beauty Services"
+              description="Manage your makeup and beauty packages"
+              icon={<Heart className="h-8 w-8 text-red-500" />}
+              action="Manage Beauty"
+              href="/provider/beauty"
+              stats="7 Packages"
+              color="red"
+            />
+            <DashboardCard
+              title="Beauty Bookings"
+              description="View and manage beauty booking requests"
+              icon={<Calendar className="h-8 w-8 text-pink-600" />}
+              action="View Bookings"
+              href="/provider/beauty/bookings"
+              stats="6 Pending"
+              color="pink"
+            />
+            <DashboardCard
+              title="Beauty Portfolio"
+              description="Manage your beauty portfolio and looks"
+              icon={<Heart className="h-8 w-8 text-purple-600" />}
+              action="Manage Portfolio"
+              href="/provider/beauty/portfolio"
+              stats="24 Looks"
+              color="purple"
+            />
+            <DashboardCard
+              title="Beauty Analytics"
+              description="Track your beauty performance and revenue"
+              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
+              action="View Analytics"
+              href="/provider/beauty/analytics"
+              stats="+14% Growth"
+              color="green"
+            />
+            <DashboardCard
+              title="Beauty Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/beauty/messages"
+              stats="3 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Beauty Settings"
+              description="Manage your beauty business profile"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/beauty/settings"
+              stats="Profile 95%"
+              color="gray"
+            />
+          </div>
+        );
+      case 'decoration':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="Decoration Services"
+              description="Manage your decoration and floral packages"
+              icon={<Flower className="h-8 w-8 text-pink-500" />}
+              action="Manage Decoration"
+              href="/provider/decoration"
+              stats="9 Packages"
+              color="pink"
+            />
+            <DashboardCard
+              title="Decoration Bookings"
+              description="View and manage decoration booking requests"
+              icon={<Calendar className="h-8 w-8 text-green-600" />}
+              action="View Bookings"
+              href="/provider/decoration/bookings"
+              stats="4 Pending"
+              color="green"
+            />
+            <DashboardCard
+              title="Decoration Gallery"
+              description="Manage your decoration portfolio and designs"
+              icon={<Flower className="h-8 w-8 text-purple-600" />}
+              action="Manage Gallery"
+              href="/provider/decoration/gallery"
+              stats="31 Designs"
+              color="purple"
+            />
+            <DashboardCard
+              title="Decoration Analytics"
+              description="Track your decoration performance and revenue"
+              icon={<BarChart3 className="h-8 w-8 text-blue-600" />}
+              action="View Analytics"
+              href="/provider/decoration/analytics"
+              stats="+11% Growth"
+              color="blue"
+            />
+            <DashboardCard
+              title="Decoration Messages"
+              description="Communicate with potential customers"
+              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
+              action="View Messages"
+              href="/provider/decoration/messages"
+              stats="2 New"
+              color="orange"
+            />
+            <DashboardCard
+              title="Decoration Settings"
+              description="Manage your decoration business profile"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Settings"
+              href="/provider/decoration/settings"
+              stats="Profile 82%"
+              color="gray"
+            />
+          </div>
+        );
+      default:
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <DashboardCard
+              title="My Services"
+              description="Manage your service offerings"
+              icon={<Settings className="h-8 w-8 text-gray-600" />}
+              action="Manage Services"
+              href="/provider/services"
+              stats="Configure"
+              color="gray"
+            />
+            <DashboardCard
+              title="Service Bookings"
+              description="View and manage booking requests"
+              icon={<Calendar className="h-8 w-8 text-blue-600" />}
+              action="View Bookings"
+              href="/provider/bookings"
+              stats="Pending"
+              color="blue"
+            />
+            <DashboardCard
+              title="Service Settings"
+              description="Manage your business profile"
+              icon={<Settings className="h-8 w-8 text-purple-600" />}
+              action="Settings"
+              href="/provider/settings"
+              stats="Profile"
+              color="purple"
+            />
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-xl p-6 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
+              <p className="text-3xl font-bold text-gray-900">24</p>
+              <p className="text-sm text-green-600 flex items-center mt-1">
+                <TrendingUp className="h-4 w-4 mr-1" />
+                +12% this month
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+              <Calendar className="h-6 w-6 text-pink-600" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl p-6 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Revenue</p>
+              <p className="text-3xl font-bold text-gray-900">₹8.4L</p>
+              <p className="text-sm text-green-600 flex items-center mt-1">
+                <TrendingUp className="h-4 w-4 mr-1" />
+                +18% this month
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <BarChart3 className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl p-6 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
+              <p className="text-3xl font-bold text-gray-900">4.8</p>
+              <p className="text-sm text-blue-600 flex items-center mt-1">
+                <Star className="h-4 w-4 mr-1" />
+                156 reviews
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+              <Star className="h-6 w-6 text-yellow-600" />
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white rounded-xl p-6 shadow-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600 mb-1">Response Time</p>
+              <p className="text-3xl font-bold text-gray-900">2h</p>
+              <p className="text-sm text-purple-600 flex items-center mt-1">
+                <Clock className="h-4 w-4 mr-1" />
+                Very Good
+              </p>
+            </div>
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <Clock className="h-6 w-6 text-purple-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Service-specific cards */}
+      {getServiceDashboard()}
     </div>
   );
 }

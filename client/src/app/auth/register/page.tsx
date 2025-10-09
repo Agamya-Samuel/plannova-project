@@ -12,6 +12,7 @@ import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
 import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
 import { Heart, User, Mail, Lock, Phone, Users, Eye, EyeOff } from 'lucide-react';
 import { UserRole } from '../../../types/auth';
+import { toast } from 'sonner';
 
 const registerSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -57,9 +58,11 @@ export default function RegisterPage() {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { confirmPassword, ...registrationData } = data;
       await registerUser(registrationData);
+      toast.success('Welcome! Your account has been successfully created.');
       router.push('/dashboard');
     } catch (err: unknown) {
       setError((err as Error).message);
+      toast.error('Registration failed. Please check your information and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -70,10 +73,12 @@ export default function RegisterPage() {
     try {
       await updateRole(role);
       setShowRoleSelection(false);
+      toast.success(`Role successfully set to ${role.toLowerCase()}.`);
       router.push('/dashboard');
     } catch (error) {
       console.error('Role update error:', error);
       setError('Failed to update role. Please try again.');
+      toast.error('Failed to update role. Please try again.');
     } finally {
       setIsRoleUpdateLoading(false);
     }
@@ -333,6 +338,7 @@ export default function RegisterPage() {
               <GoogleSignInButton
                 onSuccess={() => {
                   console.log('Google sign-in successful');
+                  toast.success('Welcome! Your account has been successfully created with Google.');
                   router.push('/dashboard');
                 }}
                 onRoleSelectionNeeded={() => {

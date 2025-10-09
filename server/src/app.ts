@@ -6,7 +6,10 @@ import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import venueRoutes from "./routes/venues.js";
+import adminRoutes from "./routes/admin.js";
 import uploadRoutes from "./routes/upload.js";
+import bookingRoutes from "./routes/bookings.js";
+import cateringRoutes from "./routes/catering.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -37,10 +40,16 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
-// Rate limiting
+// Rate limiting - more lenient in development
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: process.env.NODE_ENV === 'development' ? 60 * 1000 : 15 * 60 * 1000, // 1 minute in dev, 15 minutes in prod
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 1000 requests in dev, 100 in prod
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
@@ -51,7 +60,10 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/venues", venueRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/catering", cateringRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {

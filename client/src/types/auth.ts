@@ -1,4 +1,13 @@
-export type UserRole = 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
+export type UserRole = 'CUSTOMER' | 'PROVIDER' | 'STAFF' | 'ADMIN';
+
+export type ServiceCategory = 
+  | 'venue'
+  | 'catering'
+  | 'photography'
+  | 'videography'
+  | 'music'
+  | 'makeup'
+  | 'decoration';
 
 export interface User {
   id: string;
@@ -7,10 +16,12 @@ export interface User {
   lastName: string;
   phone?: string;
   role: UserRole | null; // Allow null for new Google users who haven't selected role
+  serviceCategories?: ServiceCategory[]; // Array of service categories for providers (only one allowed)
   isActive: boolean;
   isVerified: boolean;
   photoURL?: string;
   provider?: string;
+  favorites?: string[]; // Array of favorite venue IDs
   createdAt: string;
   updatedAt: string;
 }
@@ -24,6 +35,7 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   googleSignIn: () => Promise<{ needsRoleSelection?: boolean }>;
   updateRole: (role: UserRole) => Promise<void>;
+  updateServiceCategories: (serviceCategories: ServiceCategory[]) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
 

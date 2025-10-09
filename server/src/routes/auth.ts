@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import User, { UserRole, IUser } from '../models/User.js';
+import User, { UserRole, ServiceCategory, IUser } from '../models/User.js';
 import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { adminAuth } from '../firebase-admin.js';
@@ -59,6 +59,7 @@ router.post('/register', registerValidation, async (req: Request, res: Response)
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isActive: user.isActive,
@@ -117,11 +118,13 @@ router.post('/login', loginValidation, async (req: Request, res: Response) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isActive: user.isActive,
       isVerified: user.isVerified,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     res.json({
@@ -156,6 +159,7 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
       lastName: user.lastName,
       phone: user.phone,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       isActive: user.isActive,
       isVerified: user.isVerified,
       photoURL: user.photoURL,
@@ -202,6 +206,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       lastName: updatedUser.lastName,
       phone: updatedUser.phone,
       role: updatedUser.role,
+      serviceCategories: updatedUser.serviceCategories,
       updatedAt: updatedUser.updatedAt,
     };
 
@@ -286,6 +291,7 @@ router.post('/google', async (req: Request, res: Response) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isVerified: user.isVerified,
@@ -293,7 +299,6 @@ router.post('/google', async (req: Request, res: Response) => {
     };
 
     console.log('🚀 Google Sign-In - Sending response with user data:', userData);
-
     // Check if user needs to select a role
     const needsRoleSelection = user.role === null;
 
@@ -345,6 +350,7 @@ router.post('/update-role', authenticateToken, async (req: AuthRequest, res: Res
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isVerified: user.isVerified,
@@ -357,6 +363,71 @@ router.post('/update-role', authenticateToken, async (req: AuthRequest, res: Res
     });
   } catch (error) {
     console.error('Role update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update service categories for providers
+router.post('/update-service-categories', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { serviceCategories } = req.body;
+
+    // Validate service categories
+    if (!serviceCategories || !Array.isArray(serviceCategories)) {
+      return res.status(400).json({ error: 'Service categories are required' });
+    }
+
+    // Ensure only one service category is selected (as per requirements)
+    if (serviceCategories.length !== 1) {
+      return res.status(400).json({ error: 'Providers can only select one service category' });
+    }
+
+    const validCategories: ServiceCategory[] = ['venue', 'catering', 'photography', 'videography', 'music', 'makeup', 'decoration'];
+    const selectedCategory = serviceCategories[0];
+
+    if (!validCategories.includes(selectedCategory as ServiceCategory)) {
+      return res.status(400).json({ error: 'Invalid service category provided' });
+    }
+
+    // Find and update user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user is a provider
+    if (user.role !== UserRole.PROVIDER) {
+      return res.status(403).json({ error: 'Only providers can set service categories' });
+    }
+
+    // Update the service categories (only one allowed)
+    user.serviceCategories = [selectedCategory as ServiceCategory];
+    await user.save();
+
+    // Return updated user data
+    const userData = {
+      id: (user._id as Types.ObjectId).toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      serviceCategories: user.serviceCategories,
+      photoURL: user.photoURL,
+      provider: user.provider,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+    };
+
+    res.json({
+      message: 'Service categories updated successfully',
+      user: userData,
+    });
+  } catch (error) {
+    console.error('Service categories update error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
