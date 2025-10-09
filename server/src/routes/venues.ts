@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult, query } from 'express-validator';
 import { Types } from 'mongoose';
 import Venue, { VenueType, VenueStatus, IVenue } from '../models/Venue.js';
-import User from '../models/User.js';
+import User, { UserRole } from '../models/User.js';
 import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { extractS3Key, getS3Url } from '../utils/s3.js';
 import { deleteFromS3, bulkDeleteFromS3 } from '../services/uploadService.js';
@@ -53,10 +53,10 @@ router.get('/', async (req: Request, res: Response) => {
       sortOrder = 'desc'
     } = req.query;
 
-    // Build filter object
+    // Build filter object to include both approved venues and venues with pending edits
     const filter: any = {
-      status: VenueStatus.APPROVED,
-      isActive: true
+      isActive: true,
+      status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] }
     };
 
     if (city) {
@@ -195,7 +195,7 @@ router.get('/favorites', authenticateToken, async (req: AuthRequest, res: Respon
     const user = await User.findById(userId).populate({
       path: 'favorites',
       match: { 
-        status: VenueStatus.APPROVED,
+        status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] },
         isActive: true
       },
       select: '-reviews' // Exclude reviews for performance
@@ -222,7 +222,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const venue = await Venue.findOne({
       _id: req.params.id,
-      status: VenueStatus.APPROVED,
+      status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] },
       isActive: true
     }).populate('providerId', 'firstName lastName email phone');
 
@@ -285,20 +285,41 @@ router.put('/:id', authenticateToken, requireProvider, updateVenueValidation, as
       return res.status(404).json({ error: 'Venue not found or unauthorized' });
     }
 
-    // Don't allow updates if venue is approved (except for specific fields)
+    // For approved venues, store edits in pendingEdits instead of directly updating
     if (venue.status === VenueStatus.APPROVED) {
-      const allowedFields = ['description', 'contact', 'basePrice', 'pricePerGuest', 'availability', 'foodOptions', 'decorationOptions', 'addonServices'];
-      const updatedFields = Object.keys(req.body);
-      const restrictedFields = updatedFields.filter(field => !allowedFields.includes(field));
+      // Preserve existing images if not provided in the update
+      let pendingEdits = {
+        ...req.body,
+        updatedAt: new Date()
+      };
       
-      if (restrictedFields.length > 0) {
-        return res.status(400).json({ 
-          error: 'Cannot modify restricted fields for approved venues',
-          restrictedFields 
-        });
+      // If images are not provided in the request, preserve existing images
+      if (!req.body.images && venue.images) {
+        pendingEdits.images = venue.images;
       }
+      
+      // Store the edits in pendingEdits field
+      venue.pendingEdits = {
+        ...venue.pendingEdits,
+        ...pendingEdits
+      };
+      venue.pendingEditSubmittedAt = new Date();
+      venue.status = VenueStatus.PENDING_EDIT;
+      
+      await venue.save();
+      
+      return res.json({
+        message: 'Venue edits submitted for approval',
+        venue: {
+          _id: venue._id,
+          name: venue.name,
+          status: venue.status,
+          pendingEdits: venue.pendingEdits
+        }
+      });
     }
 
+    // For non-approved venues, apply changes directly (existing behavior)
     // Validate capacity if being updated
     if (req.body.capacity && req.body.capacity.max < req.body.capacity.min) {
       return res.status(400).json({ error: 'Maximum capacity must be greater than or equal to minimum capacity' });
@@ -605,7 +626,7 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
       filter.status = status;
     } else {
       // Default to pending venues if no status specified
-      filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED'] };
+      filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED', 'PENDING_EDIT'] };
     }
 
     // Add search functionality
@@ -622,6 +643,9 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
     const pageNumber = parseInt(page as string);
     const limitNumber = parseInt(limit as string);
     const skip = (pageNumber - 1) * limitNumber;
+
+    // Add filter to exclude venues with invalid providers
+    filter.providerId = { $ne: null, $exists: true };
 
     const venues = await Venue.find(filter)
       .populate('providerId', 'firstName lastName email')
@@ -643,6 +667,96 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
   } catch (error) {
     console.error('Error fetching pending venues:', error);
     res.status(500).json({ error: 'Failed to fetch venues' });
+  }
+});
+
+// GET /api/venues/staff/pending-edits - Get venues with pending edits (Staff only)
+router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+
+    const filter: any = { 
+      status: VenueStatus.PENDING_EDIT,
+      isActive: true
+    };
+
+    // Add search functionality
+    if (search && search.toString().trim()) {
+      const searchTerm = search.toString().trim();
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'address.city': { $regex: searchTerm, $options: 'i' } },
+        { 'address.area': { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const pageNumber = parseInt(page as string);
+    const limitNumber = parseInt(limit as string);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const venues = await Venue.find(filter)
+      .populate('providerId', 'firstName lastName email')
+      .sort({ pendingEditSubmittedAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const total = await Venue.countDocuments(filter);
+
+    res.json({
+      venues,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        pages: Math.ceil(total / limitNumber)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching venues with pending edits:', error);
+    res.status(500).json({ error: 'Failed to fetch venues' });
+  }
+});
+
+// GET /api/venues/staff/stats - Get stats for staff dashboard
+router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Check if user is staff or admin
+    if (req.user.role !== UserRole.STAFF && req.user.role !== UserRole.ADMIN) {
+      return res.status(403).json({ error: 'Only staff and admin can access stats' });
+    }
+
+    // Get counts for each status
+    const pendingCount = await Venue.countDocuments({ 
+      status: VenueStatus.PENDING,
+      isActive: true 
+    });
+    
+    const approvedCount = await Venue.countDocuments({ 
+      status: VenueStatus.APPROVED,
+      isActive: true 
+    });
+    
+    const rejectedCount = await Venue.countDocuments({ 
+      status: VenueStatus.REJECTED,
+      isActive: true 
+    });
+
+    res.json({
+      message: 'Venue stats retrieved successfully',
+      data: {
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching venue stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -675,6 +789,51 @@ router.post('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async 
   } catch (error) {
     console.error('Error approving venue:', error);
     res.status(500).json({ error: 'Failed to approve venue' });
+  }
+});
+
+// POST /api/venues/staff/:id/approve-edit - Approve venue edit (Staff only)
+router.post('/staff/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    
+    const venue = await Venue.findById(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    if (venue.status !== VenueStatus.PENDING_EDIT) {
+      return res.status(400).json({ error: 'Only venues with pending edits can be approved' });
+    }
+
+    // Apply the pending edits to the venue
+    if (venue.pendingEdits) {
+      // Preserve images if not explicitly updated
+      const updatedData = { ...venue.pendingEdits };
+      
+      // Merge pending edits with the current venue data
+      Object.assign(venue, updatedData);
+    }
+
+    // Clear pending edits and update status
+    venue.pendingEdits = undefined;
+    venue.pendingEditSubmittedAt = undefined;
+    venue.status = VenueStatus.APPROVED;
+    venue.updatedAt = new Date();
+    
+    await venue.save();
+
+    res.json({
+      message: 'Venue edits approved successfully',
+      venue: {
+        id: venue._id,
+        name: venue.name,
+        status: venue.status
+      }
+    });
+  } catch (error) {
+    console.error('Error approving venue edits:', error);
+    res.status(500).json({ error: 'Failed to approve venue edits' });
   }
 });
 
@@ -717,6 +876,52 @@ router.post('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (
   } catch (error) {
     console.error('Error rejecting venue:', error);
     res.status(500).json({ error: 'Failed to reject venue' });
+  }
+});
+
+// POST /api/venues/staff/:id/reject-edit - Reject venue edit (Staff only)
+router.post('/staff/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    const { reason } = req.body;
+    
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Rejection reason is required' });
+    }
+
+    const venue = await Venue.findById(venueId);
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    if (venue.status !== VenueStatus.PENDING_EDIT) {
+      return res.status(400).json({ error: 'Only venues with pending edits can be rejected' });
+    }
+
+    // Clear pending edits and update status
+    venue.pendingEdits = undefined;
+    venue.pendingEditSubmittedAt = undefined;
+    venue.status = VenueStatus.APPROVED; // Revert to approved status
+    venue.updatedAt = new Date();
+    
+    // Store rejection reason
+    if (!venue.description.includes('[EDIT REJECTED]')) {
+      venue.description += `\n\n[EDIT REJECTED: ${reason}]`;
+    }
+    
+    await venue.save();
+
+    res.json({
+      message: 'Venue edits rejected successfully',
+      venue: {
+        id: venue._id,
+        name: venue.name,
+        status: venue.status
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting venue edits:', error);
+    res.status(500).json({ error: 'Failed to reject venue edits' });
   }
 });
 
@@ -805,6 +1010,100 @@ router.delete('/:id/favorite', authenticateToken, async (req: AuthRequest, res: 
   } catch (error) {
     console.error('Error removing venue from favorites:', error);
     res.status(500).json({ error: 'Failed to remove venue from favorites' });
+  }
+});
+
+// DELETE /api/venues/staff/:id - Delete venue (Staff only)
+router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const venueId = req.params.id;
+    
+    // Find the venue (no provider check for staff)
+    const venue = await Venue.findById(venueId);
+    
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    // Delete associated images from S3
+    if (venue.images && venue.images.length > 0) {
+      try {
+        // Import the S3 delete function and URL extraction utility
+        const { deleteFromS3 } = await import('../services/uploadService.js');
+        const { extractS3Key } = await import('../utils/s3.js');
+        
+        // Delete each image from S3
+        for (const image of venue.images) {
+          if (image.url) {
+            try {
+              const key = extractS3Key(image.url);
+              if (key) {
+                await deleteFromS3(key);
+                console.log(`Deleted image from S3: ${key}`);
+              }
+            } catch (s3Error) {
+              console.error(`Failed to delete image from S3: ${image.url}`, s3Error);
+              // Continue with other images even if one fails
+            }
+          }
+        }
+      } catch (imageDeleteError) {
+        console.error('Error deleting images from S3:', imageDeleteError);
+        // Don't fail the entire operation if image deletion fails
+      }
+    }
+
+    // Actually delete the venue from the database
+    await Venue.findByIdAndDelete(venueId);
+
+    res.json({
+      message: 'Venue deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting venue:', error);
+    res.status(500).json({ error: 'Failed to delete venue' });
+  }
+});
+
+// GET /api/venues/staff/stats - Get stats for staff dashboard
+router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Check if user is staff or admin
+    if (req.user.role !== UserRole.STAFF && req.user.role !== UserRole.ADMIN) {
+      return res.status(403).json({ error: 'Only staff and admin can access stats' });
+    }
+
+    // Get counts for each status
+    const pendingCount = await Venue.countDocuments({ 
+      status: VenueStatus.PENDING,
+      isActive: true 
+    });
+    
+    const approvedCount = await Venue.countDocuments({ 
+      status: VenueStatus.APPROVED,
+      isActive: true 
+    });
+    
+    const rejectedCount = await Venue.countDocuments({ 
+      status: VenueStatus.REJECTED,
+      isActive: true 
+    });
+
+    res.json({
+      message: 'Venue stats retrieved successfully',
+      data: {
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching venue stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

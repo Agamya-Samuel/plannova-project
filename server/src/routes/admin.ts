@@ -3,6 +3,7 @@ import { body, validationResult, query } from 'express-validator';
 import { Types } from 'mongoose';
 import User, { UserRole, IUser } from '../models/User.js';
 import Venue from '../models/Venue.js';
+import Catering from '../models/Catering.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -39,13 +40,15 @@ router.get('/users', authenticateToken, requireAdmin, async (req: AuthRequest, r
       .skip(skip)
       .limit(limitNumber);
 
-    // Get venue count for providers
-    const usersWithVenueCount = await Promise.all(
+    // Get venue and catering service counts for providers
+    const usersWithCounts = await Promise.all(
       users.map(async (user) => {
         const userObj = user.toObject() as any;
         if (user.role === UserRole.PROVIDER) {
           const venueCount = await Venue.countDocuments({ providerId: user._id });
+          const cateringCount = await Catering.countDocuments({ provider: user._id });
           userObj.venueCount = venueCount;
+          userObj.cateringCount = cateringCount;
         }
         return userObj;
       })
@@ -54,7 +57,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req: AuthRequest, r
     const total = await User.countDocuments(filter);
 
     res.json({
-      users: usersWithVenueCount,
+      users: usersWithCounts,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -82,7 +85,8 @@ router.get('/users/:id', authenticateToken, requireAdmin, async (req: AuthReques
     let additionalData = {};
     if (user.role === UserRole.PROVIDER) {
       const venues = await Venue.find({ providerId: user._id }).select('name status createdAt');
-      additionalData = { venues };
+      const cateringServices = await Catering.find({ provider: user._id }).select('name status createdAt');
+      additionalData = { venues, cateringServices };
     }
 
     res.json({
@@ -150,9 +154,10 @@ router.delete('/users/:id', authenticateToken, requireAdmin, async (req: AuthReq
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // If deleting a provider, also delete their venues
+    // If deleting a provider, also delete their venues and catering services
     if (user.role === UserRole.PROVIDER) {
       await Venue.deleteMany({ providerId: user._id });
+      await Catering.deleteMany({ provider: user._id });
     }
 
     await User.findByIdAndDelete(userId);
@@ -225,7 +230,11 @@ router.get('/stats', authenticateToken, requireAdmin, async (req: AuthRequest, r
       totalVenues,
       pendingVenues,
       approvedVenues,
-      rejectedVenues
+      rejectedVenues,
+      totalCateringServices,
+      pendingCateringServices,
+      approvedCateringServices,
+      rejectedCateringServices
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: UserRole.CUSTOMER }),
@@ -235,7 +244,11 @@ router.get('/stats', authenticateToken, requireAdmin, async (req: AuthRequest, r
       Venue.countDocuments(),
       Venue.countDocuments({ status: 'PENDING' }),
       Venue.countDocuments({ status: 'APPROVED' }),
-      Venue.countDocuments({ status: 'REJECTED' })
+      Venue.countDocuments({ status: 'REJECTED' }),
+      Catering.countDocuments(),
+      Catering.countDocuments({ status: 'PENDING' }),
+      Catering.countDocuments({ status: 'APPROVED' }),
+      Catering.countDocuments({ status: 'REJECTED' })
     ]);
 
     res.json({
@@ -251,6 +264,12 @@ router.get('/stats', authenticateToken, requireAdmin, async (req: AuthRequest, r
         pending: pendingVenues,
         approved: approvedVenues,
         rejected: rejectedVenues
+      },
+      catering: {
+        total: totalCateringServices,
+        pending: pendingCateringServices,
+        approved: approvedCateringServices,
+        rejected: rejectedCateringServices
       }
     });
   } catch (error) {
