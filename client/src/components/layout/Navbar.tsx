@@ -96,6 +96,11 @@ export default function Navbar() {
     { id: 'music', name: 'Music & Entertainment Service', icon: <Music className="h-4 w-4" />, path: '/provider/entertainment' },
   ];
 
+  // Filter service options based on user's selected service categories
+  const filteredServiceOptions = user?.serviceCategories 
+    ? serviceOptions.filter(service => user.serviceCategories?.includes(service.id as any))
+    : serviceOptions;
+
   return (
     <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -138,7 +143,7 @@ export default function Navbar() {
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Select a service</p>
                           </div>
                           <div className="max-h-96 overflow-y-auto">
-                            {serviceOptions.map((service) => (
+                            {filteredServiceOptions.map((service) => (
                               <Link
                                 key={service.id}
                                 href={service.path}
@@ -363,7 +368,7 @@ export default function Navbar() {
 
                   {isServicesOpen && (
                     <div className="pl-8 pr-4 py-2 space-y-1">
-                      {serviceOptions.map((service) => (
+                      {filteredServiceOptions.map((service) => (
                         <Link
                           key={service.id}
                           href={service.path}
