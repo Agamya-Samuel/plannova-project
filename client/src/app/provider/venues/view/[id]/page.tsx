@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   MapPin, 
   Users, 
@@ -20,7 +20,7 @@ import {
   Edit3,
   AlertCircle,
 } from 'lucide-react';
-import apiClient from '../../../../../lib/api';
+import apiClient from '@/lib/api';
 
 interface Venue {
   _id: string;

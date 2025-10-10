@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import ProtectedRoute from '../../components/auth/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
-import apiClient from '../../lib/api';
-import { Booking } from '../../types/booking';
+import apiClient from '@/lib/api';
+import { Booking } from '@/types/booking';
 
 export default function BookingsPage() {
   const { user } = useAuth();

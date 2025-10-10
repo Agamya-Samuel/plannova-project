@@ -1,23 +1,79 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '../../../contexts/AuthContext';
-import ProtectedRoute from '../../../components/auth/ProtectedRoute';
-import { Button } from '../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   Building, 
   Utensils, 
   Camera, 
   Video, 
   Music, 
-  Palette, 
   Flower2,
   CheckCircle,
   Clock,
-  XCircle
 } from 'lucide-react';
-import apiClient from '../../../lib/api';
+import apiClient from '@/lib/api';
+import { toast } from 'sonner';
+import { sonnerConfirm } from '@/lib/sonner-confirm';
+import { sonnerPrompt } from '@/lib/sonner-prompt';
+import { usePathname, useRouter } from 'next/navigation';
+
+interface ApiError extends Error {
+  response?: {
+    data?: {
+      error?: string;
+    };
+  };
+}
+
+interface Venue {
+  _id: string;
+  name: string;
+  description: string;
+  type: string;
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
+  address: {
+    street: string;
+    area: string;
+    city: string;
+    state: string;
+    pincode: string;
+  };
+  capacity: {
+    min: number;
+    max: number;
+  };
+  basePrice: number;
+  images: Array<{
+    url: string;
+    alt: string;
+    category: string;
+    isPrimary: boolean;
+  }>;
+  averageRating: number;
+  totalReviews: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  providerId: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+interface VenuesResponse {
+  venues: Venue[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
 
 export default function StaffApprovalsPage() {
   const { user } = useAuth();
