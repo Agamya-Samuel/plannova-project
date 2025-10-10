@@ -3,11 +3,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../ui/button';
-import { UserRole } from '../../types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
-import ProfileImage from '../ui/ProfileImage';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { UserRole } from '@/types/auth';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Flower, Music } from 'lucide-react';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface NavItem {
   label: string;
@@ -390,7 +390,7 @@ export default function Navbar() {
               <Link
                 key={index}
                 href={item.href}
-                className={`flex items-center space-x-3 block px-4 py-3 rounded-xl font-medium transition-colors ${
+                className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-colors ${
                   isActive
                     ? 'text-pink-600 bg-pink-50 border-l-4 border-pink-600'
                     : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'

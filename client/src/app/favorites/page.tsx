@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Star, MapPin, Users, Heart } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import apiClient from '../../lib/api';
-import useFavorites from '../../hooks/useFavorites';
+import { Button } from '@/components/ui/button';
+import apiClient from '@/lib/api';
+import useFavorites from '@/hooks/useFavorites';
 
 interface Venue {
   _id: string;

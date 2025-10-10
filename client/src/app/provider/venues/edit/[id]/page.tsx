@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '../../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../../components/ui/button';
-import { Input } from '../../../../../components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   ArrowLeft, 
   Save, 
@@ -20,8 +20,8 @@ import {
   ChevronRight,
   Check
 } from 'lucide-react';
-import apiClient from '../../../../../lib/api';
-import { ImageUpload } from '../../../../../components/upload';
+import apiClient from '@/lib/api';
+import { ImageUpload } from '@/components/upload';
 
 interface VenueFormData {
   name: string;

@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../contexts/AuthContext';
-import ProtectedRoute from '../../../components/auth/ProtectedRoute';
-import { Button } from '../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   Plus, 
   Edit3, 
@@ -25,9 +25,9 @@ import {
   Search,
   X
 } from 'lucide-react';
-import apiClient from '../../../lib/api';
+import apiClient from '@/lib/api';
 import { toast } from 'sonner';
-import { sonnerConfirm } from '../../../lib/sonner-confirm';
+import { sonnerConfirm } from '@/lib/sonner-confirm';
 
 interface ApiError extends Error {
   response?: {
