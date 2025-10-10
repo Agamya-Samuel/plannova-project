@@ -40,7 +40,7 @@ interface CateringService {
   _id: string;
   name: string;
   description: string;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PENDING_EDIT';
   serviceLocation: {
     address: string;
     city: string;
@@ -67,6 +67,7 @@ interface CateringService {
     lastName: string;
     email: string;
   } | null;
+  pendingEdits?: any;
 }
 
 export default function StaffCateringApprovalsPage() {
@@ -182,6 +183,54 @@ export default function StaffCateringApprovalsPage() {
     }
   };
 
+  // New function to approve catering service edits
+  const handleApproveServiceEdit = async (serviceId: string) => {
+    const confirmed = await sonnerConfirm('Are you sure you want to approve these catering service edits?');
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      await apiClient.post(`/catering/${serviceId}/approve-edit`);
+      toast.success('Catering service edits approved successfully!');
+      fetchCateringServices(statusFilter, searchTerm);
+    } catch (err: unknown) {
+      console.error('Error approving catering service edits:', err);
+      let errorMessage = 'Failed to approve catering service edits';
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      }
+      toast.error(errorMessage);
+    }
+  };
+
+  // New function to reject catering service edits
+  const handleRejectServiceEdit = async (serviceId: string) => {
+    const reason = await sonnerPrompt('Please provide a reason for rejecting these edits:', {
+      placeholder: 'Enter rejection reason...'
+    });
+    
+    if (!reason || reason.trim() === '') {
+      toast.error('Rejection reason is required');
+      return;
+    }
+
+    try {
+      await apiClient.post(`/catering/${serviceId}/reject-edit`, { reason: reason.trim() });
+      toast.success('Catering service edits rejected successfully!');
+      fetchCateringServices(statusFilter, searchTerm);
+    } catch (err: unknown) {
+      console.error('Error rejecting catering service edits:', err);
+      let errorMessage = 'Failed to reject catering service edits';
+      const apiError = err as ApiError;
+      if (apiError.response?.data?.error) {
+        errorMessage = apiError.response.data.error;
+      }
+      toast.error(errorMessage);
+    }
+  };
+
   const handleDeleteService = async (serviceId: string) => {
     const confirmed = await sonnerConfirm('Are you sure you want to delete this catering service? This action cannot be undone.');
     if (!confirmed) {
@@ -211,6 +260,8 @@ export default function StaffCateringApprovalsPage() {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'REJECTED':
         return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'PENDING_EDIT':
+        return <Clock className="h-4 w-4 text-blue-500" />;
       default:
         return <AlertCircle className="h-4 w-4 text-gray-500" />;
     }
@@ -224,6 +275,8 @@ export default function StaffCateringApprovalsPage() {
         return 'bg-green-100 text-green-800';
       case 'REJECTED':
         return 'bg-red-100 text-red-800';
+      case 'PENDING_EDIT':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -296,6 +349,7 @@ export default function StaffCateringApprovalsPage() {
                     className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="PENDING">Pending Approval</option>
+                    <option value="PENDING_EDIT">Pending Edits</option>
                     <option value="APPROVED">Approved</option>
                     <option value="REJECTED">Rejected</option>
                     <option value="ALL">All Status</option>
@@ -399,7 +453,7 @@ export default function StaffCateringApprovalsPage() {
                                 <h3 className="text-xl font-bold text-gray-900">{service.name}</h3>
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium flex items-center space-x-1 ${getStatusColor(service.status)}`}>
                                   {getStatusIcon(service.status)}
-                                  <span>{service.status}</span>
+                                  <span>{service.status === 'PENDING_EDIT' ? 'Pending Edit' : service.status}</span>
                                 </span>
                               </div>
                               <p className="text-gray-600 mb-2">
@@ -409,7 +463,11 @@ export default function StaffCateringApprovalsPage() {
                               <p className="text-sm text-gray-500 mb-2">
                                 <strong>Provider:</strong> {service.provider?.firstName || 'Unknown'} {service.provider?.lastName || 'Provider'} ({service.provider?.email || 'No email'})
                               </p>
-                              <p className="text-sm text-gray-500 line-clamp-2">{service.description}</p>
+                              <p className="text-sm text-gray-500 line-clamp-2">
+                                {service.status === 'PENDING_EDIT' && service.pendingEdits?.description
+                                  ? service.pendingEdits.description
+                                  : service.description}
+                              </p>
                             </div>
                           </div>
                           
@@ -417,17 +475,25 @@ export default function StaffCateringApprovalsPage() {
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                             <div className="text-center">
                               <div className="flex items-center justify-center space-x-1 text-gray-600">
-                                <Utensils className="h-4 w-4" />
-                                <span className="text-sm">{service.cuisineTypes.length}</span>
+                                <Users className="h-4 w-4" />
+                                <span className="text-sm">
+                                  {service.status === 'PENDING_EDIT' && service.pendingEdits?.cuisineTypes
+                                    ? service.pendingEdits.cuisineTypes.length
+                                    : service.cuisineTypes.length}
+                                </span>
                               </div>
                               <p className="text-xs text-gray-500">Cuisines</p>
                             </div>
                             <div className="text-center">
                               <div className="flex items-center justify-center space-x-1 text-gray-600">
-                                <IndianRupee className="h-4 w-4" />
-                                <span className="text-sm">₹{service.basePrice.toLocaleString()}</span>
+                                <Utensils className="h-4 w-4" />
+                                <span className="text-sm">
+                                  {service.status === 'PENDING_EDIT' && service.pendingEdits?.serviceTypes
+                                    ? service.pendingEdits.serviceTypes.length
+                                    : service.serviceTypes.length}
+                                </span>
                               </div>
-                              <p className="text-xs text-gray-500">Base Price</p>
+                              <p className="text-xs text-gray-500">Services</p>
                             </div>
                             <div className="text-center">
                               <div className="flex items-center justify-center space-x-1 text-gray-600">
@@ -438,9 +504,14 @@ export default function StaffCateringApprovalsPage() {
                             </div>
                             <div className="text-center">
                               <div className="flex items-center justify-center space-x-1 text-gray-600">
-                                <span className="text-sm">{service.serviceTypes.length}</span>
+                                <IndianRupee className="h-4 w-4" />
+                                <span className="text-sm">
+                                  {service.status === 'PENDING_EDIT' && service.pendingEdits?.basePrice
+                                    ? service.pendingEdits.basePrice
+                                    : service.basePrice}
+                                </span>
                               </div>
-                              <p className="text-xs text-gray-500">Services</p>
+                              <p className="text-xs text-gray-500">Base Price</p>
                             </div>
                           </div>
                           
@@ -477,6 +548,28 @@ export default function StaffCateringApprovalsPage() {
                                 >
                                   <XCircle className="h-4 w-4" />
                                   <span>Reject</span>
+                                </Button>
+                              </>
+                            )}
+                            
+                            {service.status === 'PENDING_EDIT' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleApproveServiceEdit(service._id)}
+                                  className="bg-green-600 hover:bg-green-700 text-white flex items-center space-x-1"
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                  <span>Approve Edit</span>
+                                </Button>
+                                
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleRejectServiceEdit(service._id)}
+                                  className="bg-red-600 hover:bg-red-700 text-white flex items-center space-x-1"
+                                >
+                                  <XCircle className="h-4 w-4" />
+                                  <span>Reject Edit</span>
                                 </Button>
                               </>
                             )}

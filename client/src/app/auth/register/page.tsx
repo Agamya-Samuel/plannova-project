@@ -5,13 +5,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
-import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 import { Heart, User, Mail, Lock, Phone, Users, Eye, EyeOff } from 'lucide-react';
-import { UserRole } from '../../../types/auth';
+import { UserRole } from '@/types/auth';
 import { toast } from 'sonner';
 
 const registerSchema = z.object({

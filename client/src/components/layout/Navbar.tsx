@@ -3,11 +3,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../ui/button';
-import { UserRole } from '../../types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
-import ProfileImage from '../ui/ProfileImage';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { UserRole } from '@/types/auth';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Flower, Music } from 'lucide-react';
+import ProfileImage from '@/components/ui/ProfileImage';
 
 interface NavItem {
   label: string;
@@ -96,6 +96,11 @@ export default function Navbar() {
     { id: 'music', name: 'Music & Entertainment Service', icon: <Music className="h-4 w-4" />, path: '/provider/entertainment' },
   ];
 
+  // Filter service options based on user's selected service categories
+  const filteredServiceOptions = user?.serviceCategories 
+    ? serviceOptions.filter(service => user.serviceCategories?.includes(service.id as any))
+    : serviceOptions;
+
   return (
     <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -138,7 +143,7 @@ export default function Navbar() {
                             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Select a service</p>
                           </div>
                           <div className="max-h-96 overflow-y-auto">
-                            {serviceOptions.map((service) => (
+                            {filteredServiceOptions.map((service) => (
                               <Link
                                 key={service.id}
                                 href={service.path}
@@ -363,7 +368,7 @@ export default function Navbar() {
 
                   {isServicesOpen && (
                     <div className="pl-8 pr-4 py-2 space-y-1">
-                      {serviceOptions.map((service) => (
+                      {filteredServiceOptions.map((service) => (
                         <Link
                           key={service.id}
                           href={service.path}
@@ -390,7 +395,7 @@ export default function Navbar() {
               <Link
                 key={index}
                 href={item.href}
-                className={`flex items-center space-x-3 block px-4 py-3 rounded-xl font-medium transition-colors ${
+                className={`flex items-center space-x-3 px-4 py-3 rounded-xl font-medium transition-colors ${
                   isActive
                     ? 'text-pink-600 bg-pink-50 border-l-4 border-pink-600'
                     : 'text-gray-700 hover:text-pink-600 hover:bg-pink-50'
