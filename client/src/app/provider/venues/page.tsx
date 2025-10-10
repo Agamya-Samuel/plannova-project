@@ -241,10 +241,7 @@ export default function ProviderVenuesPage() {
   };
 
   const getStatusIcon = (status: string) => {
-    // Hide PENDING_EDIT status from providers by showing it as APPROVED
-    const displayStatus = status === 'PENDING_EDIT' ? 'APPROVED' : status;
-    
-    switch (displayStatus) {
+    switch (status) {    
       case 'DRAFT':
         return <Edit3 className="h-4 w-4 text-gray-500" />;
       case 'PENDING':
@@ -261,10 +258,7 @@ export default function ProviderVenuesPage() {
   };
 
   const getStatusColor = (status: string) => {
-    // Hide PENDING_EDIT status from providers by showing it as APPROVED
-    const displayStatus = status === 'PENDING_EDIT' ? 'APPROVED' : status;
-    
-    switch (displayStatus) {
+    switch (status) {
       case 'DRAFT':
         return 'bg-gray-100 text-gray-800';
       case 'PENDING':
