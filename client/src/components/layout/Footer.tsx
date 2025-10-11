@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Heart } from "lucide-react";
+import { COMMIT_HASH } from "@/lib/commitHash";
 
 export default function Footer() {
   return (
@@ -13,6 +14,10 @@ export default function Footer() {
             </p>
             <p className="text-gray-400 text-sm">
               © {new Date().getFullYear()} Plannova. All rights reserved.
+            </p>
+            {/* Display commit hash */}
+            <p className="text-gray-500 text-xs mt-2">
+              Version: {COMMIT_HASH}
             </p>
           </div>
           
