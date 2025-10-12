@@ -8,7 +8,10 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "concurrently \"tsc -w\" \"nodemon dist/server.js\"",
-    "dev:server": "nodemon dist/server.js"
+    "dev:server": "nodemon dist/server.js",
+    "type-check": "npx tsc --noEmit --project tsconfig.json",
+    "lint": "eslint . --ext .ts",
+    "check": "npm run type-check && npm run lint"
   },
   "keywords": [],
   "author": "",
