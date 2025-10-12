@@ -7,7 +7,9 @@
     "dev": "npx tsx scripts/generate-commit-hash.ts && next dev --turbopack --port 3000",
     "build": "npx tsx scripts/generate-commit-hash.ts && next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint . --ext .ts,.tsx",
+    "type-check": "npx tsc --noEmit --project tsconfig.json",
+    "check": "npm run type-check && npm run lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
