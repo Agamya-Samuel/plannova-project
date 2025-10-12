@@ -381,16 +381,18 @@ router.post('/update-service-categories', authenticateToken, async (req: AuthReq
       return res.status(400).json({ error: 'Service categories are required' });
     }
 
-    // Ensure only one service category is selected (as per requirements)
-    if (serviceCategories.length !== 1) {
-      return res.status(400).json({ error: 'Providers can only select one service category' });
+    // Validate that at least one service category is selected
+    if (serviceCategories.length < 1) {
+      return res.status(400).json({ error: 'Providers must select at least one service category' });
     }
 
     const validCategories: ServiceCategory[] = ['venue', 'catering', 'photography', 'videography', 'music', 'makeup', 'decoration'];
-    const selectedCategory = serviceCategories[0];
-
-    if (!validCategories.includes(selectedCategory as ServiceCategory)) {
-      return res.status(400).json({ error: 'Invalid service category provided' });
+    
+    // Validate all selected categories
+    for (const category of serviceCategories) {
+      if (!validCategories.includes(category as ServiceCategory)) {
+        return res.status(400).json({ error: `Invalid service category provided: ${category}` });
+      }
     }
 
     // Find and update user
@@ -404,8 +406,8 @@ router.post('/update-service-categories', authenticateToken, async (req: AuthReq
       return res.status(403).json({ error: 'Only providers can set service categories' });
     }
 
-    // Update the service categories (only one allowed)
-    user.serviceCategories = [selectedCategory as ServiceCategory];
+    // Update the service categories (multiple allowed)
+    user.serviceCategories = serviceCategories as ServiceCategory[];
     await user.save();
 
     // Return updated user data

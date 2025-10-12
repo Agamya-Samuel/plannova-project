@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '@/lib/api';
 import { signInWithGoogle, logout as firebaseLogout } from '@/lib/firebase-auth';
-import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole } from '@/types/auth';
+import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -224,9 +224,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const updateServiceCategories = async (serviceCategories: ServiceCategory[]): Promise<void> => {
     try {
-      // Validate that only one service category is selected
-      if (serviceCategories.length !== 1) {
-        throw new Error('Providers can only select one service category');
+      // Validate that at least one service category is selected
+      if (serviceCategories.length < 1) {
+        throw new Error('Providers must select at least one service category');
       }
 
       const response = await apiClient.post('/auth/update-service-categories', {
