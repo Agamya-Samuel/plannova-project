@@ -1,9 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import apiClient from '../lib/api';
-import { signInWithGoogle, logout as firebaseLogout } from '../lib/firebase-auth';
-import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole, ServiceCategory } from '../types/auth';
+import apiClient from '@/lib/api';
+import { signInWithGoogle, logout as firebaseLogout } from '@/lib/firebase-auth';
+import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 

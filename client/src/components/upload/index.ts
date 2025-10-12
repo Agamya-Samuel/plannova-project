@@ -14,4 +14,4 @@ export type {
   VenueImageWithUpload,
   FileUploadState,
   MultiFileUploadState
-} from '../../types/upload';
+} from '@/types/upload';

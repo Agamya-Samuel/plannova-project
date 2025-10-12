@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { CheckCircle, AlertCircle, Upload, Loader2 } from 'lucide-react';
-import type { UploadProgressBarProps } from '../../types/upload';
+import type { UploadProgressBarProps } from '@/types/upload';
 
 export default function UploadProgress({
   progress,

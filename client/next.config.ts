@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
+  // Explicitly set the root directory for Turbopack to avoid conflicts with multiple lockfiles
+  turbopack: {
+    root: path.resolve('.')
+  },
   eslint: {
     // Allow production builds to complete even with ESLint errors
     ignoreDuringBuilds: true,

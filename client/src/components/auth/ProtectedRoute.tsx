@@ -1,8 +1,8 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { UserRole } from '../../types/auth';
+import { useAuth } from '@/contexts/AuthContext';
+import { UserRole } from '@/types/auth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 

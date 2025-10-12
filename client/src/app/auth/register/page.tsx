@@ -5,13 +5,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
-import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 import { Heart, User, Mail, Lock, Phone, Users, Eye, EyeOff } from 'lucide-react';
-import { UserRole } from '../../../types/auth';
+import { UserRole } from '@/types/auth';
 import { toast } from 'sonner';
 
 const registerSchema = z.object({
@@ -368,14 +368,19 @@ export default function RegisterPage() {
 
         {/* Footer */}
         <p className="mt-8 text-center text-sm text-gray-600">
-          By creating an account, you agree to our{' '}
-          <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+          By signing up, you agree to our{' '}
+          <Link href="/terms" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
             Terms of Service
-          </a>{' '}
-          and{' '}
-          <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+          </Link>,{' '}
+          <Link href="/privacy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
             Privacy Policy
-          </a>
+          </Link>,{' '}
+          <Link href="/refund-policy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+            Refund Policy
+          </Link>, and{' '}
+          <Link href="/cancellation-policy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+            Cancellation Policy
+          </Link>
         </p>
       </div>
 

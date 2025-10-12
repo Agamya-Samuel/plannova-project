@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Loader2 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import apiClient from '../../lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import apiClient from '@/lib/api';
 
 interface Vendor {
   id: string;

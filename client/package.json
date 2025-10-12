@@ -2,9 +2,10 @@
   "name": "client",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
-    "build": "next build --turbopack",
+    "dev": "npx tsx scripts/generate-commit-hash.ts && next dev --turbopack --port 3000",
+    "build": "npx tsx scripts/generate-commit-hash.ts && next build --turbopack",
     "start": "next start",
     "lint": "eslint"
   },
@@ -34,6 +35,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }
