@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import User, { UserRole, ServiceCategory, IUser } from '../models/User.js';
-import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
+import User, { UserRole, ServiceCategory } from '../models/User.js';
+import PasswordResetToken from '../models/PasswordResetToken.js';
+import { hashPassword, comparePassword, generateToken, generateResetToken } from '../utils/auth.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { adminAuth } from '../firebase-admin.js';
+import { sendPasswordResetEmail } from '../utils/emailService.js';
 
 const router = Router();
 
@@ -20,6 +22,15 @@ const registerValidation = [
 const loginValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password').exists(),
+];
+
+const forgotPasswordValidation = [
+  body('email').isEmail().normalizeEmail(),
+];
+
+const resetPasswordValidation = [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 6 }),
 ];
 
 // Register endpoint
@@ -437,6 +448,104 @@ router.post('/update-service-categories', authenticateToken, async (req: AuthReq
 // Logout endpoint (client-side token removal)
 router.post('/logout', (req: Request, res: Response) => {
   res.json({ message: 'Logout successful' });
+});
+
+// Forgot password endpoint
+router.post('/forgot-password', forgotPasswordValidation, async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      // For security reasons, we don't reveal if the email exists
+      return res.status(200).json({ 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateResetToken();
+    const resetTokenHash = await hashPassword(resetToken); // Hash the token for storage
+    
+    // Set token expiration (1 hour)
+    const resetExpires = new Date(Date.now() + 3600000);
+
+    // Save token and expiration to separate collection
+    await PasswordResetToken.create({
+      userId: user._id,
+      token: resetTokenHash,
+      expiresAt: resetExpires
+    });
+
+    // Send reset email
+    const emailResult = await sendPasswordResetEmail(email, resetToken);
+    
+    if (emailResult.success) {
+      res.status(200).json({ 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      });
+    } else {
+      console.error('Failed to send password reset email:', emailResult.error);
+      res.status(500).json({ error: 'Failed to send password reset email' });
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reset password endpoint
+router.post('/reset-password', resetPasswordValidation, async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { token, password } = req.body;
+
+    // Find valid reset token
+    const passwordResetToken = await PasswordResetToken.findOne({
+      expiresAt: { $gt: new Date() }
+    }).populate('userId');
+
+    if (!passwordResetToken) {
+      return res.status(400).json({ error: 'Password reset token is invalid or has expired' });
+    }
+
+    // Verify token
+    const isTokenValid = await comparePassword(token, passwordResetToken.token);
+    
+    if (!isTokenValid) {
+      return res.status(400).json({ error: 'Password reset token is invalid or has expired' });
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(password);
+
+    // Update user password
+    const user = await User.findById(passwordResetToken.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.password = hashedPassword;
+    await user.save();
+
+    // Delete the used token
+    await PasswordResetToken.deleteOne({ _id: passwordResetToken._id });
+
+    res.status(200).json({ message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export default router;
