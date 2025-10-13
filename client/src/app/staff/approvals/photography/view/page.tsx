@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -51,7 +51,7 @@ interface PhotographyService {
   updatedAt: string;
 }
 
-export default function ViewPhotographyService() {
+function ViewPhotographyService() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -433,5 +433,13 @@ export default function ViewPhotographyService() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ViewPhotographyServicePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ViewPhotographyService />
+    </Suspense>
   );
 }
