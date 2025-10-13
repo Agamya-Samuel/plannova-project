@@ -16,7 +16,7 @@ npm run lint || exit 1
 
 echo "==============================="
 echo "All checks passed for Client. ✅"
-echo "=============================="
+echo "==============================="
 
 # Check server
 echo -e "\n\nChecking server..."
@@ -29,11 +29,17 @@ npm run lint || exit 1
 
 echo "==============================="
 echo "All checks passed for Server. ✅"
-echo "=============================="
+echo "==============================="
 
-echo "Proceeding with Final code build."
+echo -e "\n\nProceeding with Final code build."
 
 # Build
 echo "Building..."
 cd "$ROOT_DIR"
 npm run build
+
+echo "==============================="
+echo "Build completed successfully. ✅"
+echo "==============================="
+
+echo -e "\n\nPushing to Remote. 🔼"
