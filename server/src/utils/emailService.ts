@@ -20,7 +20,7 @@ const createTransporter = () => {
 export const sendPasswordResetEmail = async (email: string, resetToken: string) => {
   const transporter = createTransporter();
   
-  const resetUrl = `${process.env.CLIENT_URL!}/auth/reset-password?token=${resetToken}`;
+  const resetUrl = `${process.env.FRONTEND_URL!}/auth/reset-password?token=${resetToken}`;
   
   const mailOptions = {
     from: `"Plannova Support" <${process.env.EMAIL_USER}>`,
