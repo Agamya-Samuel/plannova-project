@@ -11,7 +11,6 @@ import { Input } from '@/components/ui/input';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import api from '@/lib/api';
-import { ApiError } from '@/types/auth';
 
 const resetPasswordSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -67,7 +66,7 @@ export default function ResetPasswordPage() {
       
       if (err instanceof Error) {
         // Handle axios errors which have a response property
-        const axiosError = err as any; // We'll type this properly
+        const axiosError = err as { response?: { data?: { error?: string } } };
         if (axiosError.response?.data?.error) {
           errorMessage = axiosError.response.data.error;
         } else {
