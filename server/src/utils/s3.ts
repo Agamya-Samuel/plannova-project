@@ -117,6 +117,15 @@ export const generateFileKey = (
 // Get full S3 URL for a given key
 export const getS3Url = (key: string): string => {
   const config = getS3Config();
+  const cdnUrl = process.env.CDN_URL;
+  
+  // Use CDN_URL if available
+  if (cdnUrl) {
+    // Ensure the CDN URL doesn't end with a slash and the key doesn't start with one
+    const baseUrl = cdnUrl.endsWith('/') ? cdnUrl.slice(0, -1) : cdnUrl;
+    const filePath = key.startsWith('/') ? key.slice(1) : key;
+    return `${baseUrl}/${filePath}`;
+  }
   
   if (config.endpoint) {
     // For local development or custom endpoints
@@ -130,6 +139,17 @@ export const getS3Url = (key: string): string => {
 export const extractS3Key = (url: string): string | null => {
   try {
     const config = getS3Config();
+    const cdnUrl = process.env.CDN_URL;
+    
+    // Handle CDN URLs
+    if (cdnUrl) {
+      // Remove the CDN base URL to extract the key
+      const baseUrl = cdnUrl.endsWith('/') ? cdnUrl.slice(0, -1) : cdnUrl;
+      if (url.startsWith(baseUrl)) {
+        // Add 1 to length to account for the leading slash in the URL
+        return url.substring(baseUrl.length + 1);
+      }
+    }
     
     if (config.endpoint) {
       // Handle custom endpoint URLs
