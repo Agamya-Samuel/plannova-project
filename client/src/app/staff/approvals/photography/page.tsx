@@ -80,7 +80,7 @@ export default function StaffPhotographyApprovalsPage() {
   const [services, setServices] = useState<PhotographyService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -111,7 +111,7 @@ export default function StaffPhotographyApprovalsPage() {
 
   useEffect(() => {
     fetchPhotographyServices(statusFilter, searchTerm);
-  }, [statusFilter, searchTerm]);
+  }, [statusFilter]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
@@ -350,7 +350,7 @@ export default function StaffPhotographyApprovalsPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => handleStatusFilterChange(e.target.value)}
-                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black"
                   >
                     <option value="PENDING">Pending Approval</option>
                     <option value="PENDING_EDIT">Pending Edits</option>
@@ -528,7 +528,7 @@ export default function StaffPhotographyApprovalsPage() {
                               variant="outline" 
                               onClick={() => {
                                 // View service details in same tab
-                                router.push(`/provider/photography/view?id=${service._id}`);
+                                router.push(`/staff/approvals/photography/view?id=${service._id}`);
                               }}
                               className="flex items-center space-x-1"
                             >
