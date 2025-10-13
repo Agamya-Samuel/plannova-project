@@ -11,6 +11,19 @@ select:focus option {
   background-color: white !important;
 }
 
+/* Ensure input placeholder text is visible */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important; /* gray-500 */
+  opacity: 1 !important;
+}
+
+input:focus::placeholder,
+textarea:focus::placeholder {
+  color: #9ca3af !important; /* gray-400 */
+  opacity: 1 !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
