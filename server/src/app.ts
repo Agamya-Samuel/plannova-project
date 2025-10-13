@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin.js";
 import uploadRoutes from "./routes/upload.js";
 import bookingRoutes from "./routes/bookings.js";
 import cateringRoutes from "./routes/catering.js";
+import photographyRoutes from "./routes/photography.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -64,6 +65,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/catering", cateringRoutes);
+app.use("/api/photography", photographyRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
