@@ -41,6 +41,10 @@ A modern wedding planning application built with Next.js, Express.js, MongoDB, a
    FIREBASE_PROJECT_ID=your_project_id
    FIREBASE_CLIENT_EMAIL=your_service_account_email
    FIREBASE_PRIVATE_KEY=your_private_key
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_app_password
    ```
 
 ## 🔧 Development Commands
@@ -159,6 +163,26 @@ See `FIREBASE_SETUP.md` for detailed Firebase configuration.
 - All API calls go to `http://localhost:3000/api`
 - Hot reload is enabled for both frontend and backend
 - Check browser console for debugging information
+
+### Password Reset Feature
+
+The application includes a password reset feature that allows users to reset their passwords via email. To use this feature:
+
+1. Users can navigate to the "Forgot Password" page from the login screen
+2. They enter their email address to receive a password reset link
+3. An email is sent with a secure token link
+4. Clicking the link takes them to the password reset page
+5. Users enter a new password to complete the reset process
+
+To configure the email service for password reset:
+1. Set up the email configuration in `server/.env`:
+   ```
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_app_password
+   ```
+2. For Gmail, you'll need to use an App Password instead of your regular password
 
 ## 📝 Available Scripts
 
