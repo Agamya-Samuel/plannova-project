@@ -14,7 +14,6 @@ import {
   Users, 
   IndianRupee, 
   MapPin,
-  Phone,
   Mail,
   Loader2,
   Trash2

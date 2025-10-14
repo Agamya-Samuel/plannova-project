@@ -52,7 +52,7 @@ export default function FavoritesPage() {
   const [error, setError] = useState('');
   
   // Use the favorites hook
-  const { favorites, toggleFavorite, loading: favoritesLoading } = useFavorites();
+  const { toggleFavorite, loading: favoritesLoading } = useFavorites();
 
   // Fetch favorite venues from API
   const fetchFavoriteVenues = async () => {

@@ -23,7 +23,6 @@ import {
   IndianRupee
 } from 'lucide-react';
 import apiClient from '../../../../lib/api';
-import { getImageUploadService } from '../../../../lib/imageUpload';
 import { ImageUpload } from '../../../../components/upload';
 
 interface CateringServiceFormData {
@@ -975,7 +974,7 @@ export default function CreateCateringServicePage() {
                       <li>• Check that images represent your service well</li>
                       <li>• Review service types and cuisine options</li>
                       <li>• Confirm pricing and policy information</li>
-                      <li className="font-medium">• Click the "Create Service" button at the bottom to submit</li>
+                      <li className="font-medium">• Click the Create Service button at the bottom to submit</li>
                     </ul>
                   </div>
                   

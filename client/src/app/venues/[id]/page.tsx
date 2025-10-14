@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -91,12 +92,13 @@ interface Venue {
   cancellationPolicy?: string;
   advancePayment?: number;
   // Add pendingEdits field
-  pendingEdits?: any;
+  pendingEdits?: Partial<Venue>;
 }
 
 export default function VenueDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [venue, setVenue] = useState<Venue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -114,7 +116,13 @@ export default function VenueDetailsPage() {
     const fetchVenue = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get(`/venues/${params.id}`);
+        
+        // Use staff endpoint if user is staff/admin, otherwise use public endpoint
+        const endpoint = (user?.role === 'STAFF' || user?.role === 'ADMIN') 
+          ? `/venues/staff/${params.id}` 
+          : `/venues/${params.id}`;
+          
+        const response = await apiClient.get(endpoint);
         setVenue(response.data);
         setError('');
       } catch (err) {
@@ -140,7 +148,7 @@ export default function VenueDetailsPage() {
       fetchVenue();
       checkIfFavorited();
     }
-  }, [params.id]);
+  }, [params.id, user?.role]);
 
   const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

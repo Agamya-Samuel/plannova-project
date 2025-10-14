@@ -8,7 +8,10 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "concurrently \"tsc -w\" \"nodemon dist/server.js\"",
-    "dev:server": "nodemon dist/server.js"
+    "dev:server": "nodemon dist/server.js",
+    "type-check": "npx tsc --noEmit --project tsconfig.json",
+    "lint": "eslint . --ext .ts",
+    "check": "npm run type-check && npm run lint"
   },
   "keywords": [],
   "author": "",
@@ -28,7 +31,8 @@
     "http-errors": "^2.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.3",
-    "multer": "^2.0.2"
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.9"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -38,11 +42,16 @@
     "@types/mongoose": "^5.11.97",
     "@types/multer": "^2.0.0",
     "@types/node": "^22.10.10",
+    "@types/nodemailer": "^7.0.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
     "concurrently": "^9.1.0",
     "cookie-parser": "^1.4.7",
     "debug": "^4.4.3",
+    "eslint": "^9.37.0",
     "morgan": "^1.10.1",
     "nodemon": "^3.1.10",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.46.0"
   }
 }

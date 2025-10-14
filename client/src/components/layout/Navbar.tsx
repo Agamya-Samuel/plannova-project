@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { UserRole } from '@/types/auth';
+import { UserRole, ServiceCategory } from '@/types/auth';
 import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Flower, Music } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
 
@@ -98,7 +98,7 @@ export default function Navbar() {
 
   // Filter service options based on user's selected service categories
   const filteredServiceOptions = user?.serviceCategories 
-    ? serviceOptions.filter(service => user.serviceCategories?.includes(service.id as any))
+    ? serviceOptions.filter(service => user.serviceCategories?.includes(service.id as ServiceCategory))
     : serviceOptions;
 
   return (

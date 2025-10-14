@@ -8,6 +8,12 @@ import User from '../models/User.js';
 
 const router = Router();
 
+interface IPhotographyFilter {
+  isActive: boolean;
+  status?: string | {[key: string]: unknown};
+  $or?: Array<{[key: string]: unknown}>;
+}
+
 // Validation middleware for creating photography services
 const createPhotographyValidation = [
   body('name').trim().isLength({ min: 1 }).withMessage('Service name is required'),
@@ -371,12 +377,12 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
 
     const { status, page = 1, limit = 10, search } = req.query;
 
-    const filter: any = { 
+    const filter: IPhotographyFilter = {
       isActive: true
     };
     
     if (status && status !== 'ALL') {
-      filter.status = status;
+      filter.status = status as string;
     } else {
       // Default to pending services if no status specified
       filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED', 'PENDING_EDIT'] };

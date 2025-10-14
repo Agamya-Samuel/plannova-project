@@ -21,7 +21,6 @@ import {
   Check
 } from 'lucide-react';
 import apiClient from '@/lib/api';
-import { getImageUploadService, optimizeImageForUpload, testConnection } from '@/lib/imageUpload';
 import { ImageUpload } from '@/components/upload';
 
 interface VenueFormData {
@@ -92,11 +91,7 @@ export default function CreateVenuePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
-  const [imageUploadProgress, setImageUploadProgress] = useState(0);
-  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [venueId, setVenueId] = useState<string | null>(null);
-  const [serviceConnectionStatus, setServiceConnectionStatus] = useState<'unknown' | 'testing' | 'success' | 'failed'>('unknown');
-  const [serviceStatusMessage, setServiceStatusMessage] = useState('');
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
 
@@ -219,122 +214,6 @@ export default function CreateVenuePage() {
       ...prev,
       foodOptions: prev.foodOptions.filter((_, i) => i !== index)
     }));
-  };
-
-  const addImage = (imageUrl: string, alt: string, category: string) => {
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, { url: imageUrl, alt, category, isPrimary: prev.images.length === 0 }]
-    }));
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
-  };
-
-  const setPrimaryImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.map((img, i) => ({
-        ...img,
-        isPrimary: i === index
-      }))
-    }));
-  };
-
-  // Test image upload service connection
-  const handleTestConnection = async () => {
-    setServiceConnectionStatus('testing');
-    setServiceStatusMessage('Testing connection...');
-    
-    try {
-      const result = await testConnection();
-      setServiceConnectionStatus(result.success ? 'success' : 'failed');
-      setServiceStatusMessage(result.message);
-    } catch (error: unknown) {
-      setServiceConnectionStatus('failed');
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setServiceStatusMessage(`Connection test failed: ${errorMessage}`);
-    }
-  };
-
-  // Handle file upload (placeholder mode)
-  const handleFileUpload = async (files: FileList) => {
-    if (!files || files.length === 0) return;
-
-    try {
-      setIsUploadingImages(true);
-      setError('');
-      
-      console.log('Starting image upload (placeholder mode)...');
-      const uploadService = getImageUploadService();
-      
-      // Use venue ID if available, otherwise use a temporary ID
-      const uploadVenueId = venueId || `temp_${Date.now()}`;
-      
-      const results = await uploadService.uploadMultipleImages(
-        files,
-        'venue',
-        uploadVenueId,
-        (progress, current, total) => {
-          setImageUploadProgress(progress);
-          console.log(`Processing image ${current}/${total} - ${progress}%`);
-        }
-      );
-
-      // Add uploaded images to form data
-      results.forEach((result, index) => {
-        const file = files[index];
-        addImage(
-          result.url,
-          file.name.split('.')[0], // Use filename without extension as alt text
-          'gallery' // Default category
-        );
-      });
-
-      console.log('Images processed successfully:', results);
-    } catch (error: unknown) {
-      console.error('Error processing images:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setError(`Failed to process images: ${errorMessage}`);
-    } finally {
-      setIsUploadingImages(false);
-      setImageUploadProgress(0);
-    }
-  };
-
-  // Handle single file upload with optimization
-  const handleSingleFileUpload = async (file: File, category: string = 'gallery') => {
-    try {
-      setIsUploadingImages(true);
-      setError('');
-      
-      // Optimize image before upload
-      const optimizedFile = await optimizeImageForUpload(file);
-      
-      const uploadService = getImageUploadService();
-      const uploadVenueId = venueId || `temp_${Date.now()}`;
-      
-      const result = await uploadService.uploadImage(optimizedFile, 'venue', uploadVenueId);
-      
-      // Add uploaded image to form data
-      addImage(
-        result.url,
-        file.name.split('.')[0],
-        category
-      );
-      
-      console.log('Image uploaded successfully:', result);
-    } catch (error: unknown) {
-      console.error('Error uploading image:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      setError(`Failed to upload image: ${errorMessage}`);
-    } finally {
-      setIsUploadingImages(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -625,7 +504,7 @@ export default function CreateVenuePage() {
               
               {/* Step Indicators */}
               <div className="flex justify-between">
-                {tabs.map((tab, index) => {
+                {tabs.map((tab) => {
                   const isCompleted = isTabCompleted(tab.id);
                   const isCurrent = activeTab === tab.id;
                   const canAccess = isCompleted || isCurrent;
@@ -656,7 +535,7 @@ export default function CreateVenuePage() {
                         )}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-pink-600 font-medium' : 
+                        isCurrent ? 'text-pink-600 font-medium' :
                         isCompleted ? 'text-green-600 font-medium' : 'text-gray-400'
                       }`}>
                         {tab.label}
@@ -1009,19 +888,14 @@ export default function CreateVenuePage() {
                       }));
                     }}
                     onUploadStart={() => {
-                      setIsUploadingImages(true);
                       setError('');
                     }}
-                    onUploadProgress={(progress) => {
-                      setImageUploadProgress(progress);
+                    onUploadProgress={() => {
                     }}
                     onUploadError={(error) => {
                       setError(`Image upload failed: ${error}`);
-                      setIsUploadingImages(false);
                     }}
                     onUploadComplete={() => {
-                      setIsUploadingImages(false);
-                      setImageUploadProgress(0);
                     }}
                     disabled={loading}
                     className=""

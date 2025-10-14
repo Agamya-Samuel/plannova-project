@@ -1,5 +1,4 @@
-import { Router, Request, Response } from 'express';
-import { body, validationResult, query } from 'express-validator';
+import { Router, Response } from 'express';
 import { Types } from 'mongoose';
 import User, { UserRole, IUser } from '../models/User.js';
 import Venue from '../models/Venue.js';
@@ -14,7 +13,33 @@ router.get('/users', authenticateToken, requireAdmin, async (req: AuthRequest, r
   try {
     const { role, page = 1, limit = 10, search } = req.query;
 
-    const filter: any = {};
+    interface Filter {
+      role?: unknown;
+      $or?: ({
+        firstName: {
+          $regex: string;
+          $options: string;
+        };
+        lastName?: undefined;
+        email?: undefined;
+      } | {
+        lastName: {
+          $regex: string;
+          $options: string;
+        };
+        firstName?: undefined;
+        email?: undefined;
+      } | {
+        email: {
+          $regex: string;
+          $options: string;
+        };
+        firstName?: undefined;
+        lastName?: undefined;
+      })[];
+    }
+
+    const filter: Filter = {};
     
     if (role && role !== 'ALL') {
       filter.role = role;
@@ -43,7 +68,11 @@ router.get('/users', authenticateToken, requireAdmin, async (req: AuthRequest, r
     // Get venue and catering service counts for providers
     const usersWithCounts = await Promise.all(
       users.map(async (user) => {
-        const userObj = user.toObject() as any;
+        interface UserObject extends IUser {
+          venueCount?: number;
+          cateringCount?: number;
+        }
+        const userObj = user.toObject() as UserObject;
         if (user.role === UserRole.PROVIDER) {
           const venueCount = await Venue.countDocuments({ providerId: user._id });
           const cateringCount = await Catering.countDocuments({ provider: user._id });

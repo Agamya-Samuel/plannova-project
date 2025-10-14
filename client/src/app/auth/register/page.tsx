@@ -36,7 +36,7 @@ export default function RegisterPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
   const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
-  const { register: registerUser, googleSignIn, updateRole, user } = useAuth();
+  const { register: registerUser, updateRole, user } = useAuth();
   const router = useRouter();
 
   const {

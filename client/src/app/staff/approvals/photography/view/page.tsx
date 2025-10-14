@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -51,7 +51,7 @@ interface PhotographyService {
   updatedAt: string;
 }
 
-export default function ViewPhotographyService() {
+function ViewPhotographyService() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,7 +61,7 @@ export default function ViewPhotographyService() {
   const [error, setError] = useState('');
   const [service, setService] = useState<PhotographyService | null>(null);
 
-  const fetchPhotographyService = React.useCallback(async () => {
+  const fetchPhotographyService = useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/photography/${serviceId}`);
@@ -85,7 +85,7 @@ export default function ViewPhotographyService() {
     if (serviceId) {
       fetchPhotographyService();
     } else {
-      router.push('/provider/photography');
+      router.push('/staff/approvals/photography');
     }
   }, [serviceId, fetchPhotographyService, router]);
 
@@ -118,6 +118,7 @@ export default function ViewPhotographyService() {
         return status;
     }
   };
+
   const getDashboardUrl = () => {
     if (user?.role === 'STAFF' || user?.role === 'ADMIN') {
       return '/staff/approvals/photography';
@@ -127,7 +128,7 @@ export default function ViewPhotographyService() {
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
+      <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
@@ -152,7 +153,7 @@ export default function ViewPhotographyService() {
 
   if (error) {
     return (
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
+      <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
@@ -177,7 +178,7 @@ export default function ViewPhotographyService() {
 
   if (!service) {
     return (
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
+      <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
@@ -211,7 +212,7 @@ export default function ViewPhotographyService() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
+    <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -224,13 +225,15 @@ export default function ViewPhotographyService() {
               Back to Dashboard
             </button>
             <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
-            <button
-              onClick={() => router.push(`/provider/photography/edit?id=${serviceId}`)}
-              className="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
-            >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit
-            </button>
+            {user?.role === 'PROVIDER' && (
+              <button
+                onClick={() => router.push(`/provider/photography/edit?id=${serviceId}`)}
+                className="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+              >
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit
+              </button>
+            )}
           </div>
 
           {/* Service Status Banner */}
@@ -436,5 +439,13 @@ export default function ViewPhotographyService() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ViewPhotographyServicePage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ViewPhotographyService />
+    </Suspense>
   );
 }

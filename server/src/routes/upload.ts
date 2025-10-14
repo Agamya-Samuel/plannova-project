@@ -41,7 +41,7 @@ const presignedUrlValidation = [
     .trim()
     .isLength({ min: 1, max: 255 })
     .withMessage('File name must be 1-255 characters')
-    .matches(/^[^<>:\"/\\\\|?*]+$/)
+    .matches(/^[^<>:"/\\\\|?*]+$/)
     .withMessage('File name contains invalid characters'),
   body('fileType')
     .isIn([...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES])
@@ -50,7 +50,7 @@ const presignedUrlValidation = [
     .isInt({ min: 1, max: Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document) })
     .withMessage(`File size must be between 1 byte and ${Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document)} bytes`),
   body('uploadType')
-    .isIn(['venue', 'profile', 'document', 'catering'])
+    .isIn(['venue', 'profile', 'document', 'catering', 'photography'])
     .withMessage('Upload type must be venue, profile, document, or catering'),
   body('venueId')
     .optional()
@@ -123,7 +123,7 @@ router.post('/direct', authenticateToken, upload.single('file'), async (req: Aut
     const { uploadType, venueId } = req.body;
     const userId = req.user!.id;
 
-    if (!uploadType || !['venue', 'profile', 'document', 'catering'].includes(uploadType)) {
+    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography'].includes(uploadType)) {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
 
@@ -275,7 +275,7 @@ router.get('/config', (req: Request, res: Response) => {
       allowedImageTypes: ALLOWED_IMAGE_TYPES,
       allowedDocumentTypes: ALLOWED_DOCUMENT_TYPES,
       maxFileSize: MAX_FILE_SIZE,
-      uploadTypes: ['venue', 'profile', 'document', 'catering'],
+      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography'],
     },
   });
 });

@@ -41,6 +41,10 @@ A modern wedding planning application built with Next.js, Express.js, MongoDB, a
    FIREBASE_PROJECT_ID=your_project_id
    FIREBASE_CLIENT_EMAIL=your_service_account_email
    FIREBASE_PRIVATE_KEY=your_private_key
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_app_password
    ```
 
 ## 🔧 Development Commands
@@ -51,7 +55,7 @@ npm run dev
 ```
 This starts both client and server concurrently with colored output:
 - **Backend**: http://localhost:3000 (yellow logs)
-- **Frontend**: http://localhost:3003 (cyan logs)
+- **Frontend**: http://localhost:3000 (cyan logs)
 
 ### Individual Services
 ```bash
@@ -76,7 +80,7 @@ npm run install:server
 
 ### Build Commands
 ```bash
-# Build client for production
+# Build client and server for production
 npm run build
 
 # Build client only
@@ -92,18 +96,39 @@ npm run build:server
 plannova-project/
 ├── client/                 # Next.js frontend
 │   ├── src/
+│   │   ├── app/            # Next.js app router pages
 │   │   ├── components/     # React components
+│   │   │   ├── auth/
+│   │   │   ├── debug/
+│   │   │   ├── layout/
+│   │   │   ├── ui/
+│   │   │   └── upload/
 │   │   ├── contexts/       # React contexts
+│   │   ├── hooks/          # Custom React hooks
 │   │   ├── lib/            # Utilities & configs
-│   │   ├── types/          # TypeScript types
-│   │   └── app/            # Next.js app router pages
+│   │   │   ├── api.ts
+│   │   │   ├── firebase-auth.ts
+│   │   │   ├── firebase-config-check.ts
+│   │   │   ├── firebase.ts
+│   │   │   ├── imageUpload.ts
+│   │   │   ├── sonner-confirm.tsx
+│   │   │   ├── sonner-prompt.tsx
+│   │   │   └── utils.ts
+│   │   ├── services/       # Service layer
+│   │   └── types/          # TypeScript types
 │   ├── public/             # Static assets
 │   └── package.json
 ├── server/                 # Express.js backend
-│   ├── src/                # Source files
-│   ├── routes/             # API routes
-│   ├── middleware/         # Express middleware
-│   ├── utils/              # Utility functions
+│   ├── src/
+│   │   ├── app.ts          # Express app setup
+│   │   ├── db.ts           # Database connection
+│   │   ├── firebase-admin.ts # Firebase Admin SDK
+│   │   ├── middleware/     # Express middleware
+│   │   ├── models/         # Mongoose models
+│   │   ├── routes/         # API routes
+│   │   ├── services/       # Service layer
+│   │   ├── types/          # TypeScript types
+│   │   └── utils/          # Utility functions
 │   └── package.json
 ├── package.json            # Root package.json for scripts
 └── README.md
@@ -132,12 +157,14 @@ See `FIREBASE_SETUP.md` for detailed Firebase configuration.
 - **UI Components**: Custom components with Radix UI
 - **State Management**: React Context
 - **Authentication**: Firebase Auth
+- **Form Handling**: React Hook Form with Zod validation
 
 ### Backend
-- **Framework**: Express.js
+- **Framework**: Express.js 5.x
 - **Database**: MongoDB with Mongoose
 - **Authentication**: Firebase Admin SDK
 - **Security**: Helmet, CORS, Rate Limiting
+- **File Upload**: AWS S3 with multer
 
 ## 🚀 Deployment
 
@@ -155,10 +182,30 @@ See `FIREBASE_SETUP.md` for detailed Firebase configuration.
 ## 🛠️ Development Tips
 
 - Use `npm run dev` for the best development experience
-- Frontend runs on port 3003, backend on port 3000
+- Both frontend and backend run on port 3000
 - All API calls go to `http://localhost:3000/api`
 - Hot reload is enabled for both frontend and backend
 - Check browser console for debugging information
+
+### Password Reset Feature
+
+The application includes a password reset feature that allows users to reset their passwords via email. To use this feature:
+
+1. Users can navigate to the "Forgot Password" page from the login screen
+2. They enter their email address to receive a password reset link
+3. An email is sent with a secure token link
+4. Clicking the link takes them to the password reset page
+5. Users enter a new password to complete the reset process
+
+To configure the email service for password reset:
+1. Set up the email configuration in `server/.env`:
+   ```
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USER=your_email@gmail.com
+   EMAIL_PASS=your_app_password
+   ```
+2. For Gmail, you'll need to use an App Password instead of your regular password
 
 ## 📝 Available Scripts
 
@@ -168,7 +215,9 @@ See `FIREBASE_SETUP.md` for detailed Firebase configuration.
 | `npm run server` | Start only the Express.js server |
 | `npm run client` | Start only the Next.js client |
 | `npm install` | Install dependencies for both projects |
-| `npm run build` | Build client for production |
+| `npm run build` | Build client and server for production |
+| `npm run build:client` | Build client only |
+| `npm run build:server` | Build server only |
 
 ## 🐛 Troubleshooting
 
