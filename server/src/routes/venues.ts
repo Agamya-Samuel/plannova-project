@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
 import Venue, { VenueType, VenueStatus, IVenueImage } from '../models/Venue';
-import User, { UserRole } from '../models/User';
+import User from '../models/User';
 import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth';
 import { extractS3Key } from '../utils/s3';
 import { deleteFromS3 } from '../services/uploadService';
