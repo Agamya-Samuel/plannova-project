@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import User, { UserRole } from '../dist/src/models/User.js';
+import User from '../src/models/User';
 import dotenv from 'dotenv';
 
 // Load environment variables
