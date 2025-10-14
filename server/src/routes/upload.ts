@@ -10,11 +10,11 @@ import {
   ALLOWED_IMAGE_TYPES,
   ALLOWED_DOCUMENT_TYPES,
   MAX_FILE_SIZE
-} from '../services/uploadService';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { UserRole } from '../models/User';
-import { PresignedPostRequest, PresignedPostResponse } from '../types/index';
-import { extractS3Key } from '../utils/s3';
+} from '../services/uploadService.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import { UserRole } from '../models/User.js';
+import { PresignedPostRequest, PresignedPostResponse } from '../types/index.js';
+import { extractS3Key } from '../utils/s3.js';
 
 const router = Router();
 

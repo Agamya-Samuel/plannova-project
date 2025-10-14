@@ -1,9 +1,9 @@
 import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Booking, { BookingStatus, IBooking } from '../models/Booking';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
-import Venue, { IVenue } from '../models/Venue';
+import Booking, { BookingStatus, IBooking } from '../models/Booking.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import Venue, { IVenue } from '../models/Venue.js';
 
 const router = Router();
 
