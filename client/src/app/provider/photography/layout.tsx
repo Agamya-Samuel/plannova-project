@@ -28,8 +28,8 @@ export default function PhotographyLayout({
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h3>
               <p className="text-gray-600 mb-6">
-                You don't have permission to access the photography services section. 
-                Please make sure you're registered as a photography provider.
+                You do not have permission to access the photography services section.
+                Please make sure you are registered as a photography provider.
               </p>
               <button
                 onClick={() => window.history.back()}

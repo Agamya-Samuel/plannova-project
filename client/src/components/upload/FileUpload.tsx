@@ -52,7 +52,7 @@ export default function FileUpload({
 
     // Validate each file
     for (const file of files) {
-      const validation = await uploadService.validateFile(file, uploadType);
+      const validation = await uploadService.validateFile(file);
       if (!validation.valid) {
         return validation;
       }

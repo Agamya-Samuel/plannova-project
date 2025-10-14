@@ -91,7 +91,7 @@ interface Venue {
   cancellationPolicy?: string;
   advancePayment?: number;
   // Add pendingEdits field
-  pendingEdits?: any;
+  pendingEdits?: Partial<Venue>;
 }
 
 export default function VenueDetailsPage() {

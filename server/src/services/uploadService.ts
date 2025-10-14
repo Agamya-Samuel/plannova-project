@@ -1,6 +1,6 @@
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { Upload } from '@aws-sdk/lib-storage';
-import { PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getS3Client, getS3Config, generateFileKey, getS3Url } from '../utils/s3.js';
 
 // File type configurations

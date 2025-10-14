@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import User, { UserRole, IUser } from '../models/User.js';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import User, { UserRole } from '../models/User.js';
 import { adminAuth } from '../firebase-admin.js';
 import { Types } from 'mongoose';
 
@@ -72,9 +72,10 @@ export const authenticateToken = async (
       return next();
       
     } catch (firebaseError) {
+      console.error('Firebase token verification failed:', firebaseError);
       // If Firebase token verification fails, try JWT token (for backward compatibility)
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
         
         const user = await User.findById(decoded.userId).select('-password');
 
@@ -92,10 +93,12 @@ export const authenticateToken = async (
         return next();
         
       } catch (jwtError) {
+        console.error('JWT verification failed:', jwtError);
         return res.status(403).json({ error: 'Invalid token' });
       }
     }
   } catch (error) {
+    console.error('Authentication error:', error);
     return res.status(403).json({ error: 'Invalid token' });
   }
 };

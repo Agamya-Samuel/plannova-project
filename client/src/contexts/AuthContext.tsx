@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '@/lib/api';
 import { signInWithGoogle, logout as firebaseLogout } from '@/lib/firebase-auth';
-import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateRequest, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
+import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -31,7 +31,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const response = await apiClient.get('/auth/profile');
           console.log('👤 Current user profile data:', response.data);
           setUser(response.data);
-        } catch (error) {
+        } catch {
           // Token is invalid, clear storage
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -113,21 +113,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔍 Testing API connectivity...');
         const healthCheck = await apiClient.get('/health/db');
         console.log('✅ API connectivity test passed:', healthCheck.data);
-      } catch (connectivityError: any) {
-        console.error('❌ API connectivity test failed:', {
-          message: connectivityError.message,
-          status: connectivityError.response?.status,
-          statusText: connectivityError.response?.statusText,
-          data: connectivityError.response?.data
-        });
-        
-        // More specific error messages based on the type of error
-        if (connectivityError.response?.status === 429) {
-          throw new Error('Too many requests. Please wait a moment and try again.');
-        } else if (!connectivityError.response) {
-          throw new Error('Unable to connect to authentication server. Please check if the server is running and accessible.');
+      } catch (connectivityError: unknown) {
+        if (connectivityError instanceof Error && 'response' in connectivityError) {
+          const response = (connectivityError as { response?: { status?: number; statusText?: string; data?: unknown } }).response;
+          console.error('❌ API connectivity test failed:', {
+            message: connectivityError.message,
+            status: response?.status,
+            statusText: response?.statusText,
+            data: response?.data
+          });
+
+          // More specific error messages based on the type of error
+          if (response?.status === 429) {
+            throw new Error('Too many requests. Please wait a moment and try again.');
+          } else if (!response) {
+            throw new Error('Unable to connect to authentication server. Please check if the server is running and accessible.');
+          } else {
+            throw new Error(`Server error (${response?.status}). Please try again later.`);
+          }
         } else {
-          throw new Error(`Server error (${connectivityError.response?.status}). Please try again later.`);
+          console.error('❌ API connectivity test failed:', connectivityError);
+          throw new Error('An unknown error occurred during the connectivity test.');
         }
       }
       

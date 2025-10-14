@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Loader2 } from 'lucide-react';
@@ -151,7 +151,7 @@ export default function VendorsPage() {
   }));
 
   // Combine all vendors
-  const allVendors: Vendor[] = [...cateringVendors, ...photographyVendors];
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors], [cateringVendors, photographyVendors]);
 
   const filteredVendors = selectedCategory === 'All' 
     ? allVendors 
