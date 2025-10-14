@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { UserRole, ServiceCategory } from '@/types/auth';
 import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Flower, Music } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
+import Image from 'next/image';
 
 interface NavItem {
   label: string;
@@ -109,12 +110,14 @@ export default function Navbar() {
           <div className="flex items-center">
             <Link href="/" className="flex-shrink-0 flex items-center">
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <Heart className="h-5 w-5 text-white" />
-                </div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-pink-600 to-purple-600 bg-clip-text text-transparent">
-                  Plannova
-                </span>
+                <Image 
+                  src="https://cdn-prod.plannova.in/logo/plannova-logo.svg" 
+                  alt="Plannova Logo" 
+                  width={64}
+                  height={64}
+                  priority
+                  className="h-8 w-auto"
+                />
               </div>
             </Link>
             
