@@ -7,7 +7,7 @@ echo "Running pre-push checks..."
 ROOT_DIR="$(git rev-parse --show-toplevel)"
 
 # Check client
-echo "\n\nChecking client..."
+echo -e "\n\nChecking client..."
 cd "client"
 echo "Running TypeScript compilation check for client..."
 npm run type-check || exit 1
@@ -16,24 +16,30 @@ npm run lint || exit 1
 
 echo "==============================="
 echo "All checks passed for Client. ✅"
-echo "=============================="
+echo "==============================="
 
-# Check backend
-echo "\n\nChecking backend..."
+# Check server
+echo -e "\n\nChecking server..."
 cd "$ROOT_DIR"
 cd "server"
-echo "Running TypeScript compilation check for backend..."
+echo "Running TypeScript compilation check for server..."
 npm run type-check || exit 1
-echo "Running ESLint for backend..."
+echo "Running ESLint for server..."
 npm run lint || exit 1
 
 echo "==============================="
-echo "All checks passed for Backend. ✅"
-echo "=============================="
+echo "All checks passed for Server. ✅"
+echo "==============================="
 
-echo "Proceeding with Final code build."
+echo -e "\n\nProceeding with Final code build."
 
 # Build
 echo "Building..."
 cd "$ROOT_DIR"
 npm run build
+
+echo "==============================="
+echo "Build completed successfully. ✅"
+echo "==============================="
+
+echo -e "\n\nPushing to Remote. 🔼"
