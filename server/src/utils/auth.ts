@@ -24,7 +24,7 @@ export const comparePassword = async (
   return await bcrypt.compare(password, hashedPassword);
 };
 
-export const verifyToken = (token: string): any => {
+export const verifyToken = (token: string): string | jwt.JwtPayload => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new Error('JWT_SECRET environment variable is not set');

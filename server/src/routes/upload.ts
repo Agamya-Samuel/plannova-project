@@ -41,7 +41,7 @@ const presignedUrlValidation = [
     .trim()
     .isLength({ min: 1, max: 255 })
     .withMessage('File name must be 1-255 characters')
-    .matches(/^[^<>:\"/\\\\|?*]+$/)
+    .matches(/^[^<>:"/\\\\|?*]+$/)
     .withMessage('File name contains invalid characters'),
   body('fileType')
     .isIn([...ALLOWED_IMAGE_TYPES, ...ALLOWED_DOCUMENT_TYPES])

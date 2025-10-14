@@ -1,5 +1,4 @@
 import { S3Client } from '@aws-sdk/client-s3';
-import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -50,7 +49,7 @@ export const getS3Config = (): S3Config => {
 // Create S3 Client instance
 export const createS3Client = (): S3Client => {
   const config = getS3Config();
-  const clientConfig: any = {
+  const clientConfig: {[key: string]: unknown} = {
     region: config.region,
     credentials: {
       accessKeyId: config.accessKeyId,
@@ -60,13 +59,13 @@ export const createS3Client = (): S3Client => {
 
   // Add endpoint if provided (useful for local development with LocalStack or MinIO)
   if (config.endpoint) {
-    clientConfig.endpoint = config.endpoint;
-    clientConfig.forcePathStyle = true; // Required for local S3-compatible services
-    clientConfig.useAccelerateEndpoint = false; // Disable acceleration for custom endpoints
-    clientConfig.useGlobalEndpoint = false; // Use regional endpoint
+    (clientConfig as {[key: string]: unknown}).endpoint = config.endpoint;
+    (clientConfig as {[key: string]: unknown}).forcePathStyle = true; // Required for local S3-compatible services
+    (clientConfig as {[key: string]: unknown}).useAccelerateEndpoint = false; // Disable acceleration for custom endpoints
+    (clientConfig as {[key: string]: unknown}).useGlobalEndpoint = false; // Use regional endpoint
   }
 
-  return new S3Client(clientConfig);
+  return new S3Client(clientConfig as {[key: string]: unknown});
 };
 
 // S3 client singleton

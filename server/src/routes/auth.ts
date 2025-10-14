@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import User, { UserRole, ServiceCategory, IUser } from '../models/User.js';
+import User, { UserRole, ServiceCategory } from '../models/User.js';
 import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { adminAuth } from '../firebase-admin.js';

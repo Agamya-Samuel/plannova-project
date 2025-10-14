@@ -20,7 +20,6 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const port = process.env.PORT || 3001;
 
 // Trust proxy settings - required when running behind a proxy
 // This enables express-rate-limit to work correctly with X-Forwarded-For headers
