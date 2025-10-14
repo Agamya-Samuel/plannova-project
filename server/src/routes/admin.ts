@@ -1,9 +1,9 @@
 import { Router, Response } from 'express';
 import { Types } from 'mongoose';
-import User, { UserRole, IUser } from '../models/User.js';
-import Venue from '../models/Venue.js';
-import Catering from '../models/Catering.js';
-import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
+import User, { UserRole, IUser } from '../models/User';
+import Venue from '../models/Venue';
+import Catering from '../models/Catering';
+import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth';
 
 const router = Router();
 

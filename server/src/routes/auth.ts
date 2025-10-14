@@ -1,12 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import User, { UserRole, ServiceCategory } from '../models/User.js';
-import PasswordResetToken from '../models/PasswordResetToken.js';
-import { hashPassword, comparePassword, generateToken, generateResetToken } from '../utils/auth.js';
-import { authenticateToken, AuthRequest } from '../middleware/auth.js';
-import { adminAuth } from '../firebase-admin.js';
-import { sendPasswordResetEmail } from '../utils/emailService.js';
+import User, { UserRole, ServiceCategory } from '../models/User';
+import PasswordResetToken from '../models/PasswordResetToken';
+import { hashPassword, comparePassword, generateToken, generateResetToken } from '../utils/auth';
+import { authenticateToken, AuthRequest } from '../middleware/auth';
+import { adminAuth } from '../firebase-admin';
+import { sendPasswordResetEmail } from '../utils/emailService';
 
 const router = Router();
 
