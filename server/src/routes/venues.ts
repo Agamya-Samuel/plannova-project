@@ -218,6 +218,166 @@ router.get('/favorites', authenticateToken, async (req: AuthRequest, res: Respon
   }
 });
 
+// GET /api/venues/staff/pending - Get venues pending approval (Staff only)
+router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { status, page = 1, limit = 10, search } = req.query;
+
+    const filter: Record<string, unknown> = { 
+      isActive: true
+    };
+    
+    if (status && status !== 'ALL') {
+      filter.status = status;
+    } else {
+      // Default to pending venues if no status specified
+      filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED', 'PENDING_EDIT'] };
+    }
+
+    // Add search functionality
+    if (search && search.toString().trim()) {
+      const searchTerm = search.toString().trim();
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'address.city': { $regex: searchTerm, $options: 'i' } },
+        { 'address.area': { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const pageNumber = parseInt(page as string);
+    const limitNumber = parseInt(limit as string);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Add filter to exclude venues with invalid providers
+    filter.providerId = { $ne: null, $exists: true };
+
+    const venues = await Venue.find(filter)
+      .populate('providerId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const total = await Venue.countDocuments(filter);
+
+    res.json({
+      venues,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        pages: Math.ceil(total / limitNumber)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching pending venues:', error);
+    res.status(500).json({ error: 'Failed to fetch venues' });
+  }
+});
+
+// GET /api/venues/staff/pending-edits - Get venues with pending edits (Staff only)
+router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { page = 1, limit = 10, search } = req.query;
+
+    const filter: Record<string, unknown> = { 
+      isActive: true,
+      status: 'PENDING_EDIT'
+    };
+
+    // Add search functionality
+    if (search && search.toString().trim()) {
+      const searchTerm = search.toString().trim();
+      filter.$or = [
+        { name: { $regex: searchTerm, $options: 'i' } },
+        { description: { $regex: searchTerm, $options: 'i' } },
+        { 'address.city': { $regex: searchTerm, $options: 'i' } },
+        { 'address.area': { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const pageNumber = parseInt(page as string);
+    const limitNumber = parseInt(limit as string);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    // Add filter to exclude venues with invalid providers
+    filter.providerId = { $ne: null, $exists: true };
+
+    const venues = await Venue.find(filter)
+      .populate('providerId', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber);
+
+    const total = await Venue.countDocuments(filter);
+
+    res.json({
+      venues,
+      pagination: {
+        page: pageNumber,
+        limit: limitNumber,
+        total,
+        pages: Math.ceil(total / limitNumber)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching venues with pending edits:', error);
+    res.status(500).json({ error: 'Failed to fetch venues' });
+  }
+});
+
+// GET /api/venues/staff/stats - Get stats for staff dashboard
+router.get('/staff/stats', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Get counts for each status
+    const pendingCount = await Venue.countDocuments({ 
+      status: VenueStatus.PENDING,
+      isActive: true 
+    });
+    
+    const approvedCount = await Venue.countDocuments({ 
+      status: VenueStatus.APPROVED,
+      isActive: true 
+    });
+    
+    const rejectedCount = await Venue.countDocuments({ 
+      status: VenueStatus.REJECTED,
+      isActive: true 
+    });
+
+    res.json({
+      message: 'Venue stats retrieved successfully',
+      data: {
+        pending: pendingCount,
+        approved: approvedCount,
+        rejected: rejectedCount
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching venue stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/venues/staff/:id - Get venue by ID (staff only - includes pending venues)
+router.get('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const venue = await Venue.findOne({
+      _id: req.params.id,
+      isActive: true
+    }).populate('providerId', 'firstName lastName email phone');
+
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    res.json(venue);
+  } catch (error) {
+    console.error('Error fetching venue:', error);
+    res.status(500).json({ error: 'Failed to fetch venue' });
+  }
+});
+
 // GET /api/venues/:id - Get venue by ID (public)
 router.get('/:id', async (req: Request, res: Response) => {
   try {
@@ -721,17 +881,8 @@ router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async
 });
 
 // GET /api/venues/staff/stats - Get stats for staff dashboard
-router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Response) => {
+router.get('/staff/stats', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    // Check if user is staff or admin
-    if (req.user.role !== UserRole.STAFF && req.user.role !== UserRole.ADMIN) {
-      return res.status(403).json({ error: 'Only staff and admin can access stats' });
-    }
-
     // Get counts for each status
     const pendingCount = await Venue.countDocuments({ 
       status: VenueStatus.PENDING,
@@ -1064,48 +1215,6 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
   } catch (error) {
     console.error('Error deleting venue:', error);
     res.status(500).json({ error: 'Failed to delete venue' });
-  }
-});
-
-// GET /api/venues/staff/stats - Get stats for staff dashboard
-router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Response) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    // Check if user is staff or admin
-    if (req.user.role !== UserRole.STAFF && req.user.role !== UserRole.ADMIN) {
-      return res.status(403).json({ error: 'Only staff and admin can access stats' });
-    }
-
-    // Get counts for each status
-    const pendingCount = await Venue.countDocuments({ 
-      status: VenueStatus.PENDING,
-      isActive: true 
-    });
-    
-    const approvedCount = await Venue.countDocuments({ 
-      status: VenueStatus.APPROVED,
-      isActive: true 
-    });
-    
-    const rejectedCount = await Venue.countDocuments({ 
-      status: VenueStatus.REJECTED,
-      isActive: true 
-    });
-
-    res.json({
-      message: 'Venue stats retrieved successfully',
-      data: {
-        pending: pendingCount,
-        approved: approvedCount,
-        rejected: rejectedCount
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching venue stats:', error);
-    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
