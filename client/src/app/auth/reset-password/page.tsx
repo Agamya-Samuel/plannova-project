@@ -1,0 +1,257 @@
+'use client';
+
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Lock, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
+import api from '@/lib/api';
+
+const resetPasswordSchema = z.object({
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
+
+function ResetPasswordContent() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  
+  const token = searchParams.get('token');
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+  });
+
+  // Redirect to forgot password page if no token is present
+  useEffect(() => {
+    if (!token) {
+      router.push('/auth/forgot-password');
+    }
+  }, [token, router]);
+
+  const onSubmit = async (data: ResetPasswordFormData) => {
+    if (!token) return;
+    
+    setIsLoading(true);
+    
+    try {
+      await api.post('/auth/reset-password', {
+        token,
+        password: data.password,
+      });
+      
+      setIsSuccess(true);
+      toast.success('Password reset successfully! You can now login with your new password.');
+    } catch (err: unknown) {
+      console.error('Reset password error:', err);
+      let errorMessage = 'Failed to reset password. Please try again.';
+      
+      if (err instanceof Error) {
+        // Handle axios errors which have a response property
+        const axiosError = err as { response?: { data?: { error?: string } } };
+        if (axiosError.response?.data?.error) {
+          errorMessage = axiosError.response.data.error;
+        } else {
+          errorMessage = err.message || errorMessage;
+        }
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-md w-full">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-8 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-green-500 to-teal-600 rounded-full flex items-center justify-center">
+                <Lock className="h-8 w-8 text-white" />
+              </div>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Password Reset Successful!</h2>
+            <p className="text-gray-600 mb-6">
+              Your password has been successfully reset. You can now login with your new password.
+            </p>
+            
+            <Button
+              onClick={() => router.push('/auth/login')}
+              className="w-full h-12 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold rounded-2xl transition-all duration-300"
+            >
+              Go to Login
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pink-200 to-purple-200 rounded-full opacity-20 blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-rose-200 to-pink-200 rounded-full opacity-20 blur-3xl"></div>
+      </div>
+      
+      <div className="relative max-w-md w-full">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="flex justify-center mb-6">
+            <div className="w-20 h-20 bg-gradient-to-r from-pink-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl transform rotate-3">
+              <Lock className="h-10 w-10 text-white" />
+            </div>
+          </div>
+          <h1 className="text-4xl font-bold text-gray-800 mb-3">
+            Reset Password
+          </h1>
+          <p className="text-lg text-gray-600">
+            Enter your new password below
+          </p>
+        </div>
+
+        {/* Reset Password Form */}
+        <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-8">
+          <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    {...register('password')}
+                    className="pl-12 pr-12 h-14 !bg-white !text-gray-900 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-300 !placeholder-gray-400"
+                    placeholder="Enter your new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p className="mt-2 text-sm text-red-500 flex items-center">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-2"></span>
+                    {errors.password.message}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    {...register('confirmPassword')}
+                    className="pl-12 pr-12 h-14 !bg-white !text-gray-900 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-300 !placeholder-gray-400"
+                    placeholder="Confirm your new password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {errors.confirmPassword && (
+                  <p className="mt-2 text-sm text-red-500 flex items-center">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full mr-2"></span>
+                    {errors.confirmPassword.message}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isLoading || !token}
+              className="w-full h-14 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-bold text-lg rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            >
+              {isLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
+                  Resetting Password...
+                </div>
+              ) : (
+                'Reset Password'
+              )}
+            </Button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <Link 
+              href="/auth/login" 
+              className="text-sm font-semibold text-pink-600 hover:text-pink-500 transition-colors"
+            >
+              ← Back to login
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="relative max-w-md w-full">
+          <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20 p-8 text-center animate-pulse">
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 bg-gradient-to-r from-pink-500 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl transform rotate-3">
+                <Lock className="h-10 w-10 text-white" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold text-gray-800 mb-3">
+              Reset Password
+            </h1>
+            <p className="text-lg text-gray-600 mb-8">
+              Loading...
+            </p>
+            <div className="space-y-4">
+              <div className="h-14 bg-gray-200 rounded-2xl"></div>
+              <div className="h-14 bg-gray-200 rounded-2xl"></div>
+              <div className="h-14 bg-gradient-to-r from-pink-500 to-purple-600 rounded-2xl"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    }>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}

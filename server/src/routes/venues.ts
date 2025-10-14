@@ -1,11 +1,12 @@
 import { Router, Request, Response } from 'express';
-import { body, validationResult, query } from 'express-validator';
+import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Venue, { VenueType, VenueStatus, IVenue } from '../models/Venue.js';
+import Venue, { VenueType, VenueStatus, IVenueImage } from '../models/Venue.js';
 import User, { UserRole } from '../models/User.js';
 import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
-import { extractS3Key, getS3Url } from '../utils/s3.js';
-import { deleteFromS3, bulkDeleteFromS3 } from '../services/uploadService.js';
+import { extractS3Key } from '../utils/s3.js';
+import { deleteFromS3 } from '../services/uploadService.js';
+import mongoose from 'mongoose';
 
 const router = Router();
 
@@ -54,7 +55,7 @@ router.get('/', async (req: Request, res: Response) => {
     } = req.query;
 
     // Build filter object to include both approved venues and venues with pending edits
-    const filter: any = {
+    const filter: Record<string, unknown> = {
       isActive: true,
       status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] }
     };
@@ -70,21 +71,21 @@ router.get('/', async (req: Request, res: Response) => {
     if (minCapacity || maxCapacity) {
       filter.$and = filter.$and || [];
       if (minCapacity) {
-        filter.$and.push({ 'capacity.max': { $gte: parseInt(minCapacity as string) } });
+        (filter.$and as Record<string, unknown>[]).push({ 'capacity.max': { $gte: parseInt(minCapacity as string) } });
       }
       if (maxCapacity) {
-        filter.$and.push({ 'capacity.min': { $lte: parseInt(maxCapacity as string) } });
+        (filter.$and as Record<string, unknown>[]).push({ 'capacity.min': { $lte: parseInt(maxCapacity as string) } });
       }
     }
 
     if (minPrice || maxPrice) {
       filter.basePrice = {};
-      if (minPrice) filter.basePrice.$gte = parseFloat(minPrice as string);
-      if (maxPrice) filter.basePrice.$lte = parseFloat(maxPrice as string);
+      if (minPrice) (filter.basePrice as Record<string, unknown>).$gte = parseFloat(minPrice as string);
+      if (maxPrice) (filter.basePrice as Record<string, unknown>).$lte = parseFloat(maxPrice as string);
     }
 
     // Build sort object
-    const sort: any = {};
+    const sort: {[key: string]: 1 | -1} = {};
     sort[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
 
     const pageNumber = parseInt(page as string);
@@ -93,7 +94,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     const venues = await Venue.find(filter)
       .populate('providerId', 'firstName lastName email')
-      .sort(sort)
+      .sort(sort as {[key: string]: 1 | -1})
       .skip(skip)
       .limit(limitNumber)
       .select('-reviews'); // Exclude reviews for performance
@@ -120,7 +121,7 @@ router.get('/provider/my-venues', authenticateToken, requireProvider, async (req
   try {
     const { status, page = 1, limit = 10, search } = req.query;
 
-    const filter: any = { 
+    const filter: Record<string, unknown> = { 
       providerId: req.user!.id,
       isActive: true // Only show active venues
     };
@@ -206,7 +207,7 @@ router.get('/favorites', authenticateToken, async (req: AuthRequest, res: Respon
     }
 
     // Filter out any null values that might have occurred from populate
-    const favorites = (user.favorites || []).filter((venue: any) => venue !== null);
+    const favorites = (user.favorites || []).filter((venue: unknown) => venue !== null);
 
     res.json({
       venues: favorites
@@ -288,7 +289,7 @@ router.put('/:id', authenticateToken, requireProvider, updateVenueValidation, as
     // For approved venues, store edits in pendingEdits instead of directly updating
     if (venue.status === VenueStatus.APPROVED) {
       // Preserve existing images if not provided in the update
-      let pendingEdits = {
+      const pendingEdits = {
         ...req.body,
         updatedAt: new Date()
       };
@@ -452,7 +453,7 @@ router.delete('/:id/images/:imageId', authenticateToken, requireProvider, async 
     }
 
     // Find the image to be deleted
-    const imageToDelete = venue.images.find((img: any) => 
+    const imageToDelete = venue.images.find((img: IVenueImage & { _id?: Types.ObjectId }) => 
       img._id?.toString() === req.params.imageId
     );
 
@@ -461,7 +462,7 @@ router.delete('/:id/images/:imageId', authenticateToken, requireProvider, async 
     }
 
     // Remove image from venue
-    venue.images = venue.images.filter((img: any) => 
+    venue.images = venue.images.filter((img: IVenueImage & { _id?: Types.ObjectId }) => 
       img._id?.toString() !== req.params.imageId
     );
     
@@ -588,17 +589,17 @@ router.post('/:id/reviews', authenticateToken, async (req: AuthRequest, res: Res
 
     // Add the review
     venue.reviews.push({
-      customerId: req.user!.id,
+      customerId: new Types.ObjectId(req.user!.id),
       customerName: `${req.user!.firstName} ${req.user!.lastName}`,
       rating,
       comment: comment || '',
       images: images || [],
       date: new Date(),
       verified: false
-    } as any);
+    });
 
     // Recalculate average rating
-    const totalRating = venue.reviews.reduce((sum: number, review: any) => sum + review.rating, 0);
+    const totalRating = venue.reviews.reduce((sum: number, review: {rating: number}) => sum + review.rating, 0);
     venue.averageRating = Math.round((totalRating / venue.reviews.length) * 10) / 10;
     venue.totalReviews = venue.reviews.length;
 
@@ -618,7 +619,7 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
   try {
     const { status, page = 1, limit = 10, search } = req.query;
 
-    const filter: any = { 
+    const filter: Record<string, unknown> = { 
       isActive: true
     };
     
@@ -675,7 +676,8 @@ router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async
   try {
     const { page = 1, limit = 10, search } = req.query;
 
-    const filter: any = { 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const filter: Record<string, any> = { 
       status: VenueStatus.PENDING_EDIT,
       isActive: true
     };
@@ -949,7 +951,7 @@ router.post('/:id/favorite', authenticateToken, async (req: AuthRequest, res: Re
     }
 
     // Check if venue is already in favorites
-    const isFavorite = user.favorites?.some((fav: any) => fav.toString() === venueId);
+    const isFavorite = user.favorites?.some((fav: mongoose.Types.ObjectId) => fav.toString() === venueId);
     
     if (isFavorite) {
       // Venue is already favorited
@@ -988,7 +990,7 @@ router.delete('/:id/favorite', authenticateToken, async (req: AuthRequest, res: 
     }
 
     // Check if venue is in favorites
-    const isFavorite = user.favorites?.some((fav: any) => fav.toString() === venueId);
+    const isFavorite = user.favorites?.some((fav: mongoose.Types.ObjectId) => fav.toString() === venueId);
     
     if (!isFavorite) {
       // Venue is not in favorites
@@ -999,7 +1001,7 @@ router.delete('/:id/favorite', authenticateToken, async (req: AuthRequest, res: 
     }
 
     if (user.favorites) {
-      user.favorites = user.favorites.filter((fav: any) => fav.toString() !== venueId);
+      user.favorites = user.favorites.filter((fav: Types.ObjectId) => fav.toString() !== venueId);
       await user.save();
     }
 

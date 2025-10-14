@@ -1,23 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
-import { useAuth } from '../../../contexts/AuthContext';
-import ProtectedRoute from '../../../components/auth/ProtectedRoute';
-import { Button } from '../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   Building, 
   Utensils, 
   Camera, 
   Video, 
   Music, 
-  Palette, 
   Flower2,
   CheckCircle,
   Clock,
-  XCircle
 } from 'lucide-react';
-import apiClient from '../../../lib/api';
+import apiClient from '@/lib/api';
+import { toast } from 'sonner';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function StaffApprovalsPage() {
   const { user } = useAuth();
@@ -25,27 +24,29 @@ export default function StaffApprovalsPage() {
   const pathname = usePathname();
   const [stats, setStats] = useState({
     venues: { pending: 0, approved: 0, rejected: 0 },
-    catering: { pending: 0, approved: 0, rejected: 0 }
+    catering: { pending: 0, approved: 0, rejected: 0 },
+    photography: { pending: 0, approved: 0, rejected: 0 }
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        setLoading(true);
         // Fetch venue stats
         const venueResponse = await apiClient.get('/venues/staff/stats');
         // Fetch catering stats
         const cateringResponse = await apiClient.get('/catering/staff/stats');
+        // Fetch photography stats
+        const photographyResponse = await apiClient.get('/photography/staff/stats');
         
         setStats({
           venues: venueResponse.data.data,
-          catering: cateringResponse.data.data
+          catering: cateringResponse.data.data,
+          photography: photographyResponse.data.data
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
+        toast.error('Failed to fetch dashboard statistics');
       } finally {
-        setLoading(false);
       }
     };
 
@@ -54,7 +55,7 @@ export default function StaffApprovalsPage() {
     }
   }, [user]);
 
-  const getServiceStats = (serviceType: 'venues' | 'catering') => {
+  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography') => {
     const serviceStats = stats[serviceType];
     return (
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -103,7 +104,7 @@ export default function StaffApprovalsPage() {
           </div>
 
           {/* Service Type Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {/* Venue Services */}
             <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('venues') ? 'border-blue-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
               <div className="flex items-center justify-between mb-4">
@@ -157,12 +158,38 @@ export default function StaffApprovalsPage() {
                 </Button>
               </div>
             </div>
+
+            {/* Photography Services */}
+            <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('photography') ? 'border-purple-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-purple-100 rounded-lg">
+                    <Camera className="h-6 w-6 text-purple-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Photography Services</h2>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium text-yellow-700">{stats.photography.pending} pending</span>
+                </div>
+              </div>
+              
+              {getServiceStats('photography')}
+              
+              <div className="mt-6">
+                <Button 
+                  onClick={() => router.push('/staff/approvals/photography')}
+                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white"
+                >
+                  Manage Photography Approvals
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Additional Service Types (Coming Soon) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { name: 'Photography', icon: Camera, color: 'bg-purple-100', iconColor: 'text-purple-600' },
               { name: 'Videography', icon: Video, color: 'bg-indigo-100', iconColor: 'text-indigo-600' },
               { name: 'Entertainment', icon: Music, color: 'bg-yellow-100', iconColor: 'text-yellow-600' },
               { name: 'Decoration', icon: Flower2, color: 'bg-green-100', iconColor: 'text-green-600' }

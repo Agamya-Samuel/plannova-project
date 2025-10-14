@@ -7,9 +7,9 @@ import {
   MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
   DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette, Clock
 } from 'lucide-react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import apiClient from '../../../lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
 interface FoodOption {
@@ -91,7 +91,7 @@ interface Venue {
   cancellationPolicy?: string;
   advancePayment?: number;
   // Add pendingEdits field
-  pendingEdits?: any;
+  pendingEdits?: Partial<Venue>;
 }
 
 export default function VenueDetailsPage() {

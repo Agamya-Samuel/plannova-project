@@ -2,14 +2,14 @@
 
 import React, { useState, useRef } from 'react';
 import { Upload, X, AlertCircle, CheckCircle } from 'lucide-react';
-import { getImageUploadService } from '../../lib/imageUpload';
+import { getImageUploadService } from '@/lib/imageUpload';
 import type {
   UploadComponentProps,
   UploadResult,
   UploadStatus,
   FileValidationResult
-} from '../../types/upload';
-import { Button } from '../ui/button';
+} from '@/types/upload';
+import { Button } from '@/components/ui/button';
 
 interface FileUploadProps extends UploadComponentProps {
   multiple?: boolean;
@@ -52,7 +52,7 @@ export default function FileUpload({
 
     // Validate each file
     for (const file of files) {
-      const validation = await uploadService.validateFile(file, uploadType);
+      const validation = await uploadService.validateFile(file);
       if (!validation.valid) {
         return validation;
       }

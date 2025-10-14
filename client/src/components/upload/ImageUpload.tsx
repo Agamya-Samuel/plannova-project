@@ -3,14 +3,14 @@
 import React, { useState, } from 'react';
 import Image from 'next/image';
 import {X, Eye, Star, } from 'lucide-react';
-import { getImageUploadService, } from '../../lib/imageUpload';
+import { getImageUploadService, } from '@/lib/imageUpload';
 import type {
   ImageUploadComponentProps,
   UploadResult,
   UploadStatus,
   VenueImageWithUpload
-} from '../../types/upload';
-import { Button } from '../ui/button';
+} from '@/types/upload';
+import { Button } from '@/components/ui/button';
 import FileUpload from './FileUpload';
 
 interface ImageUploadProps extends ImageUploadComponentProps {

@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Star, MapPin, Users, Heart } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import apiClient from '../../lib/api';
-import useFavorites from '../../hooks/useFavorites';
+import { Button } from '@/components/ui/button';
+import apiClient from '@/lib/api';
+import useFavorites from '@/hooks/useFavorites';
 
 interface Venue {
   _id: string;
@@ -52,7 +52,7 @@ export default function FavoritesPage() {
   const [error, setError] = useState('');
   
   // Use the favorites hook
-  const { favorites, toggleFavorite, loading: favoritesLoading } = useFavorites();
+  const { toggleFavorite, loading: favoritesLoading } = useFavorites();
 
   // Fetch favorite venues from API
   const fetchFavoriteVenues = async () => {

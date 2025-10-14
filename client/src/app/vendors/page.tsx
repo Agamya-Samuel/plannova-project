@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Loader2 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import apiClient from '../../lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import apiClient from '@/lib/api';
 
 interface Vendor {
   id: string;
@@ -43,6 +44,30 @@ interface CateringService {
   };
 }
 
+// Define the PhotographyService interface to match the backend model
+interface PhotographyService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  photographyTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string; // Add status field
+}
+
 const categories = [
   { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
   { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
@@ -53,29 +78,36 @@ const categories = [
 ];
 
 export default function VendorsPage() {
+  const router = useRouter();
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [cateringServices, setCateringServices] = useState<CateringService[]>([]);
+  const [photographyServices, setPhotographyServices] = useState<PhotographyService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Fetch approved catering services
   useEffect(() => {
-    const fetchCateringServices = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await apiClient.get('/catering');
-        setCateringServices(response.data.data);
+        // Fetch catering services
+        const cateringResponse = await apiClient.get('/catering');
+        setCateringServices(cateringResponse.data.data);
+        
+        // Fetch photography services
+        const photographyResponse = await apiClient.get('/photography');
+        setPhotographyServices(photographyResponse.data.data);
       } catch (err) {
-        console.error('Error fetching catering services:', err);
-        setError('Failed to load catering services');
+        console.error('Error fetching services:', err);
+        setError('Failed to load services');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCateringServices();
+    fetchData();
   }, []);
 
   const toggleFavorite = (vendorId: string) => {
@@ -102,9 +134,37 @@ export default function VendorsPage() {
     isVerified: true
   }));
 
+  // Transform photography services to vendor format for display
+  const photographyVendors: Vendor[] = photographyServices.map(service => ({
+    id: service._id,
+    name: service.name || 'Untitled Service',
+    category: 'Photography',
+    location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+    rating: service.rating || 0,
+    reviews: service.reviewCount || 0,
+    startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+    image: service.images && service.images.length > 0 
+      ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+      : 'https://images.unsplash.com/photo-1519741497674-611481863552?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.photographyTypes ? service.photographyTypes.slice(0, 3) : [],
+    isVerified: true
+  }));
+
+  // Combine all vendors
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors], [cateringVendors, photographyVendors]);
+
   const filteredVendors = selectedCategory === 'All' 
-    ? cateringVendors 
-    : cateringVendors.filter(vendor => vendor.category === selectedCategory);
+    ? allVendors 
+    : allVendors.filter(vendor => vendor.category === selectedCategory);
+
+  // Debug log to check if photography services are being fetched
+  useEffect(() => {
+    console.log('Catering services count:', cateringServices.length);
+    console.log('Photography services count:', photographyServices.length);
+    console.log('Photography services:', photographyServices);
+    console.log('Photography vendors:', photographyVendors);
+    console.log('All vendors count:', allVendors.length);
+  }, [cateringServices, photographyServices, photographyVendors, allVendors]);
 
   if (loading) {
     return (
@@ -367,6 +427,7 @@ export default function VendorsPage() {
                   <Button 
                     size="sm" 
                     className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-xl"
+                    onClick={() => router.push(`/photography/${vendor.id}`)}
                   >
                     View Profile
                   </Button>

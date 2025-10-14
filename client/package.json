@@ -2,11 +2,14 @@
   "name": "client",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev --turbopack --port 3000",
-    "build": "next build --turbopack",
+    "dev": "npx tsx scripts/generate-commit-hash.ts && next dev --turbopack --port 3000",
+    "build": "npx tsx scripts/generate-commit-hash.ts && next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint . --ext .ts,.tsx",
+    "type-check": "npx tsc --noEmit --project tsconfig.json",
+    "check": "npm run type-check && npm run lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -21,6 +24,7 @@
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-hook-form": "^7.63.0",
+    "react-phone-number-input": "^3.4.12",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.1",
     "zod": "^4.1.11"
@@ -34,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",
+    "tsx": "^4.20.6",
     "typescript": "^5"
   }
 }

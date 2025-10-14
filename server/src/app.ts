@@ -10,6 +10,7 @@ import adminRoutes from "./routes/admin.js";
 import uploadRoutes from "./routes/upload.js";
 import bookingRoutes from "./routes/bookings.js";
 import cateringRoutes from "./routes/catering.js";
+import photographyRoutes from "./routes/photography.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -19,7 +20,6 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const port = process.env.PORT || 3001;
 
 // Trust proxy settings - required when running behind a proxy
 // This enables express-rate-limit to work correctly with X-Forwarded-For headers
@@ -64,6 +64,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/upload", uploadRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/catering", cateringRoutes);
+app.use("/api/photography", photographyRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {

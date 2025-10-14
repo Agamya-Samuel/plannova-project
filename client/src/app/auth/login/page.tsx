@@ -6,13 +6,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
-import RoleSelectionModal from '../../../components/auth/RoleSelectionModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import { UserRole } from '../../../types/auth';
+import { UserRole } from '@/types/auth';
 import { toast } from 'sonner';
 
 const loginSchema = z.object({
@@ -28,7 +28,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
   const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
-  const { login, googleSignIn, updateRole, user } = useAuth();
+  const { login, updateRole, user } = useAuth();
   const router = useRouter();
 
   const {
@@ -167,9 +167,9 @@ export default function LoginPage() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+                <Link href="/auth/forgot-password" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
                   Forgot password?
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -262,14 +262,19 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="mt-8 text-center text-sm text-gray-600">
-          By signing in, you agree to our{' '}
-          <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+          By signing up, you agree to our{' '}
+          <Link href="/terms" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
             Terms of Service
-          </a>{' '}
-          and{' '}
-          <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+          </Link>,{' '}
+          <Link href="/privacy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
             Privacy Policy
-          </a>
+          </Link>,{' '}
+          <Link href="/refund-policy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+            Refund Policy
+          </Link>, and{' '}
+          <Link href="/cancellation-policy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+            Cancellation Policy
+          </Link>
         </p>
       </div>
 

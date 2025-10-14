@@ -8,18 +8,14 @@ import { Button } from '../../../../components/ui/button';
 import { Input } from '../../../../components/ui/input';
 import { 
   Utensils, 
-  MapPin, 
-  Phone, 
-  Upload, 
-  Plus, 
-  Trash2, 
+  Plus,
+  Trash2,
   Save,
   ArrowLeft,
   AlertCircle,
   Loader2,
   Star
 } from 'lucide-react';
-import { getImageUploadService } from '../../../../lib/imageUpload';
 import { ImageUpload } from '../../../../components/upload';
 import apiClient from '../../../../lib/api';
 

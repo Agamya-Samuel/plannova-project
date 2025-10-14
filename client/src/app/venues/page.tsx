@@ -3,11 +3,12 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Search, MapPin, Users, Star, Heart, SlidersHorizontal, Clock, Edit3 } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import apiClient from '../../lib/api';
-import useFavorites from '../../hooks/useFavorites';
+import { Search, MapPin, Users, Star, Heart, SlidersHorizontal, Clock } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import apiClient from '@/lib/api';
+import useFavorites from '@/hooks/useFavorites';
+
 
 interface Venue {
   _id: string;
@@ -45,7 +46,7 @@ interface Venue {
     email: string;
   };
   // Add pendingEdits field to handle pending edits
-  pendingEdits?: any;
+  pendingEdits?: Partial<Venue>;
 }
 
 function VenuesContent() {

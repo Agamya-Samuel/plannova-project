@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../contexts/AuthContext';
-import ProtectedRoute from '../../../components/auth/ProtectedRoute';
-import { Button } from '../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   Plus, 
   Edit3, 
@@ -25,9 +25,9 @@ import {
   Search,
   X
 } from 'lucide-react';
-import apiClient from '../../../lib/api';
+import apiClient from '@/lib/api';
 import { toast } from 'sonner';
-import { sonnerConfirm } from '../../../lib/sonner-confirm';
+import { sonnerConfirm } from '@/lib/sonner-confirm';
 
 interface ApiError extends Error {
   response?: {
@@ -241,7 +241,7 @@ export default function ProviderVenuesPage() {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    switch (status) {    
       case 'DRAFT':
         return <Edit3 className="h-4 w-4 text-gray-500" />;
       case 'PENDING':
@@ -275,7 +275,49 @@ export default function ProviderVenuesPage() {
   };
 
   if (user?.role !== 'PROVIDER') {
-    return <div>Access denied. Provider access required.</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-xl max-w-md">
+          <div className="mx-auto bg-gradient-to-br from-pink-100 to-purple-100 rounded-full p-4 w-24 h-24 flex items-center justify-center mb-6">
+            <MapPin className="h-12 w-12 text-pink-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Access Denied</h2>
+          <p className="text-gray-600 mb-6">You must be logged in as a provider to access this page.</p>
+          <Button 
+            onClick={() => router.push('/auth/login')}
+            className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
+          >
+            Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if the user has selected venue as their service category
+  const hasVenueCategory = user.serviceCategories?.includes('venue');
+  
+  if (!hasVenueCategory) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 flex items-center justify-center">
+        <div className="text-center p-8 bg-white rounded-2xl shadow-xl max-w-md">
+          <div className="mx-auto bg-gradient-to-br from-pink-100 to-purple-100 rounded-full p-4 w-24 h-24 flex items-center justify-center mb-6">
+            <MapPin className="h-12 w-12 text-pink-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Service Not Available</h2>
+          <p className="text-gray-600 mb-6">
+            You have not selected venue as your service category.
+            Please update your profile to access venue services.
+          </p>
+          <Button 
+            onClick={() => router.push('/provider/onboarding')}
+            className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
+          >
+            Update Profile
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

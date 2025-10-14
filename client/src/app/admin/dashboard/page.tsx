@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../../contexts/AuthContext';
-import ProtectedRoute from '../../../components/auth/ProtectedRoute';
-import { Button } from '../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   Users, 
   Trash2, 
@@ -17,9 +17,9 @@ import {
   Building,
   CheckCircle,
 } from 'lucide-react';
-import apiClient from '../../../lib/api';
+import apiClient from '@/lib/api';
 import { toast } from 'sonner';
-import { sonnerConfirm } from '../../../lib/sonner-confirm';
+import { sonnerConfirm } from '@/lib/sonner-confirm';
 
 interface ApiError extends Error {
   response?: {

@@ -1,15 +1,15 @@
 // Shared type definitions for the server
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   message: string;
   data?: T;
   error?: string;
-  errors?: any[];
+  errors?: Array<{[key: string]: unknown}>;
 }
 
 export interface DatabaseConfig {
   uri: string;
-  options?: any;
+  options?: {[key: string]: unknown};
 }
 
 export interface AuthConfig {

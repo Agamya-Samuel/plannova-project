@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import ProtectedRoute from '../../components/auth/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Camera, User, Mail, Phone, Save, AlertCircle } from 'lucide-react';
-import { User as UserType } from '../../types/auth';
+import { User as UserType } from '@/types/auth';
 import Image from 'next/image';
 
 export default function ProfilePage() {

@@ -1,9 +1,9 @@
-import { Router, Request, Response } from 'express';
+import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
 import Booking, { BookingStatus, IBooking } from '../models/Booking.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
-import Venue from '../models/Venue.js';
+import Venue, { IVenue } from '../models/Venue.js';
 
 const router = Router();
 
@@ -18,6 +18,28 @@ const createBookingValidation = [
   body('contactEmail').isEmail().withMessage('Valid email is required')
 ];
 
+// Interface for a booking populated with venue details
+interface IPopulatedBooking extends Omit<IBooking, 'venueId'> {
+  venueId?: IVenue;
+}
+
+// Helper to transform booking data
+const transformBooking = (booking: IPopulatedBooking) => {
+  return {
+    id: (booking._id as Types.ObjectId).toString(),
+    venueName: booking.venueId?.name || 'Unknown Venue',
+    venueImage: booking.venueId?.images?.[0]?.url || 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
+    date: booking.date.toISOString().split('T')[0],
+    time: booking.time,
+    status: booking.status,
+    totalPrice: booking.totalPrice,
+    guestCount: booking.guestCount,
+    contactPerson: booking.contactPerson,
+    contactPhone: booking.contactPhone,
+    contactEmail: booking.contactEmail
+  };
+};
+
 // GET /api/bookings - Get all bookings for the authenticated user
 router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -25,23 +47,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       .populate('venueId', 'name images')
       .sort({ createdAt: -1 });
 
-    // Transform bookings to match client-side interface
-    const transformedBookings = bookings.map(booking => ({
-      id: (booking._id as Types.ObjectId).toString(),
-      venueName: (booking as any).venueId?.name || 'Unknown Venue',
-      venueImage: (booking as any).venueId?.images?.length > 0 
-        ? (booking as any).venueId.images[0].url 
-        : 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-      date: booking.date.toISOString().split('T')[0],
-      time: booking.time,
-      status: booking.status,
-      totalPrice: booking.totalPrice,
-      guestCount: booking.guestCount,
-      contactPerson: booking.contactPerson,
-      contactPhone: booking.contactPhone,
-      contactEmail: booking.contactEmail
-    }));
-
+    const transformedBookings = bookings.map(b => transformBooking(b as unknown as IPopulatedBooking));
     res.json(transformedBookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
@@ -59,7 +65,6 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
 
     const { venueId, date, time, guestCount, contactPerson, contactPhone, contactEmail } = req.body;
 
-    // Verify venue exists and is approved
     const venue = await Venue.findOne({
       _id: venueId,
       status: 'APPROVED',
@@ -70,10 +75,8 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
       return res.status(404).json({ error: 'Venue not found or not available for booking' });
     }
 
-    // Calculate total price (simplified - in a real app this would be more complex)
     const totalPrice = venue.basePrice + (guestCount * (venue.pricePerGuest || 0));
 
-    // Create booking
     const booking = await Booking.create({
       customerId: req.user!.id,
       venueId,
@@ -86,22 +89,8 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
       contactEmail
     });
 
-    // Transform booking to match client-side interface
-    const transformedBooking = {
-      id: (booking._id as Types.ObjectId).toString(),
-      venueName: venue.name,
-      venueImage: venue.images?.length > 0 ? venue.images[0].url : 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-      date: booking.date.toISOString().split('T')[0],
-      time: booking.time,
-      status: booking.status,
-      totalPrice: booking.totalPrice,
-      guestCount: booking.guestCount,
-      contactPerson: booking.contactPerson,
-      contactPhone: booking.contactPhone,
-      contactEmail: booking.contactEmail
-    };
-
-    res.status(201).json(transformedBooking);
+    const newBooking = await Booking.findById(booking._id).populate('venueId', 'name images');
+    res.status(201).json(transformBooking(newBooking as unknown as IPopulatedBooking));
   } catch (error) {
     console.error('Error creating booking:', error);
     res.status(500).json({ error: 'Failed to create booking' });
@@ -120,24 +109,7 @@ router.get('/:id', authenticateToken, async (req: AuthRequest, res: Response) =>
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // Transform booking to match client-side interface
-    const transformedBooking = {
-      id: (booking._id as Types.ObjectId).toString(),
-      venueName: (booking as any).venueId?.name || 'Unknown Venue',
-      venueImage: (booking as any).venueId?.images?.length > 0 
-        ? (booking as any).venueId.images[0].url 
-        : 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-      date: booking.date.toISOString().split('T')[0],
-      time: booking.time,
-      status: booking.status,
-      totalPrice: booking.totalPrice,
-      guestCount: booking.guestCount,
-      contactPerson: booking.contactPerson,
-      contactPhone: booking.contactPhone,
-      contactEmail: booking.contactEmail
-    };
-
-    res.json(transformedBooking);
+    res.json(transformBooking(booking as unknown as IPopulatedBooking));
   } catch (error) {
     console.error('Error fetching booking:', error);
     res.status(500).json({ error: 'Failed to fetch booking' });
@@ -156,35 +128,18 @@ router.put('/:id/cancel', authenticateToken, async (req: AuthRequest, res: Respo
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    // Check if booking can be cancelled (implement your business logic here)
     if (booking.status === BookingStatus.CANCELLED) {
       return res.status(400).json({ error: 'Booking is already cancelled' });
     }
 
-    // Update booking status
     booking.status = BookingStatus.CANCELLED;
     await booking.save();
 
-    // Transform booking to match client-side interface
-    const transformedBooking = {
-      id: (booking._id as Types.ObjectId).toString(),
-      venueName: (booking as any).venueId?.name || 'Unknown Venue',
-      venueImage: (booking as any).venueId?.images?.length > 0 
-        ? (booking as any).venueId.images[0].url 
-        : 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-      date: booking.date.toISOString().split('T')[0],
-      time: booking.time,
-      status: booking.status,
-      totalPrice: booking.totalPrice,
-      guestCount: booking.guestCount,
-      contactPerson: booking.contactPerson,
-      contactPhone: booking.contactPhone,
-      contactEmail: booking.contactEmail
-    };
+    const updatedBooking = await Booking.findById(booking._id).populate('venueId', 'name images');
 
     res.json({
       message: 'Booking cancelled successfully',
-      booking: transformedBooking
+      booking: transformBooking(updatedBooking as unknown as IPopulatedBooking)
     });
   } catch (error) {
     console.error('Error cancelling booking:', error);

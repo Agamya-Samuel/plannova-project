@@ -2,10 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '../../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../../components/ui/button';
-import { Input } from '../../../../../components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   ArrowLeft, 
   Save, 
@@ -20,8 +20,8 @@ import {
   ChevronRight,
   Check
 } from 'lucide-react';
-import apiClient from '../../../../../lib/api';
-import { ImageUpload } from '../../../../../components/upload';
+import apiClient from '@/lib/api';
+import { ImageUpload } from '@/components/upload';
 
 interface VenueFormData {
   name: string;
@@ -38,6 +38,22 @@ interface VenueFormData {
   amenities: Array<{ name: string; description: string; included: boolean; additionalCost: number }>;
   features: string[];
   foodOptions: Array<{ name: string; description: string; price: number; cuisine: string[]; isVeg: boolean; servingSize: string }>;
+}
+
+interface Amenity {
+  name: string;
+  description: string;
+  included: boolean;
+  additionalCost: number;
+}
+
+interface FoodOption {
+  name: string;
+  description: string;
+  price: number;
+  cuisine: string[];
+  isVeg: boolean;
+  servingSize: string;
 }
 
 const venueTypes = ['Banquet Hall', 'Hotel', 'Resort', 'Outdoor', 'Palace', 'Farmhouse'];
@@ -62,8 +78,6 @@ export default function EditVenuePage() {
   const [error, setError] = useState('');
   const [initialLoading, setInitialLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('basic');
-  const [imageUploadProgress, setImageUploadProgress] = useState(0);
-  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
 
   const venueId = params.id as string;
@@ -85,13 +99,7 @@ export default function EditVenuePage() {
     foodOptions: []
   });
 
-  useEffect(() => {
-    if (venueId) {
-      fetchVenueForEdit();
-    }
-  }, [venueId]);
-
-  const fetchVenueForEdit = async () => {
+  const fetchVenueForEdit = React.useCallback(async () => {
     try {
       setInitialLoading(true);
       const response = await apiClient.get(`/venues/provider/${venueId}`);
@@ -123,21 +131,27 @@ export default function EditVenuePage() {
       if (venue.status === 'PENDING_EDIT') {
         setError('This venue has pending edits that are awaiting staff approval. Any changes you make now will replace your previous pending edits.');
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error fetching venue for edit:', err);
       setError('Failed to load venue data for editing');
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [venueId]);
 
-  const handleInputChange = (field: string, value: any) => {
+  useEffect(() => {
+    if (venueId) {
+      fetchVenueForEdit();
+    }
+  }, [venueId, fetchVenueForEdit]);
+
+  const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setFormData(prev => ({
         ...prev,
         [parent]: {
-          ...(prev[parent as keyof VenueFormData] as any),
+          ...(prev[parent as keyof VenueFormData] as object),
           [child]: value
         }
       }));
@@ -147,30 +161,6 @@ export default function EditVenuePage() {
         [field]: value
       }));
     }
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => {
-      const newImages = prev.images.filter((_, i) => i !== index);
-      // If we removed the primary image, make the first remaining image primary
-      if (prev.images[index].isPrimary && newImages.length > 0) {
-        newImages[0].isPrimary = true;
-      }
-      return {
-        ...prev,
-        images: newImages
-      };
-    });
-  };
-
-  const setPrimaryImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.map((img, i) => ({
-        ...img,
-        isPrimary: i === index
-      }))
-    }));
   };
 
   const addFeature = (feature: string) => {
@@ -196,10 +186,10 @@ export default function EditVenuePage() {
     }));
   };
 
-  const updateAmenity = (index: number, field: string, value: any) => {
+  const updateAmenity = (index: number, field: keyof Amenity, value: string | number | boolean) => {
     setFormData(prev => ({
       ...prev,
-      amenities: prev.amenities.map((amenity, i) => 
+      amenities: prev.amenities.map((amenity, i) =>
         i === index ? { ...amenity, [field]: value } : amenity
       )
     }));
@@ -226,10 +216,10 @@ export default function EditVenuePage() {
     }));
   };
 
-  const updateFoodOption = (index: number, field: string, value: any) => {
+  const updateFoodOption = (index: number, field: keyof FoodOption, value: string | number | boolean | string[]) => {
     setFormData(prev => ({
       ...prev,
-      foodOptions: prev.foodOptions.map((option, i) => 
+      foodOptions: prev.foodOptions.map((option, i) =>
         i === index ? { ...option, [field]: value } : option
       )
     }));
@@ -282,7 +272,7 @@ export default function EditVenuePage() {
 
   const validateCurrentTab = () => {
     const currentTab = activeTab;
-    let validationErrors: string[] = [];
+    const validationErrors: string[] = [];
 
     switch (currentTab) {
       case 'basic':
@@ -397,21 +387,21 @@ export default function EditVenuePage() {
       } else {
         router.push('/provider/venues');
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error updating venue:', err);
-      console.error('Error response:', err.response?.data);
-      
-      if (err.response?.data?.errors) {
-        const validationErrors = err.response.data.errors.map((error: any) => error.msg).join(', ');
-        setError(`Validation errors: ${validationErrors}`);
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else if (err.response?.status === 500) {
-        setError('Server error occurred. Please check all required fields and try again.');
-        setActiveTab('basic');
-      } else {
-        setError('Failed to update venue. Please check all required fields and try again.');
+      let errorMessage = 'Failed to update venue. Please check all required fields and try again.';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { errors?: { msg: string }[]; error?: string }; status?: number } }).response;
+        if (response?.data?.errors) {
+          errorMessage = `Validation errors: ${response.data.errors.map((error) => error.msg).join(', ')}`;
+        } else if (response?.data?.error) {
+          errorMessage = response.data.error;
+        } else if (response?.status === 500) {
+          errorMessage = 'Server error occurred. Please check all required fields and try again.';
+          setActiveTab('basic');
+        }
       }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -521,7 +511,7 @@ export default function EditVenuePage() {
               
               {/* Step Indicators */}
               <div className="flex justify-between">
-                {tabs.map((tab, index) => {
+                {tabs.map((tab) => {
                   const isCompleted = isTabCompleted(tab.id);
                   const isCurrent = activeTab === tab.id;
                   const canAccess = isCompleted || isCurrent;
@@ -904,19 +894,14 @@ export default function EditVenuePage() {
                       }));
                     }}
                     onUploadStart={() => {
-                      setIsUploadingImages(true);
                       setError('');
                     }}
-                    onUploadProgress={(progress) => {
-                      setImageUploadProgress(progress);
+                    onUploadProgress={() => {
                     }}
                     onUploadError={(error) => {
                       setError(`Image upload failed: ${error}`);
-                      setIsUploadingImages(false);
                     }}
                     onUploadComplete={() => {
-                      setIsUploadingImages(false);
-                      setImageUploadProgress(0);
                     }}
                     disabled={loading}
                     className=""
@@ -1182,7 +1167,7 @@ export default function EditVenuePage() {
                     
                     {formData.foodOptions.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
-                        <p>No food options added yet. Click "Add Food Option" to get started.</p>
+                        <p>No food options added yet. Click Add Food Option to get started.</p>
                       </div>
                     )}
                   </div>

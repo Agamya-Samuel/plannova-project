@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../../components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { 
   MapPin, 
   Users, 
@@ -20,7 +20,7 @@ import {
   Edit3,
   AlertCircle,
 } from 'lucide-react';
-import apiClient from '../../../../../lib/api';
+import apiClient from '@/lib/api';
 
 interface Venue {
   _id: string;
@@ -92,7 +92,7 @@ interface Venue {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  pendingEdits?: any; // Add this to show pending edits
+  pendingEdits?: Partial<Venue>;
 }
 
 export default function ProviderVenueViewPage() {
@@ -226,7 +226,7 @@ export default function ProviderVenueViewPage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">Venue Images</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Show pending images if in pending edit status, otherwise show current images */}
-                    {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images ? venue.pendingEdits.images : venue.images).map((image: any, index: number) => (
+                    {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images ? venue.pendingEdits.images : venue.images).map((image, index: number) => (
                       <div key={index} className="relative group">
                         <Image
                           src={image.url}

@@ -31,7 +31,7 @@ interface UploadConfig {
 }
 
 // Upload types
-type UploadType = 'venue' | 'profile' | 'document' | 'catering';
+type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography';
 
 class S3ImageUploadService {
   private uploadConfig: UploadConfig | null = null;
@@ -66,7 +66,7 @@ class S3ImageUploadService {
   /**
    * Validate file before upload
    */
-  async validateFile(file: File, uploadType: UploadType): Promise<{ valid: boolean; error?: string }> {
+  async validateFile(file: File): Promise<{ valid: boolean; error?: string }> {
     try {
       const config = await this.getUploadConfig();
       
@@ -92,7 +92,7 @@ class S3ImageUploadService {
       }
       
       return { valid: true };
-    } catch (error) {
+    } catch {
       return {
         valid: false,
         error: 'Failed to validate file'
@@ -119,7 +119,7 @@ class S3ImageUploadService {
       });
 
       // Validate file
-      const validation = await this.validateFile(file, uploadType);
+      const validation = await this.validateFile(file);
       if (!validation.valid) {
         throw new Error(validation.error || 'File validation failed');
       }
@@ -274,7 +274,7 @@ class S3ImageUploadService {
    */
   async testConnection(): Promise<{ success: boolean; message: string }> {
     try {
-      const config = await this.getUploadConfig();
+      await this.getUploadConfig();
       return {
         success: true,
         message: 'S3 upload service is connected and ready'
@@ -321,7 +321,7 @@ export const testConnection = async (): Promise<{ success: boolean; message: str
 
 // Utility function for image optimization (client-side)
 export const optimizeImageForUpload = (file: File): Promise<File> => {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     // For non-image files, return as-is
     if (!file.type.startsWith('image/')) {
       resolve(file);
@@ -371,7 +371,7 @@ export const optimizeImageForUpload = (file: File): Promise<File> => {
     
     try {
       img.src = URL.createObjectURL(file);
-    } catch (error) {
+    } catch {
       // If URL creation fails, return original file
       resolve(file);
     }
