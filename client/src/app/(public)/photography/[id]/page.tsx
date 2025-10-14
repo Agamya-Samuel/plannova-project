@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Camera, MapPin, Phone, Mail, Package, PlusCircle, Star } from 'lucide-react';
+import { ArrowLeft, Camera, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 
@@ -72,27 +72,33 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
     };
     
     unwrapParams();
-  }, []);
+  }, [params]);
 
-  useEffect(() => {
-    if (serviceId) {
-      fetchPhotographyService();
-    }
-  }, [serviceId]);
-
-  const fetchPhotographyService = async () => {
+  const fetchPhotographyService = React.useCallback(async () => {
     try {
       setLoading(true);
       const response = await apiClient.get(`/photography/${serviceId}`);
       setService(response.data.data);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to fetch photography service';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to fetch photography service';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      }
       setError(errorMessage);
       console.error('Error fetching photography service:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [serviceId]);
+
+  useEffect(() => {
+    if (serviceId) {
+      fetchPhotographyService();
+    }
+  }, [serviceId, fetchPhotographyService]);
 
   if (loading) {
     return (
@@ -159,7 +165,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
             <Camera className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
             <p className="text-gray-600 mb-6">
-              The photography service you're looking for doesn't exist or has been removed.
+              The photography service you are looking for does not exist or has been removed.
             </p>
             <button
               onClick={() => router.push('/vendors')}

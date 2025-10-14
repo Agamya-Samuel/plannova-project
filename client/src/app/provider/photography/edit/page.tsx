@@ -7,20 +7,15 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Camera,
   Plus,
-  X,
-  Upload,
   ArrowLeft,
   MapPin,
   Phone,
-  IndianRupee,
   Save,
   ChevronLeft,
   ChevronRight,
   Check,
   AlertCircle,
-  FileText,
   Info,
   Image as ImageIcon,
   Package,
@@ -52,20 +47,24 @@ interface PhotographyServiceFormData {
   cancellationPolicy: string;
   paymentTerms: string;
   photographyTypes: string[];
-  packages: Array<{
-    name: string;
-    description: string;
-    includes: string[];
-    duration: string;
-    price: number;
-    isPopular: boolean;
-  }>;
-  addons: Array<{
-    name: string;
-    description: string;
-    price: number;
-  }>;
+  packages: Array<PackageFormData>;
+  addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+}
+
+interface PackageFormData {
+  name: string;
+  description: string;
+  includes: string[];
+  duration: string;
+  price: number;
+  isPopular: boolean;
+}
+
+interface AddonFormData {
+  name: string;
+  description: string;
+  price: number;
 }
 
 const photographyTypeOptions = [
@@ -125,15 +124,7 @@ export default function EditPhotographyService() {
     images: []
   });
 
-  useEffect(() => {
-    if (serviceId) {
-      fetchPhotographyService();
-    } else {
-      router.push('/provider/photography');
-    }
-  }, [serviceId]);
-
-  const fetchPhotographyService = async () => {
+  const fetchPhotographyService = React.useCallback(async () => {
     try {
       setFetching(true);
       const response = await apiClient.get(`/photography/${serviceId}`);
@@ -147,29 +138,46 @@ export default function EditPhotographyService() {
         cancellationPolicy: service.cancellationPolicy || '',
         paymentTerms: service.paymentTerms || '',
         photographyTypes: service.photographyTypes,
-        packages: service.packages.map((p: any) => ({...p, price: p.price.toString()})),
-        addons: service.addons.map((a: any) => ({...a, price: a.price.toString()})),
+        packages: service.packages.map((p: { price: { toString: () => string; }; }) => ({...p, price: p.price.toString()})),
+        addons: service.addons.map((a: { price: { toString: () => string; }; }) => ({...a, price: a.price.toString()})),
         images: service.images
       });
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to fetch photography service';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to fetch photography service';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      }
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setFetching(false);
     }
-  };
+  }, [serviceId]);
 
-  const handleInputChange = (field: string, value: any) => {
+  useEffect(() => {
+    if (serviceId) {
+      fetchPhotographyService();
+    } else {
+      router.push('/provider/photography');
+    }
+  }, [serviceId, fetchPhotographyService, router]);
+
+  const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
     const keys = field.split('.');
     if (keys.length > 1) {
       setFormData(prev => {
-        const newState = { ...prev };
-        let current: any = newState;
+        const newState: PhotographyServiceFormData = { ...prev };
+        let current: PhotographyServiceFormData | PhotographyServiceFormData['serviceLocation'] | PhotographyServiceFormData['contact'] = newState;
         for (let i = 0; i < keys.length - 1; i++) {
-          current = current[keys[i]];
+          current = current[keys[i] as keyof typeof current] as PhotographyServiceFormData['serviceLocation'] | PhotographyServiceFormData['contact'];
         }
-        current[keys[keys.length - 1]] = value;
+        // Use a more specific type instead of any
+        if (keys[keys.length - 1] in current) {
+          (current as Record<string, string | number | string[] | undefined>)[keys[keys.length - 1]] = value;
+        }
         return newState;
       });
     } else {
@@ -203,9 +211,11 @@ export default function EditPhotographyService() {
     }
   };
 
-  const handlePackageChange = (index: number, field: string, value: string | boolean | number) => {
+  const handlePackageChange = (index: number, field: keyof PackageFormData, value: string | boolean | number) => {
     const newPackages = [...formData.packages];
-    (newPackages[index] as any)[field] = value;
+    // Use a more specific type instead of any
+    const pkg: PackageFormData = newPackages[index];
+    pkg[field] = value as never; // This is safe because we know the field and value match
     setFormData(prev => ({ ...prev, packages: newPackages }));
   };
 
@@ -229,27 +239,6 @@ export default function EditPhotographyService() {
     }
   };
 
-  const handleAddAddon = () => {
-    setFormData(prev => ({
-      ...prev,
-      addons: [...prev.addons, { name: '', description: '', price: 0 }]
-    }));
-  };
-
-  const handleRemoveAddon = (index: number) => {
-    if (formData.addons.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        addons: prev.addons.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-  const handleAddonChange = (index: number, field: string, value: string | number) => {
-    const newAddons = [...formData.addons];
-    (newAddons[index] as any)[field] = value;
-    setFormData(prev => ({ ...prev, addons: newAddons }));
-  };
 
   const handleImagesChange = (newImages: VenueImageWithUpload[]) => {
     const formattedImages = newImages.map(({ url, alt, isPrimary }) => ({ url, alt, isPrimary }));
@@ -360,7 +349,7 @@ export default function EditPhotographyService() {
     }
     setLoading(true);
     try {
-      const serviceData = {
+      const serviceData: PhotographyServiceFormData = {
         ...formData,
         packages: formData.packages.map(p => ({...p, price: Number(p.price)})),
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
@@ -369,8 +358,14 @@ export default function EditPhotographyService() {
       await apiClient.put(`/photography/${serviceId}`, serviceData);
       toast.success('Photography service updated successfully!');
       router.push('/provider/photography');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to update photography service';
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to update photography service';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      }
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -441,7 +436,7 @@ export default function EditPhotographyService() {
               </div>
               
               <div className="flex justify-between">
-                {tabs.map((tab, index) => {
+                {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
                   const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);

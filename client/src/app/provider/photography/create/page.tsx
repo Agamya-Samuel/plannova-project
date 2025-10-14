@@ -7,20 +7,15 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
-  Camera,
   Plus,
-  X,
-  Upload,
   ArrowLeft,
   MapPin,
   Phone,
-  IndianRupee,
   Save,
   ChevronLeft,
   ChevronRight,
   Check,
   AlertCircle,
-  FileText,
   Info,
   Image as ImageIcon,
   Package,
@@ -53,20 +48,24 @@ interface PhotographyServiceFormData {
   cancellationPolicy: string;
   paymentTerms: string;
   photographyTypes: string[];
-  packages: Array<{
-    name: string;
-    description: string;
-    includes: string[];
-    duration: string;
-    price: number;
-    isPopular: boolean;
-  }>;
-  addons: Array<{
-    name: string;
-    description: string;
-    price: number;
-  }>;
+  packages: Array<PackageFormData>;
+  addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+}
+
+interface PackageFormData {
+  name: string;
+  description: string;
+  includes: string[];
+  duration: string;
+  price: number;
+  isPopular: boolean;
+}
+
+interface AddonFormData {
+  name: string;
+  description: string;
+  price: number;
 }
 
 const photographyTypeOptions = [
@@ -122,16 +121,19 @@ export default function CreatePhotographyService() {
     images: []
   });
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
     const keys = field.split('.');
     if (keys.length > 1) {
       setFormData(prev => {
-        const newState = { ...prev };
-        let current: any = newState;
+        const newState: PhotographyServiceFormData = { ...prev };
+        let current: PhotographyServiceFormData | PhotographyServiceFormData['serviceLocation'] | PhotographyServiceFormData['contact'] = newState;
         for (let i = 0; i < keys.length - 1; i++) {
-          current = current[keys[i]];
+          current = current[keys[i] as keyof typeof current] as PhotographyServiceFormData['serviceLocation'] | PhotographyServiceFormData['contact'];
         }
-        current[keys[keys.length - 1]] = value;
+        // Use a more specific type instead of any
+        if (keys[keys.length - 1] in current) {
+          (current as Record<string, string | number | string[] | undefined>)[keys[keys.length - 1]] = value;
+        }
         return newState;
       });
     } else {
@@ -165,9 +167,11 @@ export default function CreatePhotographyService() {
     }
   };
 
-  const handlePackageChange = (index: number, field: string, value: string | boolean | number) => {
+  const handlePackageChange = (index: number, field: keyof PackageFormData, value: string | boolean | number) => {
     const newPackages = [...formData.packages];
-    (newPackages[index] as any)[field] = value;
+    // Use a more specific type instead of any
+    const pkg: PackageFormData = newPackages[index];
+    pkg[field] = value as never; // This is safe because we know the field and value match
     setFormData(prev => ({ ...prev, packages: newPackages }));
   };
 
@@ -191,27 +195,6 @@ export default function CreatePhotographyService() {
     }
   };
 
-  const handleAddAddon = () => {
-    setFormData(prev => ({
-      ...prev,
-      addons: [...prev.addons, { name: '', description: '', price: 0 }]
-    }));
-  };
-
-  const handleRemoveAddon = (index: number) => {
-    if (formData.addons.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        addons: prev.addons.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-  const handleAddonChange = (index: number, field: string, value: string | number) => {
-    const newAddons = [...formData.addons];
-    (newAddons[index] as any)[field] = value;
-    setFormData(prev => ({ ...prev, addons: newAddons }));
-  };
 
   const handleImagesChange = (newImages: VenueImageWithUpload[]) => {
     const formattedImages = newImages.map(({ url, alt, isPrimary }) => ({ url, alt, isPrimary }));
@@ -331,8 +314,14 @@ export default function CreatePhotographyService() {
       await apiClient.post('/photography', serviceData);
       toast.success('Photography service created successfully!');
       router.push('/provider/photography');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to create photography service';
+    } catch (err) {
+      let errorMessage = 'Failed to create photography service';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      }
       setError(errorMessage);
       toast.error(errorMessage);
     } finally {
@@ -393,7 +382,7 @@ export default function CreatePhotographyService() {
               </div>
               
               <div className="flex justify-between">
-                {tabs.map((tab, index) => {
+                {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
                   const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);

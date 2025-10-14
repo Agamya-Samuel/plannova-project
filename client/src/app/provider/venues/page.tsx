@@ -306,7 +306,7 @@ export default function ProviderVenuesPage() {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-3">Service Not Available</h2>
           <p className="text-gray-600 mb-6">
-            You haven't selected venue as your service category. 
+            You have not selected venue as your service category.
             Please update your profile to access venue services.
           </p>
           <Button 

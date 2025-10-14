@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Camera, Edit3, ArrowLeft, MapPin, Phone, Mail, Package, PlusCircle } from 'lucide-react';
+import { Camera, Edit3, ArrowLeft, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 
@@ -61,27 +61,33 @@ function ViewPhotographyService() {
   const [error, setError] = useState('');
   const [service, setService] = useState<PhotographyService | null>(null);
 
+  const fetchPhotographyService = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get(`/photography/${serviceId}`);
+      setService(response.data.data);
+    } catch (err: unknown) {
+      let errorMessage = 'Failed to fetch photography service';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { error?: string } } }).response;
+        if (response?.data?.error) {
+          errorMessage = response.data.error;
+        }
+      }
+      setError(errorMessage);
+      console.error('Error fetching photography service:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [serviceId]);
+
   useEffect(() => {
     if (serviceId) {
       fetchPhotographyService();
     } else {
       router.push('/staff/approvals/photography');
     }
-  }, [serviceId]);
-
-  const fetchPhotographyService = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get(`/photography/${serviceId}`);
-      setService(response.data.data);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to fetch photography service';
-      setError(errorMessage);
-      console.error('Error fetching photography service:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [serviceId, fetchPhotographyService, router]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -190,7 +196,7 @@ function ViewPhotographyService() {
               <Camera className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
               <p className="text-gray-600 mb-6">
-                The photography service you're looking for doesn't exist or has been removed.
+                The photography service you are looking for does not exist or has been removed.
               </p>
               <button
                 onClick={() => router.push(getDashboardUrl())}

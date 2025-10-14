@@ -16,7 +16,7 @@ export const favoriteService = {
   // Add venue to favorites
   addFavorite: async (venueId: string): Promise<boolean> => {
     try {
-      const response = await apiClient.post(`/venues/${venueId}/favorite`);
+      await apiClient.post(`/venues/${venueId}/favorite`);
       return true;
     } catch (error) {
       console.error('Error adding favorite:', error);
@@ -27,7 +27,7 @@ export const favoriteService = {
   // Remove venue from favorites
   removeFavorite: async (venueId: string): Promise<boolean> => {
     try {
-      const response = await apiClient.delete(`/venues/${venueId}/favorite`);
+      await apiClient.delete(`/venues/${venueId}/favorite`);
       return true;
     } catch (error) {
       console.error('Error removing favorite:', error);

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
 import { Button } from '../../../../components/ui/button';
@@ -132,7 +133,7 @@ export default function CateringServiceViewPage() {
   if (!user || 
       (user.role !== 'PROVIDER' && user.role !== 'STAFF' && user.role !== 'ADMIN') || 
       (user.role === 'PROVIDER' && !user.serviceCategories?.includes('catering'))) {
-    return <div>Access denied. You don't have permission to view this page.</div>;
+    return <div>Access denied. You do not have permission to view this page.</div>;
   }
 
   if (loading) {
@@ -259,10 +260,12 @@ export default function CateringServiceViewPage() {
                     {service.images.map((image, index) => (
                       <div key={`${service._id}-image-${index}`} className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden shadow-sm">
                         {image.url ? (
-                          <img 
-                            src={image.url} 
-                            alt={image.alt || `Image ${index + 1}`} 
-                            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+                          <Image
+                            src={image.url}
+                            alt={image.alt || `Image ${index + 1}`}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            className="transition-transform duration-300 hover:scale-105"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-500">
@@ -468,7 +471,7 @@ export default function CateringServiceViewPage() {
                       <Star className="h-8 w-8 text-gray-400" />
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">No Reviews Yet</h3>
-                    <p className="text-gray-600">This service doesn't have any customer reviews yet.</p>
+                    <p className="text-gray-600">This service does not have any customer reviews yet.</p>
                   </div>
                 )}
               </div>

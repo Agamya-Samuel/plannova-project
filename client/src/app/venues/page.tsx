@@ -46,7 +46,7 @@ interface Venue {
     email: string;
   };
   // Add pendingEdits field to handle pending edits
-  pendingEdits?: any;
+  pendingEdits?: Partial<Venue>;
 }
 
 function VenuesContent() {

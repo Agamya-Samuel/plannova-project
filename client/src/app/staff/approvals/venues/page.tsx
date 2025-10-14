@@ -70,7 +70,7 @@ interface Venue {
     lastName: string;
     email: string;
   } | null;
-  pendingEdits?: any; // Add this for pending edits
+  pendingEdits?: Partial<Venue>;
 }
 
 interface VenuesResponse {
@@ -470,7 +470,8 @@ export default function StaffVenueApprovalsPage() {
                             {/* Show pending images if in pending edit status, otherwise show current images */}
                             {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).length > 0 ? (
                               <Image
-                                src={(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).find((img: any) => img.isPrimary)?.url || (venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images)[0]?.url}
+                                src={(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).find((img: { isPrimary: boolean; }) => img.isPrimary)?.url || 
+                                ((venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images)[0]?.url) || '/placeholder-image.jpg'}
                                 alt={venue.name}
                                 width={800}
                                 height={600}

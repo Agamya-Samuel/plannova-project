@@ -16,112 +16,7 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
-import { sonnerConfirm } from '@/lib/sonner-confirm';
-import { sonnerPrompt } from '@/lib/sonner-prompt';
 import { usePathname, useRouter } from 'next/navigation';
-
-interface ApiError extends Error {
-  response?: {
-    data?: {
-      error?: string;
-    };
-  };
-}
-
-interface Venue {
-  _id: string;
-  name: string;
-  description: string;
-  type: string;
-  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-  address: {
-    street: string;
-    area: string;
-    city: string;
-    state: string;
-    pincode: string;
-  };
-  capacity: {
-    min: number;
-    max: number;
-  };
-  basePrice: number;
-  images: Array<{
-    url: string;
-    alt: string;
-    category: string;
-    isPrimary: boolean;
-  }>;
-  averageRating: number;
-  totalReviews: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  providerId: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-}
-
-interface Photography {
-  _id: string;
-  name: string;
-  description: string;
-  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
-  serviceLocation: {
-    address: string;
-    city: string;
-    state: string;
-    pincode: string;
-  };
-  basePrice: number;
-  images: Array<{
-    url: string;
-    alt: string;
-    category: string;
-    isPrimary: boolean;
-  }>;
-  averageRating: number;
-  totalReviews: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  provider: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-  };
-}
-
-interface VenuesResponse {
-  venues: Venue[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
-
-interface PhotographyResponse {
-  data: Photography[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    pages: number;
-  };
-}
-
-interface ServiceStats {
-  pending: number;
-  approved: number;
-  rejected: number;
-  pendingEdit?: number;
-}
 
 export default function StaffApprovalsPage() {
   const { user } = useAuth();
@@ -132,12 +27,10 @@ export default function StaffApprovalsPage() {
     catering: { pending: 0, approved: 0, rejected: 0 },
     photography: { pending: 0, approved: 0, rejected: 0 }
   });
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        setLoading(true);
         // Fetch venue stats
         const venueResponse = await apiClient.get('/venues/staff/stats');
         // Fetch catering stats
@@ -154,7 +47,6 @@ export default function StaffApprovalsPage() {
         console.error('Error fetching stats:', error);
         toast.error('Failed to fetch dashboard statistics');
       } finally {
-        setLoading(false);
       }
     };
 

@@ -67,7 +67,7 @@ interface CateringService {
     lastName: string;
     email: string;
   } | null;
-  pendingEdits?: any;
+  pendingEdits?: Partial<CateringService>;
 }
 
 export default function StaffCateringApprovalsPage() {

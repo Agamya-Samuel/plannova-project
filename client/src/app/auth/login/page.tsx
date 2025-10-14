@@ -28,7 +28,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showRoleSelection, setShowRoleSelection] = useState(false);
   const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
-  const { login, googleSignIn, updateRole, user } = useAuth();
+  const { login, updateRole, user } = useAuth();
   const router = useRouter();
 
   const {

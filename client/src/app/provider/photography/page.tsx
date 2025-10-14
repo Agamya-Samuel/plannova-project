@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Camera, Plus, Edit3, Eye, BarChart3, MessageCircle, Settings } from 'lucide-react';
+import { Camera, Plus, Edit3, Eye, BarChart3, Settings } from 'lucide-react';
 import apiClient from '@/lib/api';
 
 interface PhotographyService {
@@ -22,7 +21,6 @@ interface PhotographyService {
 }
 
 export default function PhotographyDashboard() {
-  const { user } = useAuth();
   const router = useRouter();
   const [services, setServices] = useState<PhotographyService[]>([]);
   const [loading, setLoading] = useState(true);

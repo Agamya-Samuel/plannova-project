@@ -71,7 +71,7 @@ interface PhotographyService {
     lastName: string;
     email: string;
   } | null;
-  pendingEdits?: any;
+  pendingEdits?: Partial<PhotographyService>;
 }
 
 export default function StaffPhotographyApprovalsPage() {
@@ -111,7 +111,7 @@ export default function StaffPhotographyApprovalsPage() {
 
   useEffect(() => {
     fetchPhotographyServices(statusFilter, searchTerm);
-  }, [statusFilter]);
+  }, [statusFilter, searchTerm]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
