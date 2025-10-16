@@ -100,7 +100,7 @@ export const validateS3Connection = async (): Promise<boolean> => {
 // Generate file key for S3 storage
 export const generateFileKey = (
   userId: string,
-  type: 'venue' | 'profile' | 'document' | 'catering',
+  type: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography',
   filename: string,
   venueId?: string
 ): string => {
