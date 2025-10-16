@@ -50,8 +50,8 @@ const presignedUrlValidation = [
     .isInt({ min: 1, max: Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document) })
     .withMessage(`File size must be between 1 byte and ${Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document)} bytes`),
   body('uploadType')
-    .isIn(['venue', 'profile', 'document', 'catering', 'photography'])
-    .withMessage('Upload type must be venue, profile, document, or catering'),
+    .isIn(['venue', 'profile', 'document', 'catering', 'photography', 'videography'])
+    .withMessage('Upload type must be venue, profile, document, catering, photography, or videography'),
   body('venueId')
     .optional()
     .isMongoId()

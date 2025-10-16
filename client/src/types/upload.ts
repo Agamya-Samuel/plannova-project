@@ -1,6 +1,6 @@
 // Upload-related types for the frontend
 
-export type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography';
+export type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography';
 
 export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
