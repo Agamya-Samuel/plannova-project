@@ -17,8 +17,7 @@ import {
   Mail,
   Loader2,
   Trash2,
-  BarChart3,
-  Settings
+  BarChart3
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';

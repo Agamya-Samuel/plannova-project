@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { 
@@ -9,9 +8,7 @@ import {
   Star, 
   MapPin, 
   IndianRupee, 
-  Users, 
-  Search, 
-  Filter,
+  Search,
   X,
   Loader2
 } from 'lucide-react';
@@ -72,7 +69,6 @@ interface VideographyResponse {
 }
 
 export default function VideographyPage() {
-  const router = useRouter();
   const [services, setServices] = useState<VideographyService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -81,14 +77,6 @@ export default function VideographyPage() {
   const [typeFilter, setTypeFilter] = useState('');
   const [priceRange, setPriceRange] = useState({ min: '', max: '' });
   const [filteredServices, setFilteredServices] = useState<VideographyService[]>([]);
-
-  useEffect(() => {
-    fetchVideographyServices();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [services, searchTerm, locationFilter, typeFilter, priceRange]);
 
   const fetchVideographyServices = async () => {
     try {
@@ -104,7 +92,7 @@ export default function VideographyPage() {
     }
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...services];
 
     // Search filter
@@ -146,7 +134,15 @@ export default function VideographyPage() {
     }
 
     setFilteredServices(filtered);
-  };
+  }, [services, searchTerm, locationFilter, typeFilter, priceRange]);
+
+  useEffect(() => {
+    fetchVideographyServices();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const clearFilters = () => {
     setSearchTerm('');

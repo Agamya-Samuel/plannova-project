@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
@@ -10,17 +11,12 @@ import {
   ArrowLeft, 
   Plus, 
   X, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  MessageCircle,
   Loader2,
   Upload,
   Trash2
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
-import ImageUpload from '@/components/upload/ImageUpload';
 
 interface VideographyFormData {
   name: string;
@@ -129,7 +125,7 @@ export default function CreateVideographyServicePage() {
     );
   }
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -144,9 +140,9 @@ export default function CreateVideographyServicePage() {
     }
   };
 
-  const handleNestedInputChange = (parent: string, field: string, value: any) => {
+  const handleNestedInputChange = (parent: string, field: string, value: string | number) => {
     setFormData(prev => {
-      const parentData = prev[parent as keyof VideographyFormData] as any;
+      const parentData = prev[parent as keyof VideographyFormData] as Record<string, string | number>;
       return {
         ...prev,
         [parent]: {
@@ -187,7 +183,7 @@ export default function CreateVideographyServicePage() {
     }));
   };
 
-  const updatePackage = (index: number, field: string, value: any) => {
+  const updatePackage = (index: number, field: string, value: string | boolean | number) => {
     setFormData(prev => ({
       ...prev,
       packages: prev.packages.map((pkg, i) => 
@@ -255,7 +251,7 @@ export default function CreateVideographyServicePage() {
     }));
   };
 
-  const updateAddon = (index: number, field: string, value: any) => {
+  const updateAddon = (index: number, field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
       addons: prev.addons.map((addon, i) => 
@@ -264,9 +260,6 @@ export default function CreateVideographyServicePage() {
     }));
   };
 
-  const handleImageUpload = (uploadedImages: Array<{ url: string; alt: string; isPrimary: boolean }>) => {
-    setImages(uploadedImages);
-  };
 
   const removeImage = (index: number) => {
     setImages(prev => prev.filter((_, i) => i !== index));
@@ -306,57 +299,6 @@ export default function CreateVideographyServicePage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const uploadImagesToS3 = async (files: File[]): Promise<Array<{ url: string; alt: string; isPrimary: boolean }>> => {
-    const uploadedImages = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      try {
-        // Get presigned URL for upload
-        const presignedResponse = await apiClient.post('/upload/presigned-url', {
-          fileName: file.name,
-          fileType: file.type,
-          fileSize: file.size,
-          uploadType: 'videography'
-        });
-        
-        const { url, fields, key } = presignedResponse.data;
-        
-        // Create form data for S3 upload
-        const formData = new FormData();
-        Object.entries(fields).forEach(([key, value]) => {
-          formData.append(key, value as string);
-        });
-        formData.append('file', file);
-        
-        // Upload to S3
-        const uploadResponse = await fetch(url, {
-          method: 'POST',
-          body: formData,
-        });
-        
-        if (!uploadResponse.ok) {
-          throw new Error(`Upload failed: ${uploadResponse.statusText}`);
-        }
-        
-        // Get the final URL
-        const finalUrl = `${url}/${key}`;
-        
-        uploadedImages.push({
-          url: finalUrl,
-          alt: file.name,
-          isPrimary: i === 0 // First image is primary
-        });
-        
-      } catch (error) {
-        console.error(`Error uploading file ${file.name}:`, error);
-        throw error;
-      }
-    }
-    
-    return uploadedImages;
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -391,13 +333,13 @@ export default function CreateVideographyServicePage() {
         images: images
       };
 
-      const response = await apiClient.post('/videography', submitData);
+      await apiClient.post('/videography', submitData);
       
       toast.success('Videography service created successfully!');
       router.push('/provider/videography');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating videography service:', error);
-      const errorMessage = error.response?.data?.error || 'Failed to create videography service';
+      const errorMessage = (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to create videography service';
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -676,9 +618,11 @@ export default function CreateVideographyServicePage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {images.map((image, index) => (
                       <div key={index} className="relative group">
-                        <img
+                        <Image
                           src={image.url}
                           alt={image.alt}
+                          width={200}
+                          height={128}
                           className="w-full h-32 object-cover rounded-lg"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center space-x-2">
@@ -806,7 +750,7 @@ export default function CreateVideographyServicePage() {
                   <div className="mt-6">
                     <div className="flex justify-between items-center mb-4">
                       <label className="block text-sm font-medium text-gray-700">
-                        What's Included
+                        What&apos;s Included
                       </label>
                       <Button
                         type="button"

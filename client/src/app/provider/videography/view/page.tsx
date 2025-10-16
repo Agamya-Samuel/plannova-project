@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
 import { Video, Edit3, ArrowLeft, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
@@ -51,8 +51,7 @@ interface VideographyService {
   updatedAt: string;
 }
 
-export default function ViewVideographyService() {
-  const { user } = useAuth();
+function ViewVideographyServiceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const serviceId = searchParams.get('id');
@@ -103,11 +102,6 @@ export default function ViewVideographyService() {
     }
   };
 
-  const getPrimaryImage = () => {
-    if (!service?.images || service.images.length === 0) return null;
-    const primaryImage = service.images.find(img => img.isPrimary);
-    return primaryImage || service.images[0];
-  };
 
   if (loading) {
     return (
@@ -396,5 +390,17 @@ export default function ViewVideographyService() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ViewVideographyService() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-600"></div>
+      </div>
+    }>
+      <ViewVideographyServiceContent />
+    </Suspense>
   );
 }

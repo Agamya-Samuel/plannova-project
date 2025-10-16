@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -20,7 +20,6 @@ import {
   Image as ImageIcon,
   Package,
   ShieldCheck,
-  Video
 } from 'lucide-react';
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
@@ -90,7 +89,7 @@ const states = [
   'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
 ];
 
-export default function EditVideographyService() {
+function EditVideographyServiceContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -700,5 +699,17 @@ export default function EditVideographyService() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function EditVideographyService() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-purple-600"></div>
+      </div>
+    }>
+      <EditVideographyServiceContent />
+    </Suspense>
   );
 }

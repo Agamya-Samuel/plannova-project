@@ -3,22 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
 import { 
   Video, 
   Star, 
   MapPin, 
-  IndianRupee, 
-  Users, 
   Phone, 
   Mail, 
   MessageCircle,
   Clock,
   CheckCircle,
   ArrowLeft,
-  Loader2,
-  Calendar,
-  Package
+  Loader2
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 
