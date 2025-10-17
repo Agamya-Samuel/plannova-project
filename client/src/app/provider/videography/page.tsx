@@ -11,13 +11,10 @@ import {
   Eye, 
   Edit, 
   Star, 
-  Users, 
   IndianRupee, 
   MapPin,
-  Mail,
   Loader2,
-  Trash2,
-  BarChart3
+  Trash2
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
@@ -141,45 +138,7 @@ export default function VideographyDashboardPage() {
     );
   }
 
-  // Calculate statistics with defensive programming
-  console.log('Raw services data for stats calculation:', services);
   const totalServices = services.length;
-  
-  // Safely calculate average rating
-  const validRatings = services
-    .map(service => {
-      const rating = typeof service.rating === 'number' ? service.rating : 0;
-      return isNaN(rating) ? 0 : rating;
-    });
-  const avgRating = validRatings.length > 0 
-    ? (validRatings.reduce((sum, rating) => sum + rating, 0) / validRatings.length).toFixed(1) 
-    : '0.0';
-  
-  // Safely calculate total reviews
-  const totalReviews = services
-    .map(service => {
-      const count = typeof service.reviewCount === 'number' ? service.reviewCount : 0;
-      return isNaN(count) ? 0 : count;
-    })
-    .reduce((sum, count) => sum + count, 0);
-  
-  // Safely calculate average price
-  const validPrices = services
-    .map(service => {
-      const price = typeof service.basePrice === 'number' ? service.basePrice : 0;
-      return isNaN(price) || price < 0 ? 0 : price;
-    });
-  const avgPrice = validPrices.length > 0 
-    ? Math.round(validPrices.reduce((sum, price) => sum + price, 0) / validPrices.length) 
-    : 0;
-
-  console.log('Calculated stats:', { totalServices, avgRating, totalReviews, avgPrice });
-
-  // Get services by status
-  const pendingServices = services.filter(service => service.status === 'PENDING');
-  const approvedServices = services.filter(service => service.status === 'APPROVED');
-  const rejectedServices = services.filter(service => service.status === 'REJECTED');
-  const pendingEditServices = services.filter(service => service.status === 'PENDING_EDIT');
 
   return (
     <ProtectedRoute>
@@ -214,108 +173,6 @@ export default function VideographyDashboardPage() {
             </div>
           ) : (
             <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <h3 className="text-sm font-semibold text-gray-700">Total Services</h3>
-                    <Video className="h-5 w-5 text-purple-500" />
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-3xl font-bold text-gray-900">{String(totalServices)}</div>
-                    <p className="text-xs text-gray-500 mt-1">Active videography packages</p>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <h3 className="text-sm font-semibold text-gray-700">Avg. Rating</h3>
-                    <Star className="h-5 w-5 text-yellow-500 fill-current" />
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-3xl font-bold text-gray-900">{String(avgRating)}</div>
-                    <p className="text-xs text-gray-500 mt-1">Based on customer reviews</p>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <h3 className="text-sm font-semibold text-gray-700">Total Reviews</h3>
-                    <Users className="h-5 w-5 text-blue-500" />
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-3xl font-bold text-gray-900">{String(totalReviews)}</div>
-                    <p className="text-xs text-gray-500 mt-1">Customer feedback received</p>
-                  </div>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow p-6">
-                  <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <h3 className="text-sm font-medium">Avg. Price</h3>
-                    <IndianRupee className="h-4 w-4 text-muted-foreground" />
-                  </div>
-                  <div className="mt-2">
-                    <div className="text-2xl font-bold">₹{String(avgPrice)}</div>
-                    <p className="text-xs text-muted-foreground">Per service base price</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Status Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-                <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-yellow-500 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-yellow-100 rounded-lg">
-                      <Loader2 className="h-6 w-6 text-yellow-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-bold text-gray-900">Pending Approval</h3>
-                      <p className="text-3xl font-bold text-yellow-600 mt-1">{String(pendingServices.length)}</p>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-600">Services awaiting staff review</p>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-green-500 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-green-100 rounded-lg">
-                      <Eye className="h-6 w-6 text-green-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-bold text-gray-900">Approved</h3>
-                      <p className="text-3xl font-bold text-green-600 mt-1">{String(approvedServices.length)}</p>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-600">Live and visible to customers</p>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-blue-500 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-blue-100 rounded-lg">
-                      <BarChart3 className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-bold text-gray-900">Pending Edit</h3>
-                      <p className="text-3xl font-bold text-blue-600 mt-1">{String(pendingEditServices.length)}</p>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-600">Edits awaiting approval</p>
-                </div>
-                
-                <div className="bg-white rounded-xl shadow-lg p-6 border-l-4 border-red-500 hover:shadow-xl transition-shadow duration-300">
-                  <div className="flex items-center">
-                    <div className="p-3 bg-red-100 rounded-lg">
-                      <Mail className="h-6 w-6 text-red-600" />
-                    </div>
-                    <div className="ml-4">
-                      <h3 className="text-lg font-bold text-gray-900">Rejected</h3>
-                      <p className="text-3xl font-bold text-red-600 mt-1">{String(rejectedServices.length)}</p>
-                    </div>
-                  </div>
-                  <p className="mt-3 text-sm text-gray-600">Services that need revision</p>
-                </div>
-              </div>
-
               {/* Services List */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                 <div className="flex items-center justify-between mb-6">

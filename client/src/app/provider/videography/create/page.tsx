@@ -2,21 +2,34 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   Video, 
   ArrowLeft, 
   Plus, 
   X, 
-  Loader2,
-  Upload,
-  Trash2
+  MapPin,
+  Phone,
+  Save,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  AlertCircle,
+  Info,
+  Image as ImageIcon,
+  Package,
+  ShieldCheck
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
+import { ImageUpload } from '@/components/upload';
+import type { VenueImageWithUpload } from '@/types/upload';
+import 'react-phone-number-input/style.css';
+import PhoneInput from 'react-phone-number-input';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface VideographyFormData {
   name: string;
@@ -50,6 +63,7 @@ interface VideographyFormData {
   minGuests: number;
   cancellationPolicy: string;
   paymentTerms: string;
+  images: Array<{ url: string; alt: string; isPrimary: boolean }>;
 }
 
 const initialFormData: VideographyFormData = {
@@ -79,7 +93,8 @@ const initialFormData: VideographyFormData = {
   basePrice: 0,
   minGuests: 0,
   cancellationPolicy: '',
-  paymentTerms: ''
+  paymentTerms: '',
+  images: []
 };
 
 const videographyTypeOptions = [
@@ -95,13 +110,44 @@ const videographyTypeOptions = [
   'Live Streaming'
 ];
 
+const states = [
+  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
+  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
+  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
+  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
+];
+
 export default function CreateVideographyServicePage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [formData, setFormData] = useState<VideographyFormData>(initialFormData);
-  const [images, setImages] = useState<Array<{ url: string; alt: string; isPrimary: boolean }>>([]);
+  const [formData, setFormData] = useState<VideographyFormData>({
+    ...initialFormData,
+    contact: {
+      ...initialFormData.contact,
+      email: user?.email || ''
+    }
+  });
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('basic');
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
+  const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
+
+  const tabs = [
+    { id: 'basic', label: 'Basic Info', icon: Info },
+    { id: 'location', label: 'Location', icon: MapPin },
+    { id: 'contact', label: 'Contact', icon: Phone },
+    { id: 'images', label: 'Images', icon: ImageIcon },
+    { id: 'services', label: 'Services', icon: Video },
+    { id: 'packages', label: 'Packages', icon: Package },
+    { id: 'policies', label: 'Policies', icon: ShieldCheck },
+    { id: 'review', label: 'Review', icon: Save }
+  ];
+
+  const currentTabIndex = tabs.findIndex(tab => tab.id === activeTab);
+  const isFirstTab = currentTabIndex === 0;
+  const isLastTab = currentTabIndex === tabs.length - 1;
 
   if (!user || user.role !== 'PROVIDER' || !user.serviceCategories?.includes('videography')) {
     return (
@@ -125,6 +171,110 @@ export default function CreateVideographyServicePage() {
     );
   }
 
+  const validateCurrentTab = () => {
+    const validationErrors: string[] = [];
+    
+    switch (activeTab) {
+      case 'basic':
+        if (!formData.name.trim()) validationErrors.push('Service name is required');
+        if (!formData.description.trim()) validationErrors.push('Description is required');
+        if (formData.description.length < 10) validationErrors.push('Description must be at least 10 characters');
+        if (formData.basePrice <= 0) validationErrors.push('Base price must be greater than 0');
+        break;
+      case 'location':
+        if (!formData.serviceLocation.address.trim()) validationErrors.push('Address is required');
+        if (!formData.serviceLocation.city.trim()) validationErrors.push('City is required');
+        if (!formData.serviceLocation.state.trim()) validationErrors.push('State is required');
+        if (!formData.serviceLocation.pincode.trim()) validationErrors.push('Pincode is required');
+        break;
+      case 'contact':
+        if (!formData.contact.phone.trim()) {
+          validationErrors.push('Phone number is required');
+        } else if (!isValidPhoneNumber(formData.contact.phone)) {
+          validationErrors.push('Please enter a valid phone number');
+        }
+        if (formData.contact.whatsapp.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
+          validationErrors.push('Please enter a valid WhatsApp number');
+        }
+        if (!formData.contact.email.trim()) validationErrors.push('Email is required');
+        break;
+      case 'images':
+        if (formData.images.length === 0) validationErrors.push('At least one image is required');
+        break;
+      case 'services':
+        if (formData.videographyTypes.length === 0) validationErrors.push('At least one videography type is required');
+        break;
+      case 'packages':
+        if (formData.packages.length === 0) validationErrors.push('At least one package is required');
+        formData.packages.forEach((pkg, index) => {
+          if (!pkg.name.trim()) validationErrors.push(`Package ${index + 1} name is required`);
+          if (pkg.price <= 0) validationErrors.push(`Package ${index + 1} price must be greater than 0`);
+        });
+        break;
+    }
+
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join(', '));
+      return false;
+    }
+    
+    setError('');
+    return true;
+  };
+
+  const goToNextTab = () => {
+    if (!validateCurrentTab()) {
+      return;
+    }
+    
+    if (!isLastTab) {
+      const nextTab = tabs[currentTabIndex + 1];
+      setActiveTab(nextTab.id);
+      setVisitedTabs(prev => new Set([...prev, nextTab.id]));
+    }
+  };
+
+  const goToPreviousTab = () => {
+    setError('');
+    if (!isFirstTab) {
+      setActiveTab(tabs[currentTabIndex - 1].id);
+    }
+  };
+
+  const isTabCompleted = (tabId: string) => {
+    if (!visitedTabs.has(tabId)) return false;
+    
+    switch (tabId) {
+      case 'basic':
+        return !!(formData.name.trim() && 
+               formData.description.trim() && 
+               formData.description.length >= 10 &&
+               formData.basePrice > 0);
+      case 'location':
+        return !!(formData.serviceLocation.address.trim() && 
+               formData.serviceLocation.city.trim() && 
+               formData.serviceLocation.state.trim() && 
+               formData.serviceLocation.pincode.trim());
+      case 'contact':
+        return !!(formData.contact.phone.trim() && 
+               formData.contact.email.trim() && 
+               formData.contact.email.includes('@'));
+      case 'images':
+        return formData.images.length > 0;
+      case 'services':
+        return formData.videographyTypes.length > 0;
+      case 'packages':
+        return formData.packages.length > 0 && 
+               formData.packages.every(pkg => pkg.name.trim() && pkg.price > 0);
+      case 'policies':
+        return true; // Policies are optional
+      case 'review':
+        return false; // Never mark review as completed until final submission
+      default:
+        return false;
+    }
+  };
+
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({
       ...prev,
@@ -132,11 +282,8 @@ export default function CreateVideographyServicePage() {
     }));
     
     // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }));
+    if (error) {
+      setError('');
     }
   };
 
@@ -233,91 +380,36 @@ export default function CreateVideographyServicePage() {
     }));
   };
 
-  const addAddon = () => {
-    setFormData(prev => ({
-      ...prev,
-      addons: [...prev.addons, {
-        name: '',
-        description: '',
-        price: 0
-      }]
-    }));
+
+
+  const handleImagesChange = (newImages: VenueImageWithUpload[]) => {
+    const formattedImages = newImages.map(({ url, alt, isPrimary }) => ({ url, alt, isPrimary }));
+    setFormData(prev => ({ ...prev, images: formattedImages }));
   };
 
-  const removeAddon = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      addons: prev.addons.filter((_, i) => i !== index)
-    }));
+  const handleManualSubmit = () => {
+    setIsExplicitSubmit(true);
+    const form = document.querySelector('form');
+    if (form) {
+      form.requestSubmit();
+    }
   };
-
-  const updateAddon = (index: number, field: string, value: string | number) => {
-    setFormData(prev => ({
-      ...prev,
-      addons: prev.addons.map((addon, i) => 
-        i === index ? { ...addon, [field]: value } : addon
-      )
-    }));
-  };
-
-
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const setPrimaryImage = (index: number) => {
-    setImages(prev => prev.map((img, i) => ({
-      ...img,
-      isPrimary: i === index
-    })));
-  };
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.name.trim()) newErrors.name = 'Service name is required';
-    if (!formData.description.trim()) newErrors.description = 'Description is required';
-    if (formData.description.length < 10) newErrors.description = 'Description must be at least 10 characters';
-    if (!formData.serviceLocation.address.trim()) newErrors.address = 'Address is required';
-    if (!formData.serviceLocation.city.trim()) newErrors.city = 'City is required';
-    if (!formData.serviceLocation.state.trim()) newErrors.state = 'State is required';
-    if (!formData.serviceLocation.pincode.trim()) newErrors.pincode = 'Pincode is required';
-    if (!formData.contact.phone.trim()) newErrors.phone = 'Phone number is required';
-    if (!formData.contact.email.trim()) newErrors.email = 'Email is required';
-    if (!formData.contact.email.includes('@')) newErrors.email = 'Valid email is required';
-    if (formData.videographyTypes.length === 0) newErrors.videographyTypes = 'At least one videography type is required';
-    if (formData.basePrice <= 0) newErrors.basePrice = 'Base price must be greater than 0';
-    if (formData.packages.length === 0) newErrors.packages = 'At least one package is required';
-
-    // Validate packages
-    formData.packages.forEach((pkg, index) => {
-      if (!pkg.name.trim()) newErrors[`package_${index}_name`] = 'Package name is required';
-      if (pkg.price <= 0) newErrors[`package_${index}_price`] = 'Package price must be greater than 0';
-    });
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      toast.error('Please fix the errors in the form');
+    if (!isExplicitSubmit) {
       return;
     }
 
-    if (images.length === 0) {
-      toast.error('Please upload at least one image');
+    if (!validateCurrentTab()) {
+      toast.error('Please complete all required fields before submitting');
       return;
     }
 
-    try {
       setLoading(true);
       
-      // For now, we'll use the temporary URLs from the preview
-      // In a real implementation, you would upload the actual files to S3
+    try {
       const submitData = {
         name: formData.name,
         description: formData.description,
@@ -330,7 +422,7 @@ export default function CreateVideographyServicePage() {
         minGuests: formData.minGuests,
         cancellationPolicy: formData.cancellationPolicy,
         paymentTerms: formData.paymentTerms,
-        images: images
+        images: formData.images
       };
 
       await apiClient.post('/videography', submitData);
@@ -340,322 +432,377 @@ export default function CreateVideographyServicePage() {
     } catch (error: unknown) {
       console.error('Error creating videography service:', error);
       const errorMessage = (error as { response?: { data?: { error?: string } } }).response?.data?.error || 'Failed to create videography service';
+      setError(errorMessage);
       toast.error(errorMessage);
     } finally {
       setLoading(false);
+      setIsExplicitSubmit(false);
     }
   };
 
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-        <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="mb-8">
-            <button
+            <div className="bg-white rounded-2xl shadow-lg p-8">
+              <div className="flex items-center space-x-4 mb-4">
+                <Button
+                  variant="outline"
               onClick={() => router.push('/provider/videography')}
-              className="inline-flex items-center text-purple-600 hover:text-purple-700 mb-4 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Videography Services
-            </button>
-            <h1 className="text-3xl font-bold text-gray-900">Create New Videography Service</h1>
-            <p className="text-gray-600 mt-2">Add your videography service to attract customers</p>
+                  className="flex items-center space-x-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span>Back</span>
+                </Button>
+                <div>
+                  <h1 className="text-4xl font-bold text-gray-900">Create Videography Service</h1>
+                  <p className="text-gray-600 text-lg">Set up your videography service profile</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Basic Information */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Basic Information</h2>
+          {/* Error Alert */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center space-x-2">
+              <AlertCircle className="h-5 w-5 text-red-500" />
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          {/* Progress Bar */}
+          <div className="mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Progress</h3>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${((currentTabIndex + 1) / tabs.length) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">
+                    {currentTabIndex + 1} of {tabs.length}
+                  </span>
+                </div>
+              </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Step Indicators */}
+              <div className="flex justify-between">
+                {tabs.map((tab, index) => {
+                  const isCurrent = activeTab === tab.id;
+                  const isCompleted = isTabCompleted(tab.id);
+                  const canAccess = isCompleted || isCurrent || index <= currentTabIndex + 1;
+                  
+                  return (
+                    <div key={tab.id} className="flex flex-col items-center space-y-2">
+                      <button
+                        onClick={() => {
+                          if (!validateCurrentTab()) {
+                            return;
+                          }
+                          
+                          if (canAccess) {
+                            setActiveTab(tab.id);
+                            setError('');
+                            setVisitedTabs(prev => new Set([...prev, tab.id]));
+                          }
+                        }}
+                        disabled={!canAccess}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
+                          isCurrent
+                            ? 'bg-purple-600 text-white shadow-lg'
+                            : isCompleted
+                            ? 'bg-green-500 text-white'
+                            : canAccess
+                            ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <Check className="h-5 w-5" />
+                        ) : (
+                          <tab.icon className="h-5 w-5" />
+                        )}
+            </button>
+                      <span className={`text-xs text-center max-w-16 leading-tight ${
+                        isCurrent 
+                          ? 'text-purple-600 font-medium' 
+                          : isCompleted 
+                          ? 'text-green-600 font-medium' 
+                          : canAccess 
+                          ? 'text-gray-600' 
+                          : 'text-gray-400'
+                      }`}>
+                        {tab.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              {/* Basic Info Tab */}
+              {activeTab === 'basic' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
+                  
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Service Name *
                   </label>
-                  <input
+                    <Input
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleInputChange('name', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.name ? 'border-red-500' : 'border-gray-200'
-                    }`}
                     placeholder="Enter your videography service name"
+                      required
+                      className="text-black"
                   />
-                  {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
                 </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      placeholder="Describe your videography services, style, and what makes you unique"
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
+                      required
+                      minLength={10}
+                    />
+                    <div className="flex justify-between text-sm text-black mt-1">
+                      <span>Minimum 10 characters required</span>
+                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
+                        {formData.description.length}/2000
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Base Price (₹) *
                   </label>
-                  <input
+                      <Input
                     type="number"
                     value={formData.basePrice}
                     onChange={(e) => handleInputChange('basePrice', parseFloat(e.target.value) || 0)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.basePrice ? 'border-red-500' : 'border-gray-200'
-                    }`}
                     placeholder="Enter starting price"
                     min="0"
+                        required
+                        className="text-black"
                   />
-                  {errors.basePrice && <p className="text-red-500 text-sm mt-1">{errors.basePrice}</p>}
-                </div>
               </div>
 
-              <div className="mt-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Description *
-                </label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => handleInputChange('description', e.target.value)}
-                  rows={4}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.description ? 'border-red-500' : 'border-gray-200'
-                  }`}
-                  placeholder="Describe your videography services, style, and what makes you unique"
-                />
-                {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
-              </div>
-
-              <div className="mt-6">
+                    <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Minimum Guests
                 </label>
-                <input
+                      <Input
                   type="number"
                   value={formData.minGuests}
                   onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 0)}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   placeholder="Minimum number of guests"
                   min="0"
+                        className="text-black"
                 />
               </div>
             </div>
+                </div>
+              )}
 
-            {/* Location */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Service Location</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
+              {/* Location Tab */}
+              {activeTab === 'location' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Location</h2>
+                  <p className="text-gray-600 mb-6">Where do you provide your videography services?</p>
+                  
+                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Address *
                   </label>
-                  <input
+                    <Input
                     type="text"
                     value={formData.serviceLocation.address}
                     onChange={(e) => handleNestedInputChange('serviceLocation', 'address', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.address ? 'border-red-500' : 'border-gray-200'
-                    }`}
                     placeholder="Enter your service address"
+                      required
+                      className="text-black"
                   />
-                  {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
                 </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     City *
                   </label>
-                  <input
+                      <Input
                     type="text"
                     value={formData.serviceLocation.city}
                     onChange={(e) => handleNestedInputChange('serviceLocation', 'city', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.city ? 'border-red-500' : 'border-gray-200'
-                    }`}
                     placeholder="Enter city"
+                        required
+                        className="text-black"
                   />
-                  {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     State *
                   </label>
-                  <input
-                    type="text"
+                      <select
                     value={formData.serviceLocation.state}
                     onChange={(e) => handleNestedInputChange('serviceLocation', 'state', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.state ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="Enter state"
-                  />
-                  {errors.state && <p className="text-red-500 text-sm mt-1">{errors.state}</p>}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
+                        required
+                      >
+                        <option value="" className="text-gray-900">Select state</option>
+                        {states.map(state => (
+                          <option key={state} value={state} className="text-gray-900">{state}</option>
+                        ))}
+                      </select>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Pincode *
                   </label>
-                  <input
+                      <Input
                     type="text"
                     value={formData.serviceLocation.pincode}
                     onChange={(e) => handleNestedInputChange('serviceLocation', 'pincode', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.pincode ? 'border-red-500' : 'border-gray-200'
-                    }`}
                     placeholder="Enter pincode"
+                        required
+                        className="text-black"
                   />
-                  {errors.pincode && <p className="text-red-500 text-sm mt-1">{errors.pincode}</p>}
                 </div>
               </div>
             </div>
+              )}
 
-            {/* Contact Information */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Contact Information</h2>
+              {/* Contact Tab */}
+              {activeTab === 'contact' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Phone Number *
                   </label>
-                  <input
-                    type="tel"
+                      <PhoneInput
+                        international
+                        defaultCountry="IN"
                     value={formData.contact.phone}
-                    onChange={(e) => handleNestedInputChange('contact', 'phone', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.phone ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="Enter phone number"
-                  />
-                  {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+                        onChange={(value) => handleNestedInputChange('contact', 'phone', value || '')}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
+                      />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     WhatsApp Number
                   </label>
-                  <input
-                    type="tel"
+                      <PhoneInput
+                        international
+                        defaultCountry="IN"
                     value={formData.contact.whatsapp}
-                    onChange={(e) => handleNestedInputChange('contact', 'whatsapp', e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                    placeholder="Enter WhatsApp number (optional)"
+                        onChange={(value) => handleNestedInputChange('contact', 'whatsapp', value || '')}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
                   />
+                    </div>
                 </div>
 
-                <div className="md:col-span-2">
+                  <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Email Address *
                   </label>
-                  <input
+                    <Input
                     type="email"
                     value={formData.contact.email}
                     onChange={(e) => handleNestedInputChange('contact', 'email', e.target.value)}
-                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                      errors.email ? 'border-red-500' : 'border-gray-200'
-                    }`}
-                    placeholder="Enter email address"
-                  />
-                  {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                      placeholder="videography@example.com"
+                      required
+                      className="text-black"
+                    />
                 </div>
               </div>
-            </div>
+              )}
 
-            {/* Videography Types */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Videography Types *</h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {videographyTypeOptions.map((type) => (
-                  <label key={type} className="flex items-center space-x-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.videographyTypes.includes(type)}
-                      onChange={(e) => handleVideographyTypeChange(type, e.target.checked)}
-                      className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                    />
-                    <span className="text-sm text-gray-700">{type}</span>
-                  </label>
-                ))}
+              {/* Images Tab */}
+              {activeTab === 'images' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Portfolio Images</h2>
+                  
+                  <ImageUpload
+                    uploadType="videography"
+                    maxFiles={10}
+                    images={formData.images.map(img => ({ 
+                      ...img, 
+                      key: img.url, 
+                      uploadStatus: 'success' as const, 
+                      category: 'gallery' as const 
+                    }))}
+                    onImagesChange={handleImagesChange}
+                    showImagePreview={true}
+                    allowPrimarySelection={true}
+                  />
+                  
+                  {/* Image Upload Tips */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Upload high-quality images of your videography work and equipment</li>
+                      <li>• Include screenshots from your videos and behind-the-scenes photos</li>
+                      <li>• The first image will be used as the primary image in search results</li>
+                      <li>• Click the star icon to set a different image as primary</li>
+                      <li>• Images are automatically optimized for web display</li>
+                    </ul>
               </div>
-              {errors.videographyTypes && <p className="text-red-500 text-sm mt-2">{errors.videographyTypes}</p>}
             </div>
+              )}
 
-            {/* Images */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Portfolio Images *</h2>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">Upload your portfolio images</p>
-                <p className="text-sm text-gray-500">Supported formats: JPEG, PNG, WebP (Max 10 images)</p>
-                <input
-                  type="file"
-                  multiple
-                  accept="image/jpeg,image/png,image/webp"
-                  onChange={async (e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (files.length === 0) return;
-                    
-                    try {
-                      const uploadedImages: Array<{ url: string; alt: string; isPrimary: boolean }> = [];
-                      for (const file of files) {
-                        // Create a temporary URL for preview
-                        const tempUrl = URL.createObjectURL(file);
-                        uploadedImages.push({
-                          url: tempUrl,
-                          alt: file.name,
-                          isPrimary: uploadedImages.length === 0 // First image is primary
-                        });
-                      }
-                      setImages(prev => [...prev, ...uploadedImages]);
-                    } catch (error) {
-                      console.error('Error handling file upload:', error);
-                      toast.error('Error uploading images');
-                    }
-                  }}
-                  className="mt-4"
-                />
-              </div>
-              
-              {images.length > 0 && (
-                <div className="mt-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Uploaded Images</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {images.map((image, index) => (
-                      <div key={index} className="relative group">
-                        <Image
-                          src={image.url}
-                          alt={image.alt}
-                          width={200}
-                          height={128}
-                          className="w-full h-32 object-cover rounded-lg"
-                        />
-                        <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center space-x-2">
+              {/* Services Tab */}
+              {activeTab === 'services' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Videography Types</h2>
+                  <p className="text-gray-600 mb-6">Select the types of videography services you offer</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {videographyTypeOptions.map((type) => (
                           <button
+                        key={type}
                             type="button"
-                            onClick={() => setPrimaryImage(index)}
-                            className={`px-3 py-1 text-xs rounded ${
-                              image.isPrimary 
-                                ? 'bg-green-600 text-white' 
-                                : 'bg-white text-gray-900 hover:bg-gray-100'
-                            }`}
-                          >
-                            {image.isPrimary ? 'Primary' : 'Set Primary'}
+                        onClick={() => handleVideographyTypeChange(type, !formData.videographyTypes.includes(type))}
+                        className={`px-4 py-3 rounded-xl border text-sm font-medium transition-all duration-200 transform hover:scale-105 ${
+                          formData.videographyTypes.includes(type) 
+                            ? 'bg-gradient-to-r from-purple-500 to-blue-500 border-transparent text-white shadow-lg' 
+                            : 'bg-white border-2 border-gray-200 text-gray-700 hover:border-purple-300 hover:shadow-md'
+                        }`}
+                      >
+                        {type}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
                     ))}
                   </div>
                 </div>
               )}
-            </div>
 
-            {/* Packages */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Packages & Pricing *</h2>
+              {/* Packages Tab */}
+              {activeTab === 'packages' && (
+                <div className="space-y-6">
+                  <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-gray-900">Packages & Pricing</h2>
                 <Button
                   type="button"
                   onClick={addPackage}
@@ -667,7 +814,7 @@ export default function CreateVideographyServicePage() {
               </div>
 
               {formData.packages.map((pkg, index) => (
-                <div key={index} className="border border-gray-200 rounded-xl p-6 mb-6">
+                    <div key={index} className="border border-gray-200 rounded-xl p-6">
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold text-gray-900">Package {index + 1}</h3>
                     {formData.packages.length > 1 && (
@@ -687,37 +834,27 @@ export default function CreateVideographyServicePage() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Package Name *
                       </label>
-                      <input
+                          <Input
                         type="text"
                         value={pkg.name}
                         onChange={(e) => updatePackage(index, 'name', e.target.value)}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                          errors[`package_${index}_name`] ? 'border-red-500' : 'border-gray-200'
-                        }`}
                         placeholder="Enter package name"
+                            className="text-black"
                       />
-                      {errors[`package_${index}_name`] && (
-                        <p className="text-red-500 text-sm mt-1">{errors[`package_${index}_name`]}</p>
-                      )}
                     </div>
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Price (₹) *
                       </label>
-                      <input
+                          <Input
                         type="number"
                         value={pkg.price}
                         onChange={(e) => updatePackage(index, 'price', parseFloat(e.target.value) || 0)}
-                        className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                          errors[`package_${index}_price`] ? 'border-red-500' : 'border-gray-200'
-                        }`}
                         placeholder="Enter package price"
                         min="0"
+                            className="text-black"
                       />
-                      {errors[`package_${index}_price`] && (
-                        <p className="text-red-500 text-sm mt-1">{errors[`package_${index}_price`]}</p>
-                      )}
                     </div>
                   </div>
 
@@ -729,7 +866,7 @@ export default function CreateVideographyServicePage() {
                       value={pkg.description}
                       onChange={(e) => updatePackage(index, 'description', e.target.value)}
                       rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
                       placeholder="Describe what's included in this package"
                     />
                   </div>
@@ -738,12 +875,12 @@ export default function CreateVideographyServicePage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Duration
                     </label>
-                    <input
+                        <Input
                       type="text"
                       value={pkg.duration}
                       onChange={(e) => updatePackage(index, 'duration', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       placeholder="e.g., 8 hours, Full day, etc."
+                          className="text-black"
                     />
                   </div>
 
@@ -765,11 +902,11 @@ export default function CreateVideographyServicePage() {
                     </div>
                     {pkg.includes.map((include, includeIndex) => (
                       <div key={includeIndex} className="flex items-center space-x-2 mb-2">
-                        <input
+                            <Input
                           type="text"
                           value={include}
                           onChange={(e) => updatePackageIncludes(index, includeIndex, e.target.value)}
-                          className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                              className="flex-1 text-black"
                           placeholder="Enter what's included"
                         />
                         {pkg.includes.length > 1 && (
@@ -799,87 +936,14 @@ export default function CreateVideographyServicePage() {
                   </div>
                 </div>
               ))}
-              {errors.packages && <p className="text-red-500 text-sm mt-2">{errors.packages}</p>}
             </div>
+              )}
 
-            {/* Add-ons */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-900">Additional Services</h2>
-                <Button
-                  type="button"
-                  onClick={addAddon}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Service
-                </Button>
-              </div>
-
-              {formData.addons.map((addon, index) => (
-                <div key={index} className="border border-gray-200 rounded-xl p-6 mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Add-on {index + 1}</h3>
-                    <Button
-                      type="button"
-                      onClick={() => removeAddon(index)}
-                      className="text-red-600 hover:text-red-700"
-                      variant="outline"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Service Name
-                      </label>
-                      <input
-                        type="text"
-                        value={addon.name}
-                        onChange={(e) => updateAddon(index, 'name', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Enter service name"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Price (₹)
-                      </label>
-                      <input
-                        type="number"
-                        value={addon.price}
-                        onChange={(e) => updateAddon(index, 'price', parseFloat(e.target.value) || 0)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                        placeholder="Enter service price"
-                        min="0"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={addon.description}
-                      onChange={(e) => updateAddon(index, 'description', e.target.value)}
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                      placeholder="Describe the additional service"
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Policies */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-6">Policies</h2>
-              
-              <div className="space-y-6">
+              {/* Policies Tab */}
+              {activeTab === 'policies' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
+                  
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cancellation Policy
@@ -888,7 +952,7 @@ export default function CreateVideographyServicePage() {
                     value={formData.cancellationPolicy}
                     onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
                     placeholder="Describe your cancellation policy"
                   />
                 </div>
@@ -901,37 +965,154 @@ export default function CreateVideographyServicePage() {
                     value={formData.paymentTerms}
                     onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
                     rows={4}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
                     placeholder="Describe your payment terms and conditions"
                   />
                 </div>
               </div>
+              )}
+
+              {/* Review Tab */}
+              {activeTab === 'review' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Service Details</h2>
+                  
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Please review all information before submitting:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Ensure all required fields are completed</li>
+                      <li>• Verify contact information is accurate</li>
+                      <li>• Check that images represent your service well</li>
+                      <li>• Review videography types and packages</li>
+                      <li>• Confirm pricing and policy information</li>
+                      <li className="font-medium">• Click the Create Service button at the bottom to submit</li>
+                    </ul>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end space-x-4">
+                  {/* Summary Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Basic Information</h3>
+                      <div className="space-y-2 text-sm text-gray-700">
+                        <p><span className="font-medium">Service Name:</span> {formData.name || 'Not provided'}</p>
+                        <div>
+                          <span className="font-medium">Description:</span> 
+                          <p className="mt-1 text-gray-600">{formData.description || 'Not provided'}</p>
+                        </div>
+                        <p><span className="font-medium">Base Price:</span> ₹{formData.basePrice?.toLocaleString() || '0'}</p>
+                        <p><span className="font-medium">Minimum Guests:</span> {formData.minGuests || 'Not specified'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Location & Contact</h3>
+                      <div className="space-y-2 text-sm text-gray-700">
+                        <p><span className="font-medium">Address:</span> {formData.serviceLocation.address || 'Not provided'}</p>
+                        <p><span className="font-medium">City:</span> {formData.serviceLocation.city || 'Not provided'}</p>
+                        <p><span className="font-medium">State:</span> {formData.serviceLocation.state || 'Not provided'}</p>
+                        <p><span className="font-medium">Pincode:</span> {formData.serviceLocation.pincode || 'Not provided'}</p>
+                        <p><span className="font-medium">Phone:</span> {formData.contact.phone || 'Not provided'}</p>
+                        <p><span className="font-medium">WhatsApp:</span> {formData.contact.whatsapp || 'Not provided'}</p>
+                        <p><span className="font-medium">Email:</span> {formData.contact.email || 'Not provided'}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Service Details</h3>
+                      <div className="space-y-2 text-sm text-gray-700">
+                        <div>
+                          <span className="font-medium">Videography Types:</span>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {formData.videographyTypes.length > 0 ? (
+                              formData.videographyTypes.map((type, index) => (
+                                <span key={index} className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full text-xs">
+                                  {type}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-gray-500">None selected</span>
+                            )}
+                          </div>
+                        </div>
+                        <p><span className="font-medium">Packages:</span> {formData.packages.length} package(s) configured</p>
+                        <p><span className="font-medium">Add-ons:</span> {formData.addons.length} service(s) added</p>
+                      </div>
+                    </div>
+                    
+                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Media & Policies</h3>
+                      <div className="space-y-2 text-sm text-gray-700">
+                        <p><span className="font-medium">Images Uploaded:</span> {formData.images.length} image(s)</p>
+                        <div>
+                          <span className="font-medium">Cancellation Policy:</span>
+                          <p className="mt-1 text-gray-600">{formData.cancellationPolicy || 'Not specified'}</p>
+                        </div>
+                        <div>
+                          <span className="font-medium">Payment Terms:</span>
+                          <p className="mt-1 text-gray-600">{formData.paymentTerms || 'Not specified'}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Navigation Buttons */}
+              <div className="mt-8 flex justify-between items-center">
+                <div>
+                  {!isFirstTab && (
               <Button
                 type="button"
-                onClick={() => router.push('/provider/videography')}
                 variant="outline"
-                className="px-8 py-3"
+                      onClick={goToPreviousTab}
+                      className="flex items-center space-x-2"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span>Previous</span>
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex space-x-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push('/provider/videography')}
               >
                 Cancel
               </Button>
+                  
+                  {isLastTab ? (
               <Button
-                type="submit"
+                      type="button"
                 disabled={loading}
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 py-3"
+                      onClick={handleManualSubmit}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Service'
+                        <div className="flex items-center space-x-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Creating...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Save className="h-4 w-4" />
+                          <span>Create Service</span>
+                        </div>
                 )}
               </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      onClick={goToNextTab}
+                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white flex items-center space-x-2"
+                    >
+                      <span>Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
             </div>
           </form>
         </div>
