@@ -25,7 +25,8 @@ export default function StaffApprovalsPage() {
   const [stats, setStats] = useState({
     venues: { pending: 0, approved: 0, rejected: 0 },
     catering: { pending: 0, approved: 0, rejected: 0 },
-    photography: { pending: 0, approved: 0, rejected: 0 }
+    photography: { pending: 0, approved: 0, rejected: 0 },
+    videography: { pending: 0, approved: 0, rejected: 0 }
   });
 
   useEffect(() => {
@@ -37,11 +38,14 @@ export default function StaffApprovalsPage() {
         const cateringResponse = await apiClient.get('/catering/staff/stats');
         // Fetch photography stats
         const photographyResponse = await apiClient.get('/photography/staff/stats');
+        // Fetch videography stats
+        const videographyResponse = await apiClient.get('/videography/staff/stats');
         
         setStats({
           venues: venueResponse.data.data,
           catering: cateringResponse.data.data,
-          photography: photographyResponse.data.data
+          photography: photographyResponse.data.data,
+          videography: videographyResponse.data.data
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -55,7 +59,7 @@ export default function StaffApprovalsPage() {
     }
   }, [user]);
 
-  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography') => {
+  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography' | 'videography') => {
     const serviceStats = stats[serviceType];
     return (
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -104,7 +108,7 @@ export default function StaffApprovalsPage() {
           </div>
 
           {/* Service Type Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             {/* Venue Services */}
             <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('venues') ? 'border-blue-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
               <div className="flex items-center justify-between mb-4">
@@ -185,12 +189,38 @@ export default function StaffApprovalsPage() {
                 </Button>
               </div>
             </div>
+
+            {/* Videography Services */}
+            <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('videography') ? 'border-indigo-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-indigo-100 rounded-lg">
+                    <Video className="h-6 w-6 text-indigo-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Videography Services</h2>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium text-yellow-700">{stats.videography.pending} pending</span>
+                </div>
+              </div>
+              
+              {getServiceStats('videography')}
+              
+              <div className="mt-6">
+                <Button 
+                  onClick={() => router.push('/staff/approvals/videography')}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
+                >
+                  Manage Videography Approvals
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* Additional Service Types (Coming Soon) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { name: 'Videography', icon: Video, color: 'bg-indigo-100', iconColor: 'text-indigo-600' },
               { name: 'Entertainment', icon: Music, color: 'bg-yellow-100', iconColor: 'text-yellow-600' },
               { name: 'Decoration', icon: Flower2, color: 'bg-green-100', iconColor: 'text-green-600' }
             ].map((service, index) => (
