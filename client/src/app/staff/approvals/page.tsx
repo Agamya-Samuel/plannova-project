@@ -13,6 +13,7 @@ import {
   Flower2,
   CheckCircle,
   Clock,
+  Heart,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
@@ -26,7 +27,8 @@ export default function StaffApprovalsPage() {
     venues: { pending: 0, approved: 0, rejected: 0 },
     catering: { pending: 0, approved: 0, rejected: 0 },
     photography: { pending: 0, approved: 0, rejected: 0 },
-    videography: { pending: 0, approved: 0, rejected: 0 }
+    videography: { pending: 0, approved: 0, rejected: 0 },
+    bridalMakeup: { pending: 0, approved: 0, rejected: 0 }
   });
 
   useEffect(() => {
@@ -40,12 +42,15 @@ export default function StaffApprovalsPage() {
         const photographyResponse = await apiClient.get('/photography/staff/stats');
         // Fetch videography stats
         const videographyResponse = await apiClient.get('/videography/staff/stats');
+        // Fetch bridal makeup stats
+        const bridalMakeupResponse = await apiClient.get('/bridal-makeup/staff/stats');
         
         setStats({
           venues: venueResponse.data.data,
           catering: cateringResponse.data.data,
           photography: photographyResponse.data.data,
-          videography: videographyResponse.data.data
+          videography: videographyResponse.data.data,
+          bridalMakeup: bridalMakeupResponse.data.data
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -59,7 +64,7 @@ export default function StaffApprovalsPage() {
     }
   }, [user]);
 
-  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography' | 'videography') => {
+  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography' | 'videography' | 'bridalMakeup') => {
     const serviceStats = stats[serviceType];
     return (
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -108,7 +113,7 @@ export default function StaffApprovalsPage() {
           </div>
 
           {/* Service Type Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {/* Venue Services */}
             <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('venues') ? 'border-blue-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
               <div className="flex items-center justify-between mb-4">
@@ -213,6 +218,33 @@ export default function StaffApprovalsPage() {
                   className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white"
                 >
                   Manage Videography Approvals
+                </Button>
+              </div>
+            </div>
+
+            {/* Bridal Makeup Services */}
+            <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('bridal-makeup') ? 'border-pink-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-pink-100 rounded-lg">
+                    <Heart className="h-6 w-6 text-pink-600" />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900">Bridal Makeup Services</h2>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium text-yellow-700">{stats.bridalMakeup.pending} pending</span>
+                </div>
+              </div>
+              
+              {getServiceStats('bridalMakeup')}
+              
+              <div className="mt-6">
+                <Button 
+                  onClick={() => router.push('/staff/approvals/bridal-makeup')}
+                  className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white"
+                >
+                  Manage Bridal Makeup Approvals
                 </Button>
               </div>
             </div>
