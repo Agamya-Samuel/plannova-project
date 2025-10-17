@@ -30,7 +30,7 @@ export interface PresignedPostOptions {
   fileType: string;
   fileName: string;
   fileSize: number;
-  uploadType: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography';
+  uploadType: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup';
   venueId?: string;
 }
 
