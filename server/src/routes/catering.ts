@@ -1,10 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Catering, { ApprovalStatus } from '../models/Catering';
-import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth';
-import { UserRole } from '../models/User';
-import User from '../models/User';
+import Catering, { ApprovalStatus } from '../models/Catering.js';
+import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
+import { UserRole } from '../models/User.js';
+import User from '../models/User.js';
 
 const router = Router();
 
@@ -331,8 +331,8 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
     if (catering.images && catering.images.length > 0) {
       try {
         // Import the S3 delete function and URL extraction utility
-        const { deleteFromS3 } = await import('../services/uploadService');
-        const { extractS3Key } = await import('../utils/s3');
+        const { deleteFromS3 } = await import('../services/uploadService.js');
+        const { extractS3Key } = await import('../utils/s3.js');
         
         // Delete each image from S3
         for (const image of catering.images) {
@@ -453,8 +453,8 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
     if (catering.images && catering.images.length > 0) {
       try {
         // Import the S3 delete function and URL extraction utility
-        const { deleteFromS3 } = await import('../services/uploadService');
-        const { extractS3Key } = await import('../utils/s3');
+        const { deleteFromS3 } = await import('../services/uploadService.js');
+        const { extractS3Key } = await import('../utils/s3.js');
         
         // Delete each image from S3
         for (const image of catering.images) {

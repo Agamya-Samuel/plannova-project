@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Venue, { VenueType, VenueStatus, IVenueImage } from '../models/Venue';
-import User, { UserRole } from '../models/User';
-import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth';
-import { extractS3Key } from '../utils/s3';
-import { deleteFromS3 } from '../services/uploadService';
+import Venue, { VenueType, VenueStatus, IVenueImage } from '../models/Venue.js';
+import User from '../models/User.js';
+import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
+import { extractS3Key } from '../utils/s3.js';
+import { deleteFromS3 } from '../services/uploadService.js';
 import mongoose from 'mongoose';
 
 const router = Router();
@@ -1182,8 +1182,8 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
     if (venue.images && venue.images.length > 0) {
       try {
         // Import the S3 delete function and URL extraction utility
-        const { deleteFromS3 } = await import('../services/uploadService');
-        const { extractS3Key } = await import('../utils/s3');
+        const { deleteFromS3 } = await import('../services/uploadService.js');
+        const { extractS3Key } = await import('../utils/s3.js');
         
         // Delete each image from S3
         for (const image of venue.images) {

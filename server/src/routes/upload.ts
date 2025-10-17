@@ -10,11 +10,11 @@ import {
   ALLOWED_IMAGE_TYPES,
   ALLOWED_DOCUMENT_TYPES,
   MAX_FILE_SIZE
-} from '../services/uploadService';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { UserRole } from '../models/User';
-import { PresignedPostRequest, PresignedPostResponse } from '../types/index';
-import { extractS3Key } from '../utils/s3';
+} from '../services/uploadService.js';
+import { authenticateToken, AuthRequest } from '../middleware/auth.js';
+import { UserRole } from '../models/User.js';
+import { PresignedPostRequest, PresignedPostResponse } from '../types/index.js';
+import { extractS3Key } from '../utils/s3.js';
 
 const router = Router();
 
@@ -123,7 +123,7 @@ router.post('/direct', authenticateToken, upload.single('file'), async (req: Aut
     const { uploadType, venueId } = req.body;
     const userId = req.user!.id;
 
-    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography'].includes(uploadType)) {
+    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography', 'videography'].includes(uploadType)) {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
 
@@ -275,7 +275,7 @@ router.get('/config', (req: Request, res: Response) => {
       allowedImageTypes: ALLOWED_IMAGE_TYPES,
       allowedDocumentTypes: ALLOWED_DOCUMENT_TYPES,
       maxFileSize: MAX_FILE_SIZE,
-      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography'],
+      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography', 'videography'],
     },
   });
 });
