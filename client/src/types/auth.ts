@@ -7,6 +7,7 @@ export type ServiceCategory =
   | 'videography'
   | 'music'
   | 'makeup'
+  | 'bridal-makeup'
   | 'decoration';
 
 export interface User {

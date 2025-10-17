@@ -12,6 +12,7 @@ import bookingRoutes from "./routes/bookings.js";
 import cateringRoutes from "./routes/catering.js";
 import photographyRoutes from "./routes/photography.js";
 import videographyRoutes from "./routes/videography.js";
+import bridalMakeupRoutes from "./routes/bridalMakeup.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -67,6 +68,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/catering", cateringRoutes);
 app.use("/api/photography", photographyRoutes);
 app.use("/api/videography", videographyRoutes);
+app.use("/api/bridal-makeup", bridalMakeupRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
