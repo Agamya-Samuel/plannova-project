@@ -86,7 +86,21 @@ export default function CateringDashboardPage() {
           status: (err as { response?: { status?: number } })?.response?.status,
           data: (err as { response?: { data?: unknown } })?.response?.data
         });
+        
+        const errorStatus = (err as { response?: { status?: number } })?.response?.status;
+        const errorData = (err as { response?: { data?: unknown } })?.response?.data as { error?: string };
+        
+        if (errorStatus === 403) {
+          if (errorData?.error?.includes('Role selection required')) {
+            setError('Please complete your profile setup by selecting a role first.');
+          } else if (errorData?.error?.includes('not registered as a catering provider')) {
+            setError('You need to register as a catering provider to access this page. Please complete your provider registration.');
+          } else {
+            setError('Access denied. Please check your account permissions.');
+          }
+        } else {
         setError('Failed to load catering services');
+        }
       } finally {
         setLoading(false);
       }
@@ -175,8 +189,202 @@ export default function CateringDashboardPage() {
     setStatusFilter('ALL');
   };
 
-  if (!user || user.role !== 'PROVIDER' || !user.serviceCategories?.includes('catering')) {
-    return <div>Access denied. Please select catering as your service category.</div>;
+  // Handle different user states with proper guidance
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-red-500 text-6xl mb-4">🔐</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Authentication Required</h2>
+          <p className="text-gray-600 mb-6">Please log in to access this page.</p>
+          <button
+            onClick={() => window.location.href = '/auth/login'}
+            className="w-full bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors font-medium"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle users who haven't selected a role yet
+  if (user.role === null) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-blue-500 text-6xl mb-4">👤</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Complete Your Profile</h2>
+          <p className="text-gray-600 mb-6">You need to select a role to access this page. Please complete your profile setup first.</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.href = '/profile'}
+              className="w-full bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors font-medium"
+            >
+              Complete Profile Setup
+            </button>
+            <button
+              onClick={() => window.location.href = '/dashboard'}
+              className="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle non-provider users
+  if (user.role !== 'PROVIDER') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-orange-500 text-6xl mb-4">🚫</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Restricted</h2>
+          <p className="text-gray-600 mb-6">This page is only available to service providers. You are currently logged in as a {user.role.toLowerCase()}.</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.href = '/dashboard'}
+              className="w-full bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors font-medium"
+            >
+              Go to Dashboard
+            </button>
+            <button
+              onClick={() => window.location.href = '/profile'}
+              className="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Update Profile
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle providers who haven't selected service categories
+  if (!user.serviceCategories || user.serviceCategories.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-purple-500 text-6xl mb-4">🎯</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Select Your Services</h2>
+          <p className="text-gray-600 mb-6">As a provider, you need to select which services you offer. Let&apos;s set up your catering business!</p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.href = '/provider/onboarding'}
+              className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            >
+              Set Up Catering Services
+            </button>
+            <button
+              onClick={() => window.location.href = '/dashboard'}
+              className="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Go to Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle providers who don't have catering in their service categories
+  if (!user.serviceCategories.includes('catering')) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-orange-500 text-6xl mb-4">🍽️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Catering Services Not Selected</h2>
+          <p className="text-gray-600 mb-6">
+            You&apos;re currently registered for: <span className="font-semibold text-purple-600">{user.serviceCategories.join(', ')}</span>
+            <br />
+            To access catering services, you need to add catering to your service categories.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.href = '/provider/onboarding'}
+              className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+            >
+              Add Catering Services
+            </button>
+            <button
+              onClick={() => {
+                // Redirect to the appropriate service page based on current categories
+                const firstCategory = user.serviceCategories?.[0];
+                switch (firstCategory) {
+                  case 'venue':
+                    window.location.href = '/provider/venues';
+                    break;
+                  case 'photography':
+                    window.location.href = '/provider/photography';
+                    break;
+                  case 'videography':
+                    window.location.href = '/provider/videography';
+                    break;
+                  case 'music':
+                    window.location.href = '/provider/entertainment';
+                    break;
+                  case 'makeup':
+                    window.location.href = '/provider/beauty';
+                    break;
+                  case 'decoration':
+                    window.location.href = '/provider/decoration';
+                    break;
+                  default:
+                    window.location.href = '/dashboard';
+                }
+              }}
+              className="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Go to My Services
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    const isRoleError = error.includes('role') || error.includes('Role selection');
+    const isProviderError = error.includes('catering provider') || error.includes('provider registration');
+    
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Setup Required</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          
+          <div className="space-y-3">
+            {isRoleError && (
+              <button
+                onClick={() => window.location.href = '/profile'}
+                className="w-full bg-pink-600 text-white px-6 py-3 rounded-lg hover:bg-pink-700 transition-colors font-medium"
+              >
+                Complete Profile Setup
+              </button>
+            )}
+            
+            {isProviderError && (
+              <button
+                onClick={() => window.location.href = '/provider/onboarding'}
+                className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+              >
+                Register as Catering Provider
+              </button>
+            )}
+            
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Calculate statistics with defensive programming
