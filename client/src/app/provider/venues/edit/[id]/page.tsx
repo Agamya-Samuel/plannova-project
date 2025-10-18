@@ -6,8 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import { 
-  ArrowLeft, 
   Save, 
   AlertCircle, 
   MapPin, 
@@ -468,14 +468,7 @@ export default function EditVenuePage() {
           <div className="mb-8">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="flex items-center space-x-4 mb-4">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/provider/venues')}
-                  className="flex items-center space-x-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back</span>
-                </Button>
+                <BackToServicesButton serviceType="venues" />
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900">Edit Venue</h1>
                   <p className="text-gray-600 text-lg">Update your wedding venue information</p>

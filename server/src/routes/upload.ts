@@ -7,6 +7,7 @@ import {
   deleteFromS3, 
   validateFile,
   getFileMetadata,
+  generatePresignedViewUrl,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_DOCUMENT_TYPES,
   MAX_FILE_SIZE
@@ -50,8 +51,8 @@ const presignedUrlValidation = [
     .isInt({ min: 1, max: Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document) })
     .withMessage(`File size must be between 1 byte and ${Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document)} bytes`),
   body('uploadType')
-    .isIn(['venue', 'profile', 'document', 'catering', 'photography'])
-    .withMessage('Upload type must be venue, profile, document, or catering'),
+    .isIn(['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration'])
+    .withMessage('Upload type must be venue, profile, document, catering, photography, videography, bridal-makeup, or decoration'),
   body('venueId')
     .optional()
     .isMongoId()
@@ -123,7 +124,7 @@ router.post('/direct', authenticateToken, upload.single('file'), async (req: Aut
     const { uploadType, venueId } = req.body;
     const userId = req.user!.id;
 
-    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography'].includes(uploadType)) {
+    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration'].includes(uploadType)) {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
 
@@ -235,6 +236,42 @@ router.delete('/by-url', authenticateToken, async (req: AuthRequest, res: Respon
   }
 });
 
+// GET /api/upload/presigned-view/:key - Generate presigned URL for viewing images
+router.get('/presigned-view/:key', async (req: Request, res: Response) => {
+  try {
+    const key = req.params.key;
+    const expiresIn = parseInt(req.query.expiresIn as string) || 3600; // Default 1 hour
+    
+    if (!key) {
+      return res.status(400).json({ error: 'File key is required' });
+    }
+
+    // Validate expiresIn parameter
+    if (expiresIn < 60 || expiresIn > 86400) { // Between 1 minute and 24 hours
+      return res.status(400).json({ error: 'expiresIn must be between 60 and 86400 seconds' });
+    }
+
+    const result = await generatePresignedViewUrl(key, expiresIn);
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    res.json({
+      message: 'Presigned view URL generated successfully',
+      data: {
+        url: result.url,
+        expiresIn,
+        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      },
+    });
+
+  } catch (error) {
+    console.error('Error generating presigned view URL:', error);
+    res.status(500).json({ error: 'Failed to generate presigned view URL' });
+  }
+});
+
 // GET /api/upload/metadata/:key - Get file metadata
 router.get('/metadata/:key', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
@@ -275,7 +312,7 @@ router.get('/config', (req: Request, res: Response) => {
       allowedImageTypes: ALLOWED_IMAGE_TYPES,
       allowedDocumentTypes: ALLOWED_DOCUMENT_TYPES,
       maxFileSize: MAX_FILE_SIZE,
-      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography'],
+      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration'],
     },
   });
 });

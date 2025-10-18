@@ -23,8 +23,9 @@ import {
 } from 'lucide-react';
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
-import 'react-phone-number-input/style.css';
-import PhoneInput from 'react-phone-number-input';
+import BasicInfoInput from '@/components/ui/BasicInfoInput';
+import LocationInput from '@/components/ui/LocationInput';
+import ContactInput from '@/components/ui/ContactInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
@@ -81,13 +82,6 @@ const photographyTypeOptions = [
     'Product Photography'
 ];
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
 
 export default function CreatePhotographyService() {
   const { user } = useAuth();
@@ -120,6 +114,19 @@ export default function CreatePhotographyService() {
     addons: [{ name: '', description: '', price: 0 }],
     images: []
   });
+
+  // Update email when user data becomes available
+  React.useEffect(() => {
+    if (user?.email && !formData.contact.email) {
+      setFormData(prev => ({
+        ...prev,
+        contact: {
+          ...prev.contact,
+          email: user.email
+        }
+      }));
+    }
+  }, [user?.email, formData.contact.email]);
 
   const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
     const keys = field.split('.');
@@ -311,7 +318,7 @@ export default function CreatePhotographyService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/photography', serviceData);
+      await apiClient.post('/photography', { ...serviceData, status: 'DRAFT' });
       toast.success('Photography service created successfully!');
       router.push('/provider/photography');
     } catch (err) {
@@ -424,80 +431,46 @@ export default function CreatePhotographyService() {
           <form onSubmit={handleSubmit}>
             <div className="bg-white rounded-xl shadow-lg p-8">
               {activeTab === 'basic' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Service Name *</label>
-                    <Input type="text" value={formData.name} onChange={(e) => handleInputChange('name', e.target.value)} placeholder="e.g., Premium Wedding Photography" required className="text-black" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
-                    <textarea value={formData.description} onChange={(e) => handleInputChange('description', e.target.value)} placeholder="Describe your photography service in detail..." rows={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" required minLength={10} />
-                  </div>
-                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Base Price (₹) *</label>
-                    <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 15000" min="0" required className="text-black" />
-                  </div>
-                </div>
+                <BasicInfoInput
+                  data={{
+                    name: formData.name,
+                    description: formData.description,
+                    basePrice: formData.basePrice
+                  }}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      name: data.name,
+                      description: data.description,
+                      basePrice: data.basePrice || prev.basePrice
+                    }));
+                  }}
+                  serviceType="Photography"
+                />
               )}
 
               {activeTab === 'location' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Location Information</h2>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Address *</label>
-                    <Input type="text" value={formData.serviceLocation.address} onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)} placeholder="Street address" required className="text-black" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
-                      <Input type="text" value={formData.serviceLocation.city} onChange={(e) => handleInputChange('serviceLocation.city', e.target.value)} placeholder="City" required className="text-black" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-                      <select value={formData.serviceLocation.state} onChange={(e) => handleInputChange('serviceLocation.state', e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" required>
-                        <option value="">Select state</option>
-                        {states.map(state => <option key={state} value={state}>{state}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode *</label>
-                      <Input type="text" value={formData.serviceLocation.pincode} onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)} placeholder="Pincode" required className="text-black" />
-                    </div>
-                  </div>
-                </div>
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      serviceLocation: data
+                    }));
+                  }}
+                />
               )}
 
               {activeTab === 'contact' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
-                      <PhoneInput
-                        international
-                        defaultCountry="IN"
-                        value={formData.contact.phone}
-                        onChange={(value) => handleInputChange('contact.phone', value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number</label>
-                      <PhoneInput
-                        international
-                        defaultCountry="IN"
-                        value={formData.contact.whatsapp}
-                        onChange={(value) => handleInputChange('contact.whatsapp', value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                    <Input type="email" value={formData.contact.email} onChange={(e) => handleInputChange('contact.email', e.target.value)} placeholder="Email address" required className="text-black" />
-                  </div>
-                </div>
+                <ContactInput
+                  data={formData.contact}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      contact: data
+                    }));
+                  }}
+                />
               )}
 
               {activeTab === 'images' && (

@@ -1,6 +1,6 @@
 // Upload-related types for the frontend
 
-export type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography';
+export type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration';
 
 export type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -228,7 +228,7 @@ export interface VenueImageWithUpload {
   _id?: string;
   url: string;
   alt: string;
-  category: 'main' | 'gallery' | 'room' | 'food' | 'decoration' | 'amenity';
+  category: 'main' | 'gallery' | 'room' | 'food' | 'decoration' | 'amenity' | 'portfolio';
   isPrimary: boolean;
   // Upload metadata
   key?: string;

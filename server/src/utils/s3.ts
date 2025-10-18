@@ -100,17 +100,26 @@ export const validateS3Connection = async (): Promise<boolean> => {
 // Generate file key for S3 storage
 export const generateFileKey = (
   userId: string,
-  type: 'venue' | 'profile' | 'document' | 'catering',
+  type: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration',
   filename: string,
   venueId?: string
 ): string => {
   const timestamp = Date.now();
   const sanitizedFilename = filename.replace(/[^a-zA-Z0-9.-]/g, '_');
   
+  // Use specific bucket names for different services
+  let bucketPath = type;
+  if (type === 'bridal-makeup') {
+    bucketPath = 'bridal-makeup';
+  }
+  if (type === 'decoration') {
+    bucketPath = 'decoration';
+  }
+  
   if (type === 'venue' && venueId) {
     return `uploads/venue/${venueId}/${timestamp}_${sanitizedFilename}`;
   }
-  return `uploads/${type}/${userId}/${timestamp}_${sanitizedFilename}`;
+  return `uploads/${bucketPath}/${userId}/${timestamp}_${sanitizedFilename}`;
 };
 
 // Get full S3 URL for a given key

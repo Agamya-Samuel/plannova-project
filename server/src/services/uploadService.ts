@@ -1,6 +1,7 @@
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { Upload } from '@aws-sdk/lib-storage';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getS3Client, getS3Config, generateFileKey, getS3Url } from '../utils/s3.js';
 
 // File type configurations
@@ -30,7 +31,7 @@ export interface PresignedPostOptions {
   fileType: string;
   fileName: string;
   fileSize: number;
-  uploadType: 'venue' | 'profile' | 'document' | 'catering';
+  uploadType: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration';
   venueId?: string;
 }
 
@@ -271,6 +272,36 @@ export const bulkDeleteFromS3 = async (keys: string[]): Promise<UploadResult> =>
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Bulk delete failed'
+    };
+  }
+};
+
+// Generate presigned URL for viewing images
+export const generatePresignedViewUrl = async (
+  key: string,
+  expiresIn: number = 3600 // 1 hour default
+): Promise<{ success: boolean; url?: string; error?: string }> => {
+  try {
+    const client = getS3Client();
+    const config = getS3Config();
+
+    const command = new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+    });
+
+    const presignedUrl = await getSignedUrl(client, command, { expiresIn });
+
+    return {
+      success: true,
+      url: presignedUrl
+    };
+
+  } catch (error) {
+    console.error('Error generating presigned view URL:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate view URL'
     };
   }
 };

@@ -90,11 +90,23 @@ export default function CateringServiceViewPage() {
     const fetchService = async () => {
       try {
         setLoading(true);
+        console.log('🔍 Fetching catering service with ID:', serviceId);
         const response = await apiClient.get(`/catering/${serviceId}`);
+        console.log('🔍 Catering service response:', response.data);
         setService(response.data.data);
       } catch (err: unknown) {
-        console.error('Error fetching catering service:', err);
-        setError('Failed to load catering service details');
+        console.error('❌ Error fetching catering service:', err);
+        console.error('❌ Error details:', {
+          message: (err as Error)?.message,
+          status: (err as { response?: { status?: number } })?.response?.status,
+          data: (err as { response?: { data?: unknown } })?.response?.data,
+          serviceId
+        });
+        
+        const errorMessage = (err as { response?: { status?: number } })?.response?.status === 404 
+          ? 'Catering service not found' 
+          : 'Failed to load catering service details';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -185,55 +197,69 @@ export default function CateringServiceViewPage() {
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="mb-6">
-            <Button
-              variant="outline"
-              onClick={() => router.push('/provider/catering')}
-              className="flex items-center space-x-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>Back to Services</span>
-            </Button>
+          <div className="mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                 <button
+                   onClick={() => {
+                     console.log('Direct button clicked - navigating to catering');
+                     window.location.href = '/provider/catering';
+                   }}
+                   className="px-4 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 flex items-center space-x-2 text-gray-700 hover:text-gray-900"
+                   style={{ cursor: 'pointer', zIndex: 1000, position: 'relative' }}
+                 >
+                   <ArrowLeft className="h-4 w-4" />
+                   <span>Back to Services</span>
+                 </button>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">{service.name}</h1>
+                  <div className="flex items-center space-x-4 mt-2">
+                    <div className={`flex items-center space-x-2 px-3 py-1 rounded-full border ${
+                      service.status === 'PENDING' 
+                        ? 'bg-yellow-100 border-yellow-300 text-yellow-800' 
+                        : service.status === 'APPROVED'
+                        ? 'bg-green-100 border-green-300 text-green-800'
+                        : service.status === 'REJECTED'
+                        ? 'bg-red-100 border-red-300 text-red-800'
+                        : service.status === 'DRAFT'
+                        ? 'bg-gray-100 border-gray-300 text-gray-800'
+                        : 'bg-blue-100 border-blue-300 text-blue-800'
+                    }`}>
+                      <span className="text-sm font-medium">{service.status}</span>
+                    </div>
+                    <div className="flex items-center bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 px-3 py-1 rounded-full">
+                      <Star className="h-4 w-4 fill-current" />
+                      <span className="text-sm font-bold ml-1">{service.rating || 0}</span>
+                      <span className="text-xs ml-1">({service.reviewCount || 0} reviews)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Button
+                onClick={() => router.push(`/provider/catering/edit?id=${service._id}`)}
+                className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Service
+              </Button>
+            </div>
           </div>
 
-          {/* Service Header */}
+          {/* Service Details */}
           <div className="bg-white rounded-2xl shadow-lg p-6 mb-8">
             <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
               <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-2">
-                  <h1 className="text-3xl font-bold text-gray-900">{service.name}</h1>
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    service.status === 'PENDING' 
-                      ? 'bg-yellow-100 text-yellow-800' 
-                      : service.status === 'APPROVED' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {service.status}
+                <div className="flex items-center space-x-4 mb-4">
+                  <div className="flex items-center text-gray-600">
+                    <IndianRupee className="h-4 w-4" />
+                    <span className="text-lg font-semibold">₹{service.basePrice.toLocaleString()}/person</span>
                   </div>
                 </div>
-                <div className="flex items-center mt-2">
-                  <div className="flex items-center bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full">
-                    <Star className="h-5 w-5 fill-current" />
-                    <span className="text-lg font-bold ml-1">{service.rating}</span>
-                    <span className="text-sm ml-1">({service.reviewCount} reviews)</span>
-                  </div>
-                  <div className="ml-4 text-gray-600">
-                    <span>₹{service.basePrice.toLocaleString()}/person</span>
-                  </div>
-                </div>
-                <p className="text-gray-600 mt-4">{service.description}</p>
+                <p className="text-gray-600 text-lg">{service.description}</p>
               </div>
-              {/* Show edit/delete buttons only for providers */}
+              {/* Show delete button only for providers */}
               {user?.role === 'PROVIDER' && (
                 <div className="flex space-x-3">
-                  <Button 
-                    onClick={() => router.push(`/provider/catering/edit?id=${service._id}`)}
-                    className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white flex items-center"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Service
-                  </Button>
                   <Button 
                     onClick={handleDeleteService}
                     className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white flex items-center"
@@ -256,9 +282,9 @@ export default function CateringServiceViewPage() {
                   Service Gallery
                 </h2>
                 {service.images && service.images.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {service.images.map((image, index) => (
-                      <div key={`${service._id}-image-${index}`} className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden shadow-sm">
+                      <div key={`${service._id}-image-${index}`} className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden shadow-sm">
                         {image.url ? (
                           <Image
                             src={image.url}
@@ -269,7 +295,7 @@ export default function CateringServiceViewPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-500">
-                            <span className="text-gray-500">{image.alt || `Gallery Image ${index + 1}`}</span>
+                            <span className="text-gray-500 text-sm">{image.alt || `Gallery Image ${index + 1}`}</span>
                           </div>
                         )}
                       </div>
