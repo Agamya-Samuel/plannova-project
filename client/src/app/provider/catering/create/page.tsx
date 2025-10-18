@@ -16,14 +16,18 @@ import {
   Save,
   ArrowLeft,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
   Check,
   Star,
   IndianRupee
 } from 'lucide-react';
 import apiClient from '../../../../lib/api';
 import { ImageUpload } from '../../../../components/upload';
+import BasicInfoInput from '../../../../components/ui/BasicInfoInput';
+import LocationInput from '../../../../components/ui/LocationInput';
+import ContactInput from '../../../../components/ui/ContactInput';
+import PolicyInput from '../../../../components/ui/PolicyInput';
+import FormNavigation from '../../../../components/ui/FormNavigation';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface CateringServiceFormData {
   name: string;
@@ -50,13 +54,6 @@ interface CateringServiceFormData {
   paymentTerms?: string;
 }
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
 
 const cuisineTypes = [
   'North Indian', 'South Indian', 'Gujarati', 'Punjabi', 'Bengali', 'Rajasthani',
@@ -107,6 +104,19 @@ export default function CreateCateringServicePage() {
   });
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
+
+  // Update email when user data becomes available
+  React.useEffect(() => {
+    if (user?.email && !formData.contact.email) {
+      setFormData(prev => ({
+        ...prev,
+        contact: {
+          ...prev.contact,
+          email: user.email
+        }
+      }));
+    }
+  }, [user?.email, formData.contact.email]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,7 +174,7 @@ export default function CreateCateringServicePage() {
       console.log('Submitting catering service data:', cleanFormData);
       
       // Send data to the backend API
-      const response = await apiClient.post('/catering', cleanFormData);
+      const response = await apiClient.post('/catering', { ...cleanFormData, status: 'DRAFT' });
       
       console.log('Catering service created successfully:', response.data);
       
@@ -381,6 +391,8 @@ export default function CreateCateringServicePage() {
         break;
       case 'contact':
         if (!formData.contact.phone) validationErrors.push('Phone number is required');
+        if (formData.contact.phone && !isValidPhoneNumber(formData.contact.phone)) validationErrors.push('Please enter a valid phone number');
+        if (formData.contact.whatsapp && !isValidPhoneNumber(formData.contact.whatsapp)) validationErrors.push('Please enter a valid WhatsApp number');
         if (!formData.contact.email) validationErrors.push('Email is required');
         if (formData.contact.email && !formData.contact.email.includes('@')) validationErrors.push('Please enter a valid email address');
         break;
@@ -519,157 +531,48 @@ export default function CreateCateringServicePage() {
             <div className="bg-white rounded-xl shadow-lg p-8">
               {/* Basic Info Tab */}
               {activeTab === 'basic' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Catering Service Name *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      placeholder="Enter your catering service name"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description *
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => handleInputChange('description', e.target.value)}
-                      placeholder="Describe your catering service..."
-                      rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                      required
-                      minLength={10}
-                      maxLength={2000}
-                    />
-                    <div className="flex justify-between text-sm text-black mt-1">
-                      <span>Minimum 10 characters required</span>
-                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
-                        {formData.description.length}/2000
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <BasicInfoInput
+                  data={{
+                    name: formData.name,
+                    description: formData.description,
+                    basePrice: formData.basePrice
+                  }}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      name: data.name,
+                      description: data.description,
+                      basePrice: data.basePrice || prev.basePrice
+                    }));
+                  }}
+                  serviceType="Catering"
+                />
               )}
 
               {/* Location Tab */}
               {activeTab === 'location' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Location</h2>
-                  <p className="text-gray-600 mb-6">Where do you provide your catering services?</p>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Address *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.serviceLocation.address}
-                      onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)}
-                      placeholder="Enter your service address"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.serviceLocation.city}
-                        onChange={(e) => handleInputChange('serviceLocation.city', e.target.value)}
-                        placeholder="Enter city"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        State *
-                      </label>
-                      <select
-                        value={formData.serviceLocation.state}
-                        onChange={(e) => handleInputChange('serviceLocation.state', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900"
-                        required
-                      >
-                        <option value="" className="text-gray-900">Select state</option>
-                        {states.map(state => (
-                          <option key={state} value={state} className="text-gray-900">{state}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Pincode *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.serviceLocation.pincode}
-                        onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)}
-                        placeholder="Enter pincode"
-                        required
-                      />
-                    </div>
-                  </div>
-                </div>
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      serviceLocation: data
+                    }));
+                  }}
+                />
               )}
 
               {/* Contact Tab */}
               {activeTab === 'contact' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number *
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.contact.phone}
-                        onChange={(e) => handleInputChange('contact.phone', e.target.value)}
-                        placeholder="+91 9876543210"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        WhatsApp Number
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.contact.whatsapp}
-                        onChange={(e) => handleInputChange('contact.whatsapp', e.target.value)}
-                        placeholder="+91 9876543210"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <Input
-                      type="email"
-                      value={formData.contact.email}
-                      onChange={(e) => handleInputChange('contact.email', e.target.value)}
-                      placeholder="catering@example.com"
-                      required
-                    />
-                  </div>
-                </div>
+                <ContactInput
+                  data={formData.contact}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      contact: data
+                    }));
+                  }}
+                />
               )}
 
               {/* Images Tab */}
@@ -914,8 +817,9 @@ export default function CreateCateringServicePage() {
                         placeholder="1500"
                         min="0"
                         required
+                        className="text-black"
                       />
-                      <p className="text-xs text-gray-500 mt-1">This is your starting price per plate</p>
+                      <p className="text-xs text-gray-500 mt-1">This is your starting price per plate - you can adjust for different packages</p>
                     </div>
                     
                     <div>
@@ -928,36 +832,25 @@ export default function CreateCateringServicePage() {
                         onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 20)}
                         placeholder="20"
                         min="1"
+                        className="text-black"
                       />
                       <p className="text-xs text-gray-500 mt-1">Minimum number of guests for this package</p>
                     </div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cancellation Policy
-                    </label>
-                    <textarea
-                      value={formData.cancellationPolicy || ''}
-                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
-                      placeholder="Describe your cancellation policy..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Payment Terms
-                    </label>
-                    <textarea
-                      value={formData.paymentTerms || ''}
-                      onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
-                      placeholder="Describe your payment terms (e.g., 50% advance, balance before event)..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                    />
-                  </div>
+                  <PolicyInput
+                    data={{
+                      cancellationPolicy: formData.cancellationPolicy || '',
+                      paymentTerms: formData.paymentTerms || ''
+                    }}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellationPolicy: data.cancellationPolicy,
+                        paymentTerms: data.paymentTerms
+                      }));
+                    }}
+                  />
                 </div>
               )}
 
@@ -1097,61 +990,16 @@ export default function CreateCateringServicePage() {
               )}
 
               {/* Navigation Buttons */}
-              <div className="mt-8 flex justify-between items-center">
-                <div>
-                  {!isFirstTab && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={goToPreviousTab}
-                      className="flex items-center space-x-2"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      <span>Previous</span>
-                    </Button>
-                  )}
-                </div>
-                
-                <div className="flex space-x-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => router.back()}
-                  >
-                    Cancel
-                  </Button>
-                  
-                  {isLastTab ? (
-                    <Button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleManualSubmit}
-                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Creating...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Create Service</span>
-                        </div>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      onClick={goToNextTab}
-                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white flex items-center space-x-2"
-                    >
-                      <span>Next</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
+              <FormNavigation
+                isFirstTab={isFirstTab}
+                isLastTab={isLastTab}
+                loading={loading}
+                onPrevious={goToPreviousTab}
+                onNext={goToNextTab}
+                onSubmit={handleManualSubmit}
+                onCancel={() => router.back()}
+                serviceType="catering"
+              />
             </div>
           </form>
         </div>

@@ -22,6 +22,9 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { ImageUpload } from '@/components/upload';
+import VenueContactInput from '@/components/ui/VenueContactInput';
+import VenuePolicyInput from '@/components/ui/VenuePolicyInput';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface VenueFormData {
   name: string;
@@ -128,6 +131,19 @@ export default function CreateVenuePage() {
     decorationOptions: [],
     addonServices: []
   });
+
+  // Update email when user data becomes available
+  React.useEffect(() => {
+    if (user?.email && !formData.contact.email) {
+      setFormData(prev => ({
+        ...prev,
+        contact: {
+          ...prev.contact,
+          email: user.email
+        }
+      }));
+    }
+  }, [user?.email, formData.contact.email]);
 
   const handleInputChange = (field: string, value: string | number | boolean) => {
     if (field.includes('.')) {
@@ -279,7 +295,7 @@ export default function CreateVenuePage() {
       console.log('Submitting cleaned form data:', cleanFormData);
       console.log('Full API endpoint:', `${apiClient.defaults.baseURL}/venues`);
 
-      const response = await apiClient.post('/venues', cleanFormData);
+      const response = await apiClient.post('/venues', { ...cleanFormData, status: 'DRAFT' });
       
       // Set venue ID for future image uploads
       if (response.data.venue?._id) {
@@ -391,7 +407,9 @@ export default function CreateVenuePage() {
       case 'contact':
         return !!(formData.contact.phone && 
                formData.contact.email && 
-               formData.contact.email.includes('@'));
+               formData.contact.email.includes('@') &&
+               isValidPhoneNumber(formData.contact.phone) &&
+               (!formData.contact.whatsapp || isValidPhoneNumber(formData.contact.whatsapp)));
       case 'images':
         return formData.images.length > 0;
       case 'features':
@@ -432,6 +450,8 @@ export default function CreateVenuePage() {
         break;
       case 'contact':
         if (!formData.contact.phone) validationErrors.push('Phone number is required');
+        if (formData.contact.phone && !isValidPhoneNumber(formData.contact.phone)) validationErrors.push('Please enter a valid phone number');
+        if (formData.contact.whatsapp && !isValidPhoneNumber(formData.contact.whatsapp)) validationErrors.push('Please enter a valid WhatsApp number');
         if (!formData.contact.email) validationErrors.push('Email address is required');
         if (formData.contact.email && !formData.contact.email.includes('@')) validationErrors.push('Please enter a valid email address');
         break;
@@ -783,81 +803,29 @@ export default function CreateVenuePage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cancellation Policy *
-                    </label>
-                    <textarea
-                      value={formData.cancellationPolicy}
-                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
-                      placeholder="Describe your cancellation policy..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                      required
-                    />
-                  </div>
+                  <VenuePolicyInput
+                    data={{ cancellationPolicy: formData.cancellationPolicy }}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellationPolicy: data.cancellationPolicy
+                      }));
+                    }}
+                  />
                 </div>
               )}
 
               {/* Contact Tab */}
               {activeTab === 'contact' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number *
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.contact.phone}
-                        onChange={(e) => handleInputChange('contact.phone', e.target.value)}
-                        placeholder="+91 9876543210"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address *
-                      </label>
-                      <Input
-                        type="email"
-                        value={formData.contact.email}
-                        onChange={(e) => handleInputChange('contact.email', e.target.value)}
-                        placeholder="venue@example.com"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        WhatsApp Number
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.contact.whatsapp}
-                        onChange={(e) => handleInputChange('contact.whatsapp', e.target.value)}
-                        placeholder="+91 9876543210"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Website URL
-                      </label>
-                      <Input
-                        type="url"
-                        value={formData.contact.website}
-                        onChange={(e) => handleInputChange('contact.website', e.target.value)}
-                        placeholder="https://www.yourvenuewebsite.com"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <VenueContactInput
+                  data={formData.contact}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      contact: data
+                    }));
+                  }}
+                />
               )}
 
               {/* Images Tab */}

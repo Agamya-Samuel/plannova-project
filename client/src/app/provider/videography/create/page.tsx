@@ -28,8 +28,9 @@ import { toast } from 'sonner';
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
 import 'react-phone-number-input/style.css';
-import PhoneInput from 'react-phone-number-input';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import ContactInput from '@/components/ui/ContactInput';
+import PolicyInput from '@/components/ui/PolicyInput';
 
 interface VideographyFormData {
   name: string;
@@ -425,7 +426,7 @@ export default function CreateVideographyServicePage() {
         images: formData.images
       };
 
-      await apiClient.post('/videography', submitData);
+      await apiClient.post('/videography', { ...submitData, status: 'DRAFT' });
       
       toast.success('Videography service created successfully!');
       router.push('/provider/videography');
@@ -693,51 +694,15 @@ export default function CreateVideographyServicePage() {
 
               {/* Contact Tab */}
               {activeTab === 'contact' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Phone Number *
-                  </label>
-                      <PhoneInput
-                        international
-                        defaultCountry="IN"
-                    value={formData.contact.phone}
-                        onChange={(value) => handleNestedInputChange('contact', 'phone', value || '')}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                      />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    WhatsApp Number
-                  </label>
-                      <PhoneInput
-                        international
-                        defaultCountry="IN"
-                    value={formData.contact.whatsapp}
-                        onChange={(value) => handleNestedInputChange('contact', 'whatsapp', value || '')}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                  />
-                    </div>
-                </div>
-
-                  <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address *
-                  </label>
-                    <Input
-                    type="email"
-                    value={formData.contact.email}
-                    onChange={(e) => handleNestedInputChange('contact', 'email', e.target.value)}
-                      placeholder="videography@example.com"
-                      required
-                      className="text-black"
-                    />
-                </div>
-              </div>
+                <ContactInput
+                  data={formData.contact}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      contact: data
+                    }));
+                  }}
+                />
               )}
 
               {/* Images Tab */}
@@ -944,31 +909,19 @@ export default function CreateVideographyServicePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
                   
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cancellation Policy
-                  </label>
-                  <textarea
-                    value={formData.cancellationPolicy}
-                    onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
-                    rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
-                    placeholder="Describe your cancellation policy"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Payment Terms
-                  </label>
-                  <textarea
-                    value={formData.paymentTerms}
-                    onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
-                    rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
-                    placeholder="Describe your payment terms and conditions"
-                  />
-                </div>
+                <PolicyInput
+                  data={{
+                    cancellationPolicy: formData.cancellationPolicy || '',
+                    paymentTerms: formData.paymentTerms || ''
+                  }}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      cancellationPolicy: data.cancellationPolicy,
+                      paymentTerms: data.paymentTerms
+                    }));
+                  }}
+                />
               </div>
               )}
 
