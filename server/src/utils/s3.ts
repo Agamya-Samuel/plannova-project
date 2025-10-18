@@ -100,7 +100,7 @@ export const validateS3Connection = async (): Promise<boolean> => {
 // Generate file key for S3 storage
 export const generateFileKey = (
   userId: string,
-  type: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup',
+  type: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration',
   filename: string,
   venueId?: string
 ): string => {
@@ -111,6 +111,9 @@ export const generateFileKey = (
   let bucketPath = type;
   if (type === 'bridal-makeup') {
     bucketPath = 'bridal-makeup';
+  }
+  if (type === 'decoration') {
+    bucketPath = 'decoration';
   }
   
   if (type === 'venue' && venueId) {

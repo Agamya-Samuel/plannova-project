@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,7 +71,7 @@ interface BridalMakeupService {
   pendingEditSubmittedAt?: string;
 }
 
-export default function ViewBridalMakeupServicePage() {
+function ViewBridalMakeupServiceContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -442,6 +442,21 @@ export default function ViewBridalMakeupServicePage() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ViewBridalMakeupServicePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ViewBridalMakeupServiceContent />
+    </Suspense>
   );
 }
 
