@@ -27,8 +27,18 @@ export const authenticateToken = async (
       return res.status(401).json({ error: 'Access token required' });
     }
 
+    // Debug: Log token details
+    console.log('🔍 Auth middleware - Token received:', {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenStart: token?.substring(0, 20) + '...',
+      tokenEnd: '...' + token?.substring(token.length - 20),
+      authHeader: authHeader
+    });
+
     // Try Firebase ID token first (for Google Sign-In and Firebase Auth)
     try {
+      console.log('🔍 Attempting Firebase ID token verification...');
       const decodedToken = await adminAuth.verifyIdToken(token);
       
       // Find or create user in MongoDB
@@ -72,9 +82,17 @@ export const authenticateToken = async (
       return next();
       
     } catch (firebaseError) {
-      console.error('Firebase token verification failed:', firebaseError);
+      console.error('Firebase token verification failed:', {
+        error: firebaseError,
+        message: (firebaseError as Error)?.message,
+        code: (firebaseError as { code?: string })?.code,
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 50) + '...'
+      });
+      
       // If Firebase token verification fails, try JWT token (for backward compatibility)
       try {
+        console.log('🔍 Attempting JWT token verification...');
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
         
         const user = await User.findById(decoded.userId).select('-password');
@@ -93,7 +111,12 @@ export const authenticateToken = async (
         return next();
         
       } catch (jwtError) {
-        console.error('JWT verification failed:', jwtError);
+        console.error('JWT verification failed:', {
+          error: jwtError,
+          message: (jwtError as Error)?.message,
+          tokenLength: token?.length,
+          tokenStart: token?.substring(0, 50) + '...'
+        });
         return res.status(403).json({ error: 'Invalid token' });
       }
     }

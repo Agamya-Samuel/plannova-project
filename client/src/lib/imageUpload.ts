@@ -31,7 +31,7 @@ interface UploadConfig {
 }
 
 // Upload types
-type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup';
+type UploadType = 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration';
 
 class S3ImageUploadService {
   private uploadConfig: UploadConfig | null = null;

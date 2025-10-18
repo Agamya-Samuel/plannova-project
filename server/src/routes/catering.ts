@@ -65,7 +65,22 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
 
     // Fetch the full user object to check service categories
     const fullUser = await User.findById(req.user.id);
+    console.log('🔍 User details for my-services:', {
+      userId: req.user.id,
+      userRole: req.user.role,
+      fullUser: fullUser ? {
+        id: fullUser._id,
+        role: fullUser.role,
+        serviceCategories: fullUser.serviceCategories
+      } : null
+    });
+    
     if (!fullUser || !fullUser.serviceCategories || !fullUser.serviceCategories.includes('catering')) {
+      console.log('❌ User not registered as catering provider:', {
+        hasFullUser: !!fullUser,
+        serviceCategories: fullUser?.serviceCategories,
+        includesCatering: fullUser?.serviceCategories?.includes('catering')
+      });
       return res.status(403).json({ error: 'User is not registered as a catering provider' });
     }
 
@@ -205,20 +220,32 @@ router.patch('/:id/submit-for-approval', authenticateToken, async (req: AuthRequ
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log('🔍 Fetching catering service with ID:', id);
 
     if (!Types.ObjectId.isValid(id)) {
+      console.log('❌ Invalid ObjectId format:', id);
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
     const catering = await Catering.findById(id)
       .populate('provider', 'firstName lastName email phone');
 
+    console.log('🔍 Catering service found:', {
+      found: !!catering,
+      id: catering?._id,
+      name: catering?.name,
+      status: catering?.status,
+      isActive: catering?.isActive
+    });
+
     if (!catering) {
+      console.log('❌ Catering service not found for ID:', id);
       return res.status(404).json({ error: 'Catering service not found' });
     }
 
     // Allow viewing of approved and pending edit services
     if (catering.status !== ApprovalStatus.APPROVED && catering.status !== ApprovalStatus.PENDING_EDIT) {
+      console.log('⚠️ Service status not approved:', catering.status);
       // In a real implementation, we would check if the user is the provider or staff
       // For now, we'll return it but in a real app you'd add authentication checks
     }
@@ -228,7 +255,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       data: catering
     });
   } catch (error) {
-    console.error('Error fetching catering service:', error);
+    console.error('❌ Error fetching catering service:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

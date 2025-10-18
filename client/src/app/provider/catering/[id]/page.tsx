@@ -90,11 +90,23 @@ export default function CateringServiceViewPage() {
     const fetchService = async () => {
       try {
         setLoading(true);
+        console.log('🔍 Fetching catering service with ID:', serviceId);
         const response = await apiClient.get(`/catering/${serviceId}`);
+        console.log('🔍 Catering service response:', response.data);
         setService(response.data.data);
       } catch (err: unknown) {
-        console.error('Error fetching catering service:', err);
-        setError('Failed to load catering service details');
+        console.error('❌ Error fetching catering service:', err);
+        console.error('❌ Error details:', {
+          message: (err as Error)?.message,
+          status: (err as { response?: { status?: number } })?.response?.status,
+          data: (err as { response?: { data?: unknown } })?.response?.data,
+          serviceId
+        });
+        
+        const errorMessage = (err as { response?: { status?: number } })?.response?.status === 404 
+          ? 'Catering service not found' 
+          : 'Failed to load catering service details';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -270,9 +282,9 @@ export default function CateringServiceViewPage() {
                   Service Gallery
                 </h2>
                 {service.images && service.images.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {service.images.map((image, index) => (
-                      <div key={`${service._id}-image-${index}`} className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden shadow-sm">
+                      <div key={`${service._id}-image-${index}`} className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden shadow-sm">
                         {image.url ? (
                           <Image
                             src={image.url}
@@ -283,7 +295,7 @@ export default function CateringServiceViewPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-gray-500">
-                            <span className="text-gray-500">{image.alt || `Gallery Image ${index + 1}`}</span>
+                            <span className="text-gray-500 text-sm">{image.alt || `Gallery Image ${index + 1}`}</span>
                           </div>
                         )}
                       </div>

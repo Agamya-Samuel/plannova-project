@@ -66,6 +66,10 @@ export default function CateringDashboardPage() {
     const fetchServices = async () => {
       try {
         setLoading(true);
+        console.log('🔍 Fetching catering services for user:', user);
+        console.log('🔍 User role:', user?.role);
+        console.log('🔍 Service categories:', user?.serviceCategories);
+        
         const response = await apiClient.get('/catering/my-services');
         console.log('API Response:', response.data);
         
@@ -76,7 +80,12 @@ export default function CateringDashboardPage() {
         setServices(servicesData);
         setFilteredServices(servicesData);
       } catch (err: unknown) {
-        console.error('Error fetching catering services:', err);
+        console.error('❌ Error fetching catering services:', err);
+        console.error('❌ Error details:', {
+          message: (err as Error)?.message,
+          status: (err as { response?: { status?: number } })?.response?.status,
+          data: (err as { response?: { data?: unknown } })?.response?.data
+        });
         setError('Failed to load catering services');
       } finally {
         setLoading(false);

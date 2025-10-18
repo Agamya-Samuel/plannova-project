@@ -20,6 +20,7 @@ import {
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '@/lib/sonner-confirm';
+import { sonnerPrompt } from '@/lib/sonner-prompt';
 
 interface ApiError extends Error {
   response?: {
@@ -185,8 +186,12 @@ function StaffDecorationViewContent() {
   const handleRejectEdit = async () => {
     if (!service) return;
     
-    const confirmed = await sonnerConfirm('Are you sure you want to reject these changes?');
-    if (!confirmed) {
+    const reason = await sonnerPrompt('Please provide a reason for rejecting these edits:', {
+      placeholder: 'Enter rejection reason...'
+    });
+    
+    if (!reason || reason.trim() === '') {
+      toast.error('Rejection reason is required');
       return;
     }
     
