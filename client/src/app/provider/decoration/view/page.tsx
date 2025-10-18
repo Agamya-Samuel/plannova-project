@@ -6,9 +6,9 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import {
   Heart, 
-  ArrowLeft, 
   Edit, 
   Star, 
   MapPin,
@@ -209,14 +209,7 @@ function ViewDecorationServiceContent() {
           {/* Header */}
           <div className="mb-8">
             <div className="flex items-center space-x-4 mb-6">
-              <Button
-                variant="outline"
-                onClick={() => router.push('/provider/decoration')}
-                className="flex items-center space-x-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                <span>Back</span>
-              </Button>
+              <BackToServicesButton serviceType="decoration" />
               <div className="flex-1">
                 <h1 className="text-3xl font-bold text-gray-900">{service.name}</h1>
                 <p className="text-gray-600 mt-1">Decoration Service Details</p>

@@ -231,7 +231,7 @@ export default function CreateBridalMakeupService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/bridal-makeup', serviceData);
+      await apiClient.post('/bridal-makeup', { ...serviceData, status: 'DRAFT' });
       toast.success('Bridal makeup service created successfully!');
       router.push('/provider/bridal-makeup');
     } catch (err) {

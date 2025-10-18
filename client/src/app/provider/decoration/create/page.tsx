@@ -23,8 +23,9 @@ import {
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
 import 'react-phone-number-input/style.css';
-import PhoneInput from 'react-phone-number-input';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import ContactInput from '@/components/ui/ContactInput';
+import PolicyInput from '@/components/ui/PolicyInput';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -244,7 +245,7 @@ export default function CreateDecorationService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/decoration', serviceData);
+      await apiClient.post('/decoration', { ...serviceData, status: 'DRAFT' });
       toast.success('Decoration service created successfully!');
       router.push('/provider/decoration');
     } catch (err) {
@@ -471,42 +472,15 @@ export default function CreateDecorationService() {
               )}
 
               {activeTab === 'contact' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number *</label>
-                    <PhoneInput
-                      value={formData.contact.phone}
-                      onChange={(value) => handleInputChange('contact.phone', value || '')}
-                      defaultCountry="IN"
-                      international
-                      placeholder="Enter phone number"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">WhatsApp Number</label>
-                    <PhoneInput
-                      value={formData.contact.whatsapp}
-                      onChange={(value) => handleInputChange('contact.whatsapp', value || '')}
-                      defaultCountry="IN"
-                      international
-                      placeholder="Enter WhatsApp number"
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-                    <Input
-                      type="email"
-                      value={formData.contact.email}
-                      onChange={(e) => handleInputChange('contact.email', e.target.value)}
-                      placeholder="Enter email address"
-                      required
-                      className="text-black"
-                    />
-                  </div>
-                </div>
+                <ContactInput
+                  data={formData.contact}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      contact: data
+                    }));
+                  }}
+                />
               )}
 
               {activeTab === 'images' && (
@@ -612,26 +586,19 @@ export default function CreateDecorationService() {
                       <strong>Note:</strong> These are optional. You can add your policies later from your dashboard.
                     </p>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Policy</label>
-                    <textarea
-                      value={formData.cancellationPolicy}
-                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
-                      placeholder="e.g., 50% refund if cancelled 7 days before..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
-                    <textarea
-                      value={formData.paymentTerms}
-                      onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
-                      placeholder="e.g., 50% advance booking, balance on service day..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
-                    />
-                  </div>
+                  <PolicyInput
+                    data={{
+                      cancellationPolicy: formData.cancellationPolicy || '',
+                      paymentTerms: formData.paymentTerms || ''
+                    }}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellationPolicy: data.cancellationPolicy,
+                        paymentTerms: data.paymentTerms
+                      }));
+                    }}
+                  />
                 </div>
               )}
 

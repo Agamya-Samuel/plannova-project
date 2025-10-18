@@ -8,14 +8,11 @@ import { Button } from '@/components/ui/button';
 import { 
   Video, 
   Plus, 
-  Eye, 
-  Edit, 
-  Star, 
-  IndianRupee, 
-  MapPin,
-  Loader2,
-  Trash2
+  Loader2
 } from 'lucide-react';
+import StatsOverview from '@/components/ui/StatsOverview';
+import ServiceCard from '@/components/ui/ServiceCard';
+import SearchFilter from '@/components/ui/SearchFilter';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '@/lib/sonner-confirm';
@@ -52,7 +49,7 @@ interface VideographyService {
   basePrice: number;
   rating: number;
   reviewCount: number;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PENDING_EDIT';
+  status: 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'PENDING_EDIT';
   createdAt: string;
   updatedAt: string;
 }
@@ -63,6 +60,10 @@ export default function VideographyDashboardPage() {
   const [services, setServices] = useState<VideographyService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [filteredServices, setFilteredServices] = useState<VideographyService[]>([]);
+  const [submitLoading, setSubmitLoading] = useState<string | null>(null);
 
   // Fetch videography services for the provider
   useEffect(() => {
@@ -77,6 +78,7 @@ export default function VideographyDashboardPage() {
         console.log('Services data:', servicesData);
         
         setServices(servicesData);
+        setFilteredServices(servicesData);
       } catch (err: unknown) {
         console.error('Error fetching videography services:', err);
         setError('Failed to load videography services');
@@ -90,10 +92,71 @@ export default function VideographyDashboardPage() {
     }
   }, [user]);
 
-  const handleDeleteService = async (serviceId: string, serviceName: string) => {
+  // Auto-filter when search term or status filter changes
+  useEffect(() => {
+    const filtered = services.filter(service => {
+      const matchesSearch = !searchTerm || 
+        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.serviceLocation.city.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'ALL' || service.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+    
+    setFilteredServices(filtered);
+  }, [services, searchTerm, statusFilter]);
+
+  // Search and filter handlers
+  const handleSearch = () => {
+    // Auto-filtering is handled by useEffect, this is just for button click
+    console.log('Search triggered');
+  };
+
+  const handleClear = () => {
+    setSearchTerm('');
+    setStatusFilter('ALL');
+  };
+
+  const handleSubmitForApproval = async (serviceId: string) => {
+    try {
+      setSubmitLoading(serviceId);
+      
+      // Submit service for approval
+      await apiClient.patch(`/videography/${serviceId}/submit-for-approval`);
+      
+      // Update service status in state
+      setServices(prevServices => 
+        prevServices.map(service => 
+          service._id === serviceId 
+            ? { ...service, status: 'PENDING' as const }
+            : service
+        )
+      );
+      
+      setFilteredServices(prevServices => 
+        prevServices.map(service => 
+          service._id === serviceId 
+            ? { ...service, status: 'PENDING' as const }
+            : service
+        )
+      );
+      
+      toast.success('Service submitted for approval successfully!');
+    } catch (err: unknown) {
+      console.error('Error submitting service for approval:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit service for approval';
+      toast.error(errorMessage);
+    } finally {
+      setSubmitLoading(null);
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string) => {
     // Confirm deletion
     const confirmed = await sonnerConfirm(
-      `Are you sure you want to delete "${serviceName}"? This action cannot be undone and all associated images will be permanently deleted.`
+      `Are you sure you want to delete this service? This action cannot be undone and all associated images will be permanently deleted.`
     );
     
     if (!confirmed) return;
@@ -106,7 +169,7 @@ export default function VideographyDashboardPage() {
       setServices(prevServices => prevServices.filter(service => service._id !== serviceId));
       
       // Show success message
-      toast.success(`"${serviceName}" has been deleted successfully.`);
+      toast.success('Service has been deleted successfully.');
     } catch (err: unknown) {
       console.error('Error deleting videography service:', err);
       setError('Failed to delete videography service');
@@ -167,6 +230,35 @@ export default function VideographyDashboardPage() {
             </div>
           )}
 
+          {/* Stats Overview */}
+          <StatsOverview
+            totalServices={services.length}
+            approvedServices={services.filter(s => s.status === 'APPROVED').length}
+            pendingServices={services.filter(s => s.status === 'PENDING' || s.status === 'PENDING_EDIT').length}
+            averagePrice={services.length > 0 ? services.reduce((sum, service) => sum + service.basePrice, 0) / services.length : 0}
+            serviceType="videography"
+          />
+
+          {/* Search and Filter */}
+          <div className="mb-6">
+            <SearchFilter
+              searchValue={searchTerm}
+              onSearchChange={setSearchTerm}
+              onSearch={handleSearch}
+              onClear={handleClear}
+              statusValue={statusFilter}
+              onStatusChange={setStatusFilter}
+              statusOptions={[
+                { value: 'ALL', label: 'All Status' },
+                { value: 'DRAFT', label: 'Draft' },
+                { value: 'PENDING', label: 'Pending' },
+                { value: 'APPROVED', label: 'Approved' },
+                { value: 'REJECTED', label: 'Rejected' }
+              ]}
+              placeholder="Search by service name, location, or description..."
+            />
+          </div>
+
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
@@ -182,7 +274,7 @@ export default function VideographyDashboardPage() {
                   </p>
                 </div>
 
-                {totalServices === 0 ? (
+                {filteredServices.length === 0 ? (
                   <div className="text-center py-16">
                     <div className="mx-auto bg-gradient-to-br from-purple-100 to-blue-100 rounded-full p-6 w-24 h-24 flex items-center justify-center mb-6">
                       <Video className="h-12 w-12 text-purple-600" />
@@ -198,95 +290,26 @@ export default function VideographyDashboardPage() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {services.map((service) => (
-                      <div key={service._id} className="bg-white rounded-xl shadow-md p-6 overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300 hover:border-purple-300">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="text-xl font-bold text-gray-900 mb-2">{service.name}</h3>
-                            <p className="text-gray-600 text-sm line-clamp-2 mb-4">{service.description}</p>
-                          </div>
-                          <div className="flex flex-col items-end space-y-2 ml-4">
-                            <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                              service.status === 'PENDING' 
-                                ? 'bg-yellow-100 text-yellow-800' 
-                                : service.status === 'APPROVED' 
-                                ? 'bg-green-100 text-green-800' 
-                                : service.status === 'PENDING_EDIT'
-                                ? 'bg-blue-100 text-blue-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {service.status}
-                            </div>
-                            <div className="flex items-center bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 px-3 py-1 rounded-full">
-                              <Star className="h-4 w-4 fill-current" />
-                              <span className="text-sm font-bold ml-1">{String(service.rating || 0)}</span>
-                              <span className="text-xs ml-1">({String(service.reviewCount || 0)})</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4">
-                          <div className="flex items-center text-sm text-gray-500">
-                            <MapPin className="h-4 w-4 mr-1" />
-                            <span>{service.serviceLocation?.city || ''}, {service.serviceLocation?.state || ''}</span>
-                          </div>
-                          <div className="flex items-center text-sm text-gray-500 mt-1">
-                            <IndianRupee className="h-4 w-4 mr-1" />
-                            <span>₹{(service.basePrice || 0).toLocaleString()}/service</span>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          {service.videographyTypes?.slice(0, 3).map((type, index) => (
-                            <span 
-                              key={`${service._id}-type-${index}`} 
-                              className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r from-purple-500 to-blue-500 text-white shadow-sm"
-                            >
-                              {type}
-                            </span>
-                          ))}
-                          {(service.videographyTypes?.length || 0) > 3 && (
-                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">
-                              +{(service.videographyTypes?.length || 0) - 3} more
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-between">
-                          <div className="text-sm text-gray-500">
-                            Created: {service.createdAt ? new Date(service.createdAt).toLocaleDateString() : 'N/A'}
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => router.push(`/provider/videography/view?id=${service._id}`)}
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => router.push(`/provider/videography/edit?id=${service._id}`)}
-                            >
-                              <Edit className="h-4 w-4 mr-1" />
-                              Edit
-                            </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm"
-                              onClick={() => handleDeleteService(service._id, service.name)}
-                              className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4 mr-1" />
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-
-                      </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredServices.map((service) => (
+                      <ServiceCard
+                        key={service._id}
+                        id={service._id}
+                        name={service.name}
+                        description={service.description}
+                        status={service.status as 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT'}
+                        location={`${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`}
+                        price={service.basePrice}
+                        rating={service.rating || 0}
+                        reviewCount={service.reviewCount || 0}
+                        tags={service.videographyTypes || []}
+                        onEdit={(id) => router.push(`/provider/videography/edit?id=${id}`)}
+                        onView={(id) => router.push(`/provider/videography/view?id=${id}`)}
+                        onDelete={handleDeleteService}
+                        onSubmitForApproval={handleSubmitForApproval}
+                        loading={loading}
+                        submitLoading={submitLoading === service._id}
+                      />
                     ))}
                   </div>
                 )}

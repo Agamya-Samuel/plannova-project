@@ -4,7 +4,8 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
-import { Video, Edit3, ArrowLeft, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
+import { Video, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 
@@ -121,13 +122,7 @@ function ViewVideographyServiceContent() {
             <Video className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">Service Not Found</h2>
             <p className="text-gray-600 mb-6">{error || 'The videography service you are looking for does not exist.'}</p>
-            <button
-              onClick={() => router.push('/provider/videography')}
-              className="inline-flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Videography Services
-            </button>
+            <BackToServicesButton serviceType="videography" />
           </div>
         </div>
       </ProtectedRoute>
@@ -143,10 +138,7 @@ function ViewVideographyServiceContent() {
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <Button variant="outline" onClick={() => router.back()} className="flex items-center space-x-2">
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Back</span>
-                  </Button>
+                  <BackToServicesButton serviceType="videography" />
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">{service.name}</h1>
                     <p className="text-gray-600">Videography Service Details</p>

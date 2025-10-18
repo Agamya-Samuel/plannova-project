@@ -139,7 +139,7 @@ router.post('/', authenticateToken, createPhotographyValidation, async (req: Aut
       paymentTerms,
       rating: 0,
       reviewCount: 0,
-      status: ApprovalStatus.PENDING, // New services start as pending approval
+      status: req.body.status || ApprovalStatus.PENDING, // Use provided status or default to pending
       isActive: true
     });
 
@@ -149,6 +149,52 @@ router.post('/', authenticateToken, createPhotographyValidation, async (req: Aut
     });
   } catch (error) {
     console.error('Error creating photography service:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/photography/:id/submit-for-approval - Submit photography service for approval
+router.patch('/:id/submit-for-approval', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Check if user is a provider
+    if (req.user.role !== UserRole.PROVIDER) {
+      return res.status(403).json({ error: 'Only providers can submit services for approval' });
+    }
+
+    const photography = await Photography.findOne({
+      _id: req.params.id,
+      provider: req.user.id
+    });
+
+    if (!photography) {
+      return res.status(404).json({ error: 'Photography service not found or unauthorized' });
+    }
+
+    if (photography.status !== ApprovalStatus.DRAFT) {
+      return res.status(400).json({ 
+        error: 'Only draft services can be submitted for approval',
+        currentStatus: photography.status
+      });
+    }
+
+    // Update status to pending
+    photography.status = ApprovalStatus.PENDING;
+    await photography.save();
+
+    res.json({
+      message: 'Photography service submitted for approval successfully',
+      service: {
+        _id: photography._id,
+        name: photography.name,
+        status: photography.status
+      }
+    });
+  } catch (error) {
+    console.error('Error submitting photography service for approval:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
