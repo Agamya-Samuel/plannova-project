@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -88,7 +88,7 @@ const states = [
   'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
 ];
 
-export default function EditBridalMakeupService() {
+function EditBridalMakeupServiceContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -144,6 +144,9 @@ export default function EditBridalMakeupService() {
         addons: service.addons.map((a: { price: number; }) => ({...a, price: a.price})),
         images: service.images
       });
+      
+      // Mark all tabs as visited in edit mode for free navigation
+      setVisitedTabs(new Set(['basic', 'location', 'contact', 'images', 'services', 'policies', 'review']));
     } catch (err: unknown) {
       let errorMessage = 'Failed to fetch bridal makeup service';
       if (typeof err === 'object' && err !== null && 'response' in err) {
@@ -691,5 +694,20 @@ export default function EditBridalMakeupService() {
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function EditBridalMakeupService() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <EditBridalMakeupServiceContent />
+    </Suspense>
   );
 }

@@ -50,8 +50,8 @@ const presignedUrlValidation = [
     .isInt({ min: 1, max: Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document) })
     .withMessage(`File size must be between 1 byte and ${Math.max(MAX_FILE_SIZE.image, MAX_FILE_SIZE.document)} bytes`),
   body('uploadType')
-    .isIn(['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup'])
-    .withMessage('Upload type must be venue, profile, document, catering, photography, videography, or bridal-makeup'),
+    .isIn(['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration'])
+    .withMessage('Upload type must be venue, profile, document, catering, photography, videography, bridal-makeup, or decoration'),
   body('venueId')
     .optional()
     .isMongoId()
@@ -123,7 +123,7 @@ router.post('/direct', authenticateToken, upload.single('file'), async (req: Aut
     const { uploadType, venueId } = req.body;
     const userId = req.user!.id;
 
-    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup'].includes(uploadType)) {
+    if (!uploadType || !['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration'].includes(uploadType)) {
       return res.status(400).json({ error: 'Invalid upload type' });
     }
 
@@ -275,7 +275,7 @@ router.get('/config', (req: Request, res: Response) => {
       allowedImageTypes: ALLOWED_IMAGE_TYPES,
       allowedDocumentTypes: ALLOWED_DOCUMENT_TYPES,
       maxFileSize: MAX_FILE_SIZE,
-      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup'],
+      uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration'],
     },
   });
 });
