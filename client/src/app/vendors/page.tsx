@@ -116,6 +116,30 @@ interface BridalMakeupService {
   status?: string;
 }
 
+// Define the DecorationService interface to match the backend model
+interface DecorationService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  decorationTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string;
+}
+
 const categories = [
   { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
   { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
@@ -134,6 +158,7 @@ export default function VendorsPage() {
   const [photographyServices, setPhotographyServices] = useState<PhotographyService[]>([]);
   const [videographyServices, setVideographyServices] = useState<VideographyService[]>([]);
   const [bridalMakeupServices, setBridalMakeupServices] = useState<BridalMakeupService[]>([]);
+  const [decorationServices, setDecorationServices] = useState<DecorationService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -157,6 +182,10 @@ export default function VendorsPage() {
         // Fetch bridal makeup services
         const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
         setBridalMakeupServices(bridalMakeupResponse.data.data);
+        
+        // Fetch decoration services
+        const decorationResponse = await apiClient.get('/decoration');
+        setDecorationServices(decorationResponse.data.data);
       } catch (err) {
         console.error('Error fetching services:', err);
         setError('Failed to load services');
@@ -240,8 +269,24 @@ export default function VendorsPage() {
     isVerified: true
   }));
 
+  // Transform decoration services to vendor format for display
+  const decorationVendors: Vendor[] = decorationServices.map(service => ({
+    id: service._id,
+    name: service.name || 'Untitled Service',
+    category: 'Decoration',
+    location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+    rating: service.rating || 0,
+    reviews: service.reviewCount || 0,
+    startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+    image: service.images && service.images.length > 0 
+      ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+      : 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.decorationTypes ? service.decorationTypes.slice(0, 3) : [],
+    isVerified: true
+  }));
+
   // Combine all vendors
-  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors]);
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors]);
 
   const filteredVendors = selectedCategory === 'All' 
     ? allVendors 
@@ -253,8 +298,9 @@ export default function VendorsPage() {
     console.log('Photography services count:', photographyServices.length);
     console.log('Videography services count:', videographyServices.length);
     console.log('Bridal makeup services count:', bridalMakeupServices.length);
+    console.log('Decoration services count:', decorationServices.length);
     console.log('All vendors count:', allVendors.length);
-  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, allVendors]);
+  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, allVendors]);
 
   if (loading) {
     return (
