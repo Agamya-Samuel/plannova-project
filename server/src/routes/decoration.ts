@@ -132,7 +132,7 @@ router.post('/', authenticateToken, createDecorationValidation, async (req: Auth
       paymentTerms,
       rating: 0,
       reviewCount: 0,
-      status: ApprovalStatus.PENDING, // New services start as pending approval
+      status: req.body.status || ApprovalStatus.PENDING, // Use provided status or default to pending
       isActive: true
     });
 
@@ -142,6 +142,52 @@ router.post('/', authenticateToken, createDecorationValidation, async (req: Auth
     });
   } catch (error) {
     console.error('Error creating decoration service:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/decoration/:id/submit-for-approval - Submit decoration service for approval
+router.patch('/:id/submit-for-approval', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Check if user is a provider
+    if (req.user.role !== UserRole.PROVIDER) {
+      return res.status(403).json({ error: 'Only providers can submit services for approval' });
+    }
+
+    const decoration = await Decoration.findOne({
+      _id: req.params.id,
+      provider: req.user.id
+    });
+
+    if (!decoration) {
+      return res.status(404).json({ error: 'Decoration service not found or unauthorized' });
+    }
+
+    if (decoration.status !== ApprovalStatus.DRAFT) {
+      return res.status(400).json({ 
+        error: 'Only draft services can be submitted for approval',
+        currentStatus: decoration.status
+      });
+    }
+
+    // Update status to pending
+    decoration.status = ApprovalStatus.PENDING;
+    await decoration.save();
+
+    res.json({
+      message: 'Decoration service submitted for approval successfully',
+      service: {
+        _id: decoration._id,
+        name: decoration.name,
+        status: decoration.status
+      }
+    });
+  } catch (error) {
+    console.error('Error submitting decoration service for approval:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

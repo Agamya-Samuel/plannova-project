@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Camera, Edit3, ArrowLeft, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
+import { Camera, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 
@@ -131,13 +132,7 @@ export default function ViewPhotographyService() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <button
-                onClick={() => router.push(getDashboardUrl())}
-                className="inline-flex items-center text-pink-600 hover:text-pink-800"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Dashboard
-              </button>
+              <BackToServicesButton serviceType="photography" />
               <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
@@ -156,13 +151,7 @@ export default function ViewPhotographyService() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <button
-                onClick={() => router.push(getDashboardUrl())}
-                className="inline-flex items-center text-pink-600 hover:text-pink-800"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Dashboard
-              </button>
+              <BackToServicesButton serviceType="photography" />
               <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
@@ -181,13 +170,7 @@ export default function ViewPhotographyService() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <button
-                onClick={() => router.push(getDashboardUrl())}
-                className="inline-flex items-center text-pink-600 hover:text-pink-800"
-              >
-                <ArrowLeft className="h-5 w-5 mr-2" />
-                Back to Dashboard
-              </button>
+              <BackToServicesButton serviceType="photography" />
               <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
@@ -216,13 +199,7 @@ export default function ViewPhotographyService() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <button
-              onClick={() => router.push(getDashboardUrl())}
-              className="inline-flex items-center text-pink-600 hover:text-pink-800"
-            >
-              <ArrowLeft className="h-5 w-5 mr-2" />
-              Back to Dashboard
-            </button>
+            <BackToServicesButton serviceType="photography" />
             <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
             <button
               onClick={() => router.push(`/provider/photography/edit?id=${serviceId}`)}

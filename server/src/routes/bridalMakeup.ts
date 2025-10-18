@@ -132,7 +132,7 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
       paymentTerms,
       rating: 0,
       reviewCount: 0,
-      status: ApprovalStatus.PENDING, // New services start as pending approval
+      status: req.body.status || ApprovalStatus.PENDING, // Use provided status or default to pending
       isActive: true
     });
 
@@ -142,6 +142,52 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
     });
   } catch (error) {
     console.error('Error creating bridal makeup service:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// PATCH /api/bridal-makeup/:id/submit-for-approval - Submit bridal makeup service for approval
+router.patch('/:id/submit-for-approval', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Check if user is a provider
+    if (req.user.role !== UserRole.PROVIDER) {
+      return res.status(403).json({ error: 'Only providers can submit services for approval' });
+    }
+
+    const bridalMakeup = await BridalMakeup.findOne({
+      _id: req.params.id,
+      provider: req.user.id
+    });
+
+    if (!bridalMakeup) {
+      return res.status(404).json({ error: 'Bridal makeup service not found or unauthorized' });
+    }
+
+    if (bridalMakeup.status !== ApprovalStatus.DRAFT) {
+      return res.status(400).json({ 
+        error: 'Only draft services can be submitted for approval',
+        currentStatus: bridalMakeup.status
+      });
+    }
+
+    // Update status to pending
+    bridalMakeup.status = ApprovalStatus.PENDING;
+    await bridalMakeup.save();
+
+    res.json({
+      message: 'Bridal makeup service submitted for approval successfully',
+      service: {
+        _id: bridalMakeup._id,
+        name: bridalMakeup.name,
+        status: bridalMakeup.status
+      }
+    });
+  } catch (error) {
+    console.error('Error submitting bridal makeup service for approval:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -6,9 +6,9 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import { 
   Heart, 
-  ArrowLeft, 
   Edit, 
   Star, 
   IndianRupee, 
@@ -197,14 +197,7 @@ function ViewBridalMakeupServiceContent() {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/provider/bridal-makeup')}
-                  className="flex items-center space-x-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back to Services</span>
-                </Button>
+                <BackToServicesButton serviceType="bridal-makeup" />
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">{service.name}</h1>
                   <div className="flex items-center space-x-4 mt-2">

@@ -6,12 +6,12 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import { 
   MapPin, 
   Users, 
   DollarSign, 
-  Star, 
-  ArrowLeft,
+  Star,
   Phone,
   Mail,
   Globe,
@@ -156,14 +156,7 @@ export default function ProviderVenueViewPage() {
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push('/provider/venues')}
-                    className="flex items-center space-x-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Back to Venues</span>
-                  </Button>
+                  <BackToServicesButton serviceType="venues" />
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">
                       {venue?.name || 'Venue Details'}
