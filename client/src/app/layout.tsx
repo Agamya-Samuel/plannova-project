@@ -4,6 +4,8 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Navbar from "@/components/layout/Navbar";
 import { Toaster } from "@/components/ui/sonner";
+import Script from "next/script";
+import { UMAMI_WEBSITE_ID, UMAMI_SCRIPT_URL } from "@/constants/umami";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,11 +27,20 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const showUmami = UMAMI_WEBSITE_ID && UMAMI_SCRIPT_URL;
+  
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        {showUmami && (
+          <Script
+            async
+            src={UMAMI_SCRIPT_URL}
+            data-website-id={UMAMI_WEBSITE_ID}
+          />
+        )}
         <AuthProvider>
           <Navbar />
           <main>{children}</main>
