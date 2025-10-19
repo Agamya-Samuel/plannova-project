@@ -11,7 +11,8 @@ import {
   IndianRupee,
   Calendar,
   Download,
-  Filter
+  Filter,
+  ExternalLink
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
@@ -26,6 +27,7 @@ import {
   ArcElement
 } from 'chart.js';
 import { Bar, Pie } from 'react-chartjs-2';
+import Link from 'next/link';
 
 ChartJS.register(
   CategoryScale,
@@ -205,6 +207,25 @@ export default function AdminReportsPage() {
                   <BarChart3 className="h-5 w-5 text-purple-500" />
                   <span>Platform Analytics</span>
                 </div>
+              </div>
+              
+              {/* Tabs for Reports and Website Analytics */}
+              <div className="mt-6 border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <Link 
+                    href="/admin/reports" 
+                    className="border-b-2 border-red-500 text-red-600 whitespace-nowrap py-4 px-1 text-sm font-medium"
+                  >
+                    Platform Reports
+                  </Link>
+                  <Link 
+                    href="/admin/analytics" 
+                    className="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-4 px-1 text-sm font-medium flex items-center"
+                  >
+                    Website Analytics
+                    <ExternalLink className="ml-2 h-4 w-4" />
+                  </Link>
+                </nav>
               </div>
             </div>
           </div>
