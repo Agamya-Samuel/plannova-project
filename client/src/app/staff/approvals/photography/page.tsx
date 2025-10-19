@@ -26,6 +26,7 @@ import apiClient from '../../../../lib/api';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '../../../../lib/sonner-confirm';
 import { sonnerPrompt } from '../../../../lib/sonner-prompt';
+import ImageModal from '../../../../components/ui/ImageModal';
 
 interface ApiError extends Error {
   response?: {
@@ -84,6 +85,9 @@ export default function StaffPhotographyApprovalsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedService, setSelectedService] = useState<PhotographyService | null>(null);
 
   const fetchPhotographyServices = async (status = 'PENDING', search = '') => {
     try {
@@ -112,6 +116,31 @@ export default function StaffPhotographyApprovalsPage() {
   useEffect(() => {
     fetchPhotographyServices(statusFilter, searchTerm);
   }, [statusFilter, searchTerm]);
+
+  const handleImageClick = (service: PhotographyService, index: number) => {
+    setSelectedService(service);
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  };
+
+  const handleImageModalClose = () => {
+    setShowImageModal(false);
+    setSelectedService(null);
+  };
+
+  const handleImageNavigate = (direction: 'prev' | 'next') => {
+    if (!selectedService || selectedService.images.length === 0) return;
+    
+    if (direction === 'prev') {
+      setSelectedImageIndex(prev => 
+        prev === 0 ? selectedService.images.length - 1 : prev - 1
+      );
+    } else {
+      setSelectedImageIndex(prev => 
+        prev === selectedService.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
@@ -434,15 +463,31 @@ export default function StaffPhotographyApprovalsPage() {
                       <div className="md:flex">
                         {/* Image */}
                         <div className="md:w-1/3">
-                          <div className="h-64 md:h-full">
+                          <div 
+                            className="h-64 md:h-full relative group cursor-pointer"
+                            onClick={() => service.images.length > 0 && handleImageClick(service, 0)}
+                          >
                             {service.images.length > 0 ? (
-                              <Image
-                                src={service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || '/placeholder-image.jpg'}
-                                alt={service.name}
-                                width={800}
-                                height={600}
-                                className="w-full h-full object-cover"
-                              />
+                              <>
+                                <Image
+                                  src={service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || '/placeholder-image.jpg'}
+                                  alt={service.name}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                {/* Overlay on hover */}
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                  <div className="bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1 rounded-full text-xs font-medium">
+                                    Click to view gallery
+                                  </div>
+                                </div>
+                                {/* Image count badge */}
+                                {service.images.length > 1 && (
+                                  <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                    {service.images.length} photos
+                                  </div>
+                                )}
+                              </>
                             ) : (
                               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                                 <Camera className="h-12 w-12 text-gray-400" />
@@ -599,6 +644,17 @@ export default function StaffPhotographyApprovalsPage() {
           )}
         </div>
       </div>
+
+      {/* Image Modal */}
+      {selectedService && selectedService.images.length > 0 && (
+        <ImageModal
+          isOpen={showImageModal}
+          onClose={handleImageModalClose}
+          images={selectedService.images}
+          currentIndex={selectedImageIndex}
+          onNavigate={handleImageNavigate}
+        />
+      )}
     </ProtectedRoute>
   );
 }

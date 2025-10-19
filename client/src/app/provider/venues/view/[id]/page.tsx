@@ -21,6 +21,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import ImageModal from '@/components/ui/ImageModal';
 
 interface Venue {
   _id: string;
@@ -102,6 +103,8 @@ export default function ProviderVenueViewPage() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const venueId = params.id as string;
 
@@ -123,6 +126,29 @@ export default function ProviderVenueViewPage() {
       fetchVenue();
     }
   }, [venueId, fetchVenue]);
+
+  const handleImageClick = (index: number) => {
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  };
+
+  const handleImageModalClose = () => {
+    setShowImageModal(false);
+  };
+
+  const handleImageNavigate = (direction: 'prev' | 'next') => {
+    if (!venue || venue.images.length === 0) return;
+    
+    if (direction === 'prev') {
+      setSelectedImageIndex(prev => 
+        prev === 0 ? venue.images.length - 1 : prev - 1
+      );
+    } else {
+      setSelectedImageIndex(prev => 
+        prev === venue.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -220,13 +246,17 @@ export default function ProviderVenueViewPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {/* Show pending images if in pending edit status, otherwise show current images */}
                     {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images ? venue.pendingEdits.images : venue.images).map((image, index: number) => (
-                      <div key={index} className="relative group">
+                      <div 
+                        key={index} 
+                        className="relative group cursor-pointer"
+                        onClick={() => handleImageClick(index)}
+                      >
                         <Image
                           src={image.url}
                           alt={image.alt}
                           width={400}
                           height={192}
-                          className="w-full h-48 object-cover rounded-lg"
+                          className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
                         />
                         {image.isPrimary && (
                           <span className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
@@ -235,6 +265,12 @@ export default function ProviderVenueViewPage() {
                         )}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent rounded-b-lg p-2">
                           <p className="text-white text-sm">{image.category}</p>
+                        </div>
+                        {/* Overlay on hover */}
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center rounded-lg">
+                          <div className="bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1 rounded-full text-xs font-medium">
+                            Click to view
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -477,6 +513,17 @@ export default function ProviderVenueViewPage() {
           )}
         </div>
       </div>
+
+      {/* Image Modal */}
+      {venue && venue.images.length > 0 && (
+        <ImageModal
+          isOpen={showImageModal}
+          onClose={handleImageModalClose}
+          images={venue.images}
+          currentIndex={selectedImageIndex}
+          onNavigate={handleImageNavigate}
+        />
+      )}
     </ProtectedRoute>
   );
 }

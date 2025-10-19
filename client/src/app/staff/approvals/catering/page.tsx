@@ -426,27 +426,26 @@ export default function StaffCateringApprovalsPage() {
                     <div key={service._id} className="bg-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden">
                       <div className="md:flex">
                         {/* Image */}
-                        <div className="md:w-1/3">
-                          <div className="h-64 md:h-full">
+                        <div className="md:w-1/4">
+                          <div className="h-40 md:h-48 relative">
                             {service.images.length > 0 ? (
                               <Image
                                 src={service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || '/placeholder-image.jpg'}
                                 alt={service.name}
-                                width={800}
-                                height={600}
-                                className="w-full h-full object-cover"
+                                fill
+                                className="object-cover"
                               />
                             ) : (
                               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                                <Utensils className="h-12 w-12 text-gray-400" />
-                                <span className="ml-2 text-gray-500">No Image</span>
+                                <Utensils className="h-8 w-8 text-gray-400" />
+                                <span className="ml-2 text-gray-500 text-sm">No Image</span>
                               </div>
                             )}
                           </div>
                         </div>
                         
                         {/* Content */}
-                        <div className="md:w-2/3 p-6">
+                        <div className="md:w-3/4 p-6">
                           <div className="flex justify-between items-start mb-4">
                             <div>
                               <div className="flex items-center space-x-2 mb-2">

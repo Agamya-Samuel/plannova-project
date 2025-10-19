@@ -20,8 +20,7 @@ const PasswordResetTokenSchema: Schema<IPasswordResetToken> = new Schema({
   },
   expiresAt: {
     type: Date,
-    required: true,
-    index: true // Index for efficient expiration queries
+    required: true
   }
 }, {
   timestamps: true,

@@ -7,8 +7,26 @@ interface ValidationErrors {
   [key: string]: string[];
 }
 
+interface FormData {
+  name?: string;
+  description?: string;
+  basePrice?: number | null;
+  serviceLocation?: {
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+  contact?: {
+    phone?: string;
+    whatsapp?: string;
+    email?: string;
+  };
+  images?: Array<unknown>;
+}
+
 interface UseFormValidationProps {
-  formData: Record<string, unknown>;
+  formData: FormData;
   activeTab: string;
 }
 
@@ -22,13 +40,13 @@ export function useFormValidation({ formData, activeTab }: UseFormValidationProp
       case 'basic':
         if (!formData.name) validationErrors.push('Service name is required');
         if (!formData.description) validationErrors.push('Description is required');
-        if (formData.description && formData.description.length < 10) {
+        if (formData.description && typeof formData.description === 'string' && formData.description.length < 10) {
           validationErrors.push('Description must be at least 10 characters');
         }
-        if (formData.description && formData.description.length > 2000) {
+        if (formData.description && typeof formData.description === 'string' && formData.description.length > 2000) {
           validationErrors.push('Description must not exceed 2000 characters');
         }
-        if (formData.basePrice !== undefined && formData.basePrice <= 0) {
+        if (formData.basePrice !== undefined && formData.basePrice !== null && formData.basePrice <= 0) {
           validationErrors.push('Base price must be greater than 0');
         }
         break;
@@ -42,20 +60,20 @@ export function useFormValidation({ formData, activeTab }: UseFormValidationProp
 
       case 'contact':
         if (!formData.contact?.phone) validationErrors.push('Phone number is required');
-        if (formData.contact?.phone && !isValidPhoneNumber(formData.contact.phone)) {
+        if (formData.contact?.phone && typeof formData.contact.phone === 'string' && !isValidPhoneNumber(formData.contact.phone)) {
           validationErrors.push('Please enter a valid phone number');
         }
-        if (formData.contact?.whatsapp && !isValidPhoneNumber(formData.contact.whatsapp)) {
+        if (formData.contact?.whatsapp && typeof formData.contact.whatsapp === 'string' && !isValidPhoneNumber(formData.contact.whatsapp)) {
           validationErrors.push('Please enter a valid WhatsApp number');
         }
         if (!formData.contact?.email) validationErrors.push('Email address is required');
-        if (formData.contact?.email && !formData.contact.email.includes('@')) {
+        if (formData.contact?.email && typeof formData.contact.email === 'string' && !formData.contact.email.includes('@')) {
           validationErrors.push('Please enter a valid email address');
         }
         break;
 
       case 'images':
-        if (formData.images?.length === 0) validationErrors.push('At least one image is required');
+        if (Array.isArray(formData.images) && formData.images.length === 0) validationErrors.push('At least one image is required');
         break;
 
       default:
@@ -76,9 +94,10 @@ export function useFormValidation({ formData, activeTab }: UseFormValidationProp
         return !!(
           formData.name &&
           formData.description &&
+          typeof formData.description === 'string' &&
           formData.description.length >= 10 &&
           formData.description.length <= 2000 &&
-          (formData.basePrice === undefined || formData.basePrice > 0)
+          (formData.basePrice === undefined || formData.basePrice === null || formData.basePrice > 0)
         );
 
       case 'location':
@@ -93,13 +112,15 @@ export function useFormValidation({ formData, activeTab }: UseFormValidationProp
         return !!(
           formData.contact?.phone &&
           formData.contact?.email &&
+          typeof formData.contact.email === 'string' &&
           formData.contact.email.includes('@') &&
+          typeof formData.contact.phone === 'string' &&
           isValidPhoneNumber(formData.contact.phone) &&
-          (!formData.contact.whatsapp || isValidPhoneNumber(formData.contact.whatsapp))
+          (!formData.contact.whatsapp || (typeof formData.contact.whatsapp === 'string' && isValidPhoneNumber(formData.contact.whatsapp)))
         );
 
       case 'images':
-        return formData.images?.length > 0;
+        return Array.isArray(formData.images) && formData.images.length > 0;
 
       default:
         return true;

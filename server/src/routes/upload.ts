@@ -7,6 +7,7 @@ import {
   deleteFromS3, 
   validateFile,
   getFileMetadata,
+  generatePresignedViewUrl,
   ALLOWED_IMAGE_TYPES,
   ALLOWED_DOCUMENT_TYPES,
   MAX_FILE_SIZE
@@ -232,6 +233,42 @@ router.delete('/by-url', authenticateToken, async (req: AuthRequest, res: Respon
   } catch (error) {
     console.error('Error deleting file:', error);
     res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+// GET /api/upload/presigned-view/:key - Generate presigned URL for viewing images
+router.get('/presigned-view/:key', async (req: Request, res: Response) => {
+  try {
+    const key = req.params.key;
+    const expiresIn = parseInt(req.query.expiresIn as string) || 3600; // Default 1 hour
+    
+    if (!key) {
+      return res.status(400).json({ error: 'File key is required' });
+    }
+
+    // Validate expiresIn parameter
+    if (expiresIn < 60 || expiresIn > 86400) { // Between 1 minute and 24 hours
+      return res.status(400).json({ error: 'expiresIn must be between 60 and 86400 seconds' });
+    }
+
+    const result = await generatePresignedViewUrl(key, expiresIn);
+
+    if (!result.success) {
+      return res.status(404).json({ error: result.error });
+    }
+
+    res.json({
+      message: 'Presigned view URL generated successfully',
+      data: {
+        url: result.url,
+        expiresIn,
+        expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+      },
+    });
+
+  } catch (error) {
+    console.error('Error generating presigned view URL:', error);
+    res.status(500).json({ error: 'Failed to generate presigned view URL' });
   }
 });
 

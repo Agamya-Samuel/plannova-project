@@ -240,7 +240,7 @@ export default function ImageUpload({
 
       {/* Image Preview Modal */}
       {previewImage && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50 p-4">
           <div className="relative max-w-4xl max-h-full">
             <Image
               src={previewImage}
@@ -253,7 +253,7 @@ export default function ImageUpload({
               type="button"
               variant="outline"
               size="sm"
-              className="absolute top-4 right-4 bg-white"
+              className="absolute top-4 right-4 bg-white/20 backdrop-blur-sm text-white border-white/30 hover:bg-white/30 hover:border-white/50"
               onClick={closePreview}
             >
               <X className="h-4 w-4" />

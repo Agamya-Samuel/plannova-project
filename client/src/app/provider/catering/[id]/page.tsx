@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useAuth } from '../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
 import { Button } from '../../../../components/ui/button';
+import BackToServicesButton from '../../../../components/ui/BackToServicesButton';
 import { 
   Utensils, 
   MapPin, 
@@ -16,7 +17,6 @@ import {
   Clock,
   User,
   Edit,
-  ArrowLeft,
   Loader2,
   Plus,
   Users,
@@ -24,6 +24,7 @@ import {
   Upload
 } from 'lucide-react';
 import apiClient from '../../../../lib/api';
+import ImageModal from '../../../../components/ui/ImageModal';
 
 interface Review {
   id: string;
@@ -84,17 +85,31 @@ export default function CateringServiceViewPage() {
   const [service, setService] = useState<CateringService | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   // Fetch catering service details
   useEffect(() => {
     const fetchService = async () => {
       try {
         setLoading(true);
+        console.log('🔍 Fetching catering service with ID:', serviceId);
         const response = await apiClient.get(`/catering/${serviceId}`);
+        console.log('🔍 Catering service response:', response.data);
         setService(response.data.data);
       } catch (err: unknown) {
-        console.error('Error fetching catering service:', err);
-        setError('Failed to load catering service details');
+        console.error('❌ Error fetching catering service:', err);
+        console.error('❌ Error details:', {
+          message: (err as Error)?.message,
+          status: (err as { response?: { status?: number } })?.response?.status,
+          data: (err as { response?: { data?: unknown } })?.response?.data,
+          serviceId
+        });
+        
+        const errorMessage = (err as { response?: { status?: number } })?.response?.status === 404 
+          ? 'Catering service not found' 
+          : 'Failed to load catering service details';
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -104,6 +119,29 @@ export default function CateringServiceViewPage() {
       fetchService();
     }
   }, [serviceId]);
+
+  const handleImageClick = (index: number) => {
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  };
+
+  const handleImageModalClose = () => {
+    setShowImageModal(false);
+  };
+
+  const handleImageNavigate = (direction: 'prev' | 'next') => {
+    if (!service || service.images.length === 0) return;
+    
+    if (direction === 'prev') {
+      setSelectedImageIndex(prev => 
+        prev === 0 ? service.images.length - 1 : prev - 1
+      );
+    } else {
+      setSelectedImageIndex(prev => 
+        prev === service.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
 
   const handleDeleteService = async () => {
     if (!service) return;
@@ -150,12 +188,9 @@ export default function CateringServiceViewPage() {
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <p className="text-red-600">{error}</p>
-            <Button 
-              onClick={() => router.back()}
-              className="mt-4"
-            >
-              Back to Services
-            </Button>
+            <div className="mt-4">
+              <BackToServicesButton serviceType="catering" />
+            </div>
           </div>
         </div>
       </div>
@@ -168,12 +203,9 @@ export default function CateringServiceViewPage() {
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <div className="bg-white rounded-2xl shadow-lg p-6">
             <p className="text-gray-600">Catering service not found.</p>
-            <Button 
-              onClick={() => router.push('/provider/catering')}
-              className="mt-4"
-            >
-              Back to Services
-            </Button>
+            <div className="mt-4">
+              <BackToServicesButton serviceType="catering" />
+            </div>
           </div>
         </div>
       </div>
@@ -188,17 +220,7 @@ export default function CateringServiceViewPage() {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                 <button
-                   onClick={() => {
-                     console.log('Direct button clicked - navigating to catering');
-                     window.location.href = '/provider/catering';
-                   }}
-                   className="px-4 py-2 border border-gray-300 rounded-md bg-white hover:bg-gray-50 flex items-center space-x-2 text-gray-700 hover:text-gray-900"
-                   style={{ cursor: 'pointer', zIndex: 1000, position: 'relative' }}
-                 >
-                   <ArrowLeft className="h-4 w-4" />
-                   <span>Back to Services</span>
-                 </button>
+                 <BackToServicesButton serviceType="catering" />
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">{service.name}</h1>
                   <div className="flex items-center space-x-4 mt-2">
@@ -270,24 +292,34 @@ export default function CateringServiceViewPage() {
                   Service Gallery
                 </h2>
                 {service.images && service.images.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {service.images.map((image, index) => (
-                      <div key={`${service._id}-image-${index}`} className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-xl overflow-hidden shadow-sm">
-                        {image.url ? (
-                          <Image
-                            src={image.url}
-                            alt={image.alt || `Image ${index + 1}`}
-                            fill
-                            style={{ objectFit: 'cover' }}
-                            className="transition-transform duration-300 hover:scale-105"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-500">
-                            <span className="text-gray-500">{image.alt || `Gallery Image ${index + 1}`}</span>
+                    <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {service.images.map((image, index) => (
+                        <div 
+                          key={`${service._id}-image-${index}`} 
+                          className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 border-2 border-dashed border-gray-300 rounded-lg overflow-hidden shadow-sm cursor-pointer group relative"
+                          onClick={() => handleImageClick(index)}
+                        >
+                          {image.url ? (
+                            <Image
+                              src={image.url}
+                              alt={image.alt || `Image ${index + 1}`}
+                              fill
+                              style={{ objectFit: 'cover' }}
+                              className="transition-transform duration-300 group-hover:scale-105"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              <span className="text-gray-500 text-sm">{image.alt || `Gallery Image ${index + 1}`}</span>
+                            </div>
+                          )}
+                          {/* Overlay on hover */}
+                          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center rounded-xl">
+                            <div className="bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1 rounded-full text-xs font-medium">
+                              Click to view
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    ))}
+                        </div>
+                      ))}
                   </div>
                 ) : (
                   <div className="text-center py-12 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-200">
@@ -613,6 +645,17 @@ export default function CateringServiceViewPage() {
           </div>
         </div>
       </div>
+
+      {/* Image Modal */}
+      {service && service.images.length > 0 && (
+        <ImageModal
+          isOpen={showImageModal}
+          onClose={handleImageModalClose}
+          images={service.images}
+          currentIndex={selectedImageIndex}
+          onNavigate={handleImageNavigate}
+        />
+      )}
     </ProtectedRoute>
   );
 }
