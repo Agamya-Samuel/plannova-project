@@ -135,14 +135,22 @@ export default function VenueDetailsPage() {
       }
     };
 
-    // Check if venue is already favorited
+    // Check if venue is already favorited (only if user is authenticated)
     const checkIfFavorited = async () => {
+      // Skip if user is not authenticated
+      if (!user) {
+        setFavorite(false);
+        return;
+      }
+      
       try {
         const response = await apiClient.get('/venues/favorites');
         const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
         setFavorite(favoriteIds.has(params.id as string));
       } catch (err) {
         console.error('Error checking favorite status:', err);
+        // If there's an error, assume it's not favorited
+        setFavorite(false);
       }
     };
 
@@ -150,9 +158,16 @@ export default function VenueDetailsPage() {
       fetchVenue();
       checkIfFavorited();
     }
-  }, [params.id, user?.role]);
+  }, [params.id, user?.role, user]);
 
   const toggleFavorite = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      toast.error('Please log in to add favorites');
+      router.push('/auth/login');
+      return;
+    }
+    
     try {
       console.log('Toggling favorite for venue:', params.id);
       if (favorite) {
@@ -160,11 +175,13 @@ export default function VenueDetailsPage() {
         console.log('Removing from favorites');
         await apiClient.delete(`/venues/${params.id}/favorite`);
         setFavorite(false);
+        toast.success('Removed from favorites');
       } else {
         // Add to favorites
         console.log('Adding to favorites');
         await apiClient.post(`/venues/${params.id}/favorite`);
         setFavorite(true);
+        toast.success('Added to favorites');
       }
     } catch (err: unknown) {
       console.error('Error toggling favorite:', err);

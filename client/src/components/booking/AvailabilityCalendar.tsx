@@ -36,6 +36,14 @@ export function AvailabilityCalendar({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth, serviceId, serviceType]);
 
+  // Helper function to convert Date to YYYY-MM-DD string without timezone issues
+  const formatDateToString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const fetchAvailability = async () => {
     try {
       setLoading(true);
@@ -66,12 +74,12 @@ export function AvailabilityCalendar({
   };
 
   const isDateBooked = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
     return bookedDates[dateStr] && bookedDates[dateStr].length > 0;
   };
 
   const isDateManuallyBlocked = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
     return bookedDates[dateStr]?.some(booking => booking.type === 'manual') || false;
   };
 
@@ -84,13 +92,13 @@ export function AvailabilityCalendar({
 
   const isDateSelected = (date: Date) => {
     if (!selectedDate) return false;
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
     return dateStr === selectedDate;
   };
 
   const handleDateClick = (date: Date) => {
     if (isDateBooked(date) || isDatePast(date)) return;
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
     onDateSelect(dateStr);
   };
 
