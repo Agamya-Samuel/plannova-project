@@ -12,21 +12,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  User,
-  MapPin,
   IndianRupee
 } from 'lucide-react';
-import apiClient from '@/lib/api';
-import { toast } from 'sonner';
-import Link from 'next/link';
 
-interface ApiError extends Error {
-  response?: {
-    data?: {
-      error?: string;
-    };
-  };
-}
 
 interface Booking {
   id: string;
@@ -49,10 +37,10 @@ export default function AdminBookingsPage() {
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalBookings, setTotalBookings] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchBookings = async (page = 1, status = 'ALL', search = '') => {
+  const fetchBookings = async (_page = 1, status = 'ALL', search = '') => {
     try {
       setLoading(true);
       // For now, we'll simulate booking data since there isn't a direct admin bookings endpoint
@@ -146,9 +134,9 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     if (currentUser?.role === 'ADMIN') {
-      fetchBookings(currentPage, statusFilter, searchTerm);
+      fetchBookings(1, statusFilter, searchTerm);
     }
-  }, [currentPage, statusFilter, currentUser, searchTerm]);
+  }, [statusFilter, currentUser, searchTerm]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);

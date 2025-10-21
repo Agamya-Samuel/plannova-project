@@ -149,6 +149,13 @@ export default function AdminVenuesPage() {
     fetchVenues(1, value, searchTerm);
   };
 
+  const sonnerPrompt = (message: string): Promise<string | null> => {
+    return new Promise((resolve) => {
+      const result = window.prompt(message);
+      resolve(result || null);
+    });
+  };
+
   const handleApproveVenue = async (venueId: string, venueName: string) => {
     const confirmed = await sonnerConfirm(`Are you sure you want to approve venue "${venueName}"?`);
     if (!confirmed) {
@@ -255,13 +262,6 @@ export default function AdminVenuesPage() {
       default:
         return status;
     }
-  };
-
-  const sonnerPrompt = (message: string): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const result = window.prompt(message);
-      resolve(result || null);
-    });
   };
 
   if (currentUser?.role !== 'ADMIN') {
