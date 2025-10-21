@@ -3,11 +3,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { User } from '@/types/auth';
 
 interface GoogleSignInButtonProps {
   onSuccess?: () => void;
   onError?: (error: unknown) => void;
+  onRoleSelectionNeeded?: () => void;
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
@@ -16,6 +16,7 @@ interface GoogleSignInButtonProps {
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onSuccess,
   onError,
+  onRoleSelectionNeeded,
   disabled = false,
   className = '',
   children
@@ -31,10 +32,15 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
       console.log('GoogleSignInButton: Starting Google authentication...');
       
       // Use the AuthContext googleSignIn method which handles everything
-      await googleSignIn();
+      const result = await googleSignIn();
       
-      console.log('GoogleSignInButton: Complete sign-in successful');
-      onSuccess?.();
+      if (result.needsRoleSelection) {
+        console.log('GoogleSignInButton: Role selection needed');
+        onRoleSelectionNeeded?.();
+      } else {
+        console.log('GoogleSignInButton: Complete sign-in successful');
+        onSuccess?.();
+      }
     } catch (error) {
       console.error('GoogleSignInButton: Authentication failed:', error);
       onError?.(error);

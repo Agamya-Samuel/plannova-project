@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import User, { UserRole, IUser } from '../models/User.js';
+import jwt, { JwtPayload } from 'jsonwebtoken';
+import User, { UserRole } from '../models/User.js';
 import { adminAuth } from '../firebase-admin.js';
 import { Types } from 'mongoose';
 
@@ -8,7 +8,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: UserRole;
+    role: UserRole | null;
     firstName: string;
     lastName: string;
   };
@@ -27,8 +27,18 @@ export const authenticateToken = async (
       return res.status(401).json({ error: 'Access token required' });
     }
 
+    // Debug: Log token details
+    console.log('🔍 Auth middleware - Token received:', {
+      hasToken: !!token,
+      tokenLength: token?.length,
+      tokenStart: token?.substring(0, 20) + '...',
+      tokenEnd: '...' + token?.substring(token.length - 20),
+      authHeader: authHeader
+    });
+
     // Try Firebase ID token first (for Google Sign-In and Firebase Auth)
     try {
+      console.log('🔍 Attempting Firebase ID token verification...');
       const decodedToken = await adminAuth.verifyIdToken(token);
       
       // Find or create user in MongoDB
@@ -47,7 +57,7 @@ export const authenticateToken = async (
           email: decodedToken.email,
           firstName: nameParts[0] || 'User',
           lastName: nameParts.slice(1).join(' ') || '',
-          role: UserRole.CUSTOMER,
+          role: null, // New Google users need to select role
           isActive: true,
           isVerified: decodedToken.email_verified || false,
           provider: decodedToken.firebase?.sign_in_provider || 'email'
@@ -72,9 +82,18 @@ export const authenticateToken = async (
       return next();
       
     } catch (firebaseError) {
+      console.error('Firebase token verification failed:', {
+        error: firebaseError,
+        message: (firebaseError as Error)?.message,
+        code: (firebaseError as { code?: string })?.code,
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 50) + '...'
+      });
+      
       // If Firebase token verification fails, try JWT token (for backward compatibility)
       try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as any;
+        console.log('🔍 Attempting JWT token verification...');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
         
         const user = await User.findById(decoded.userId).select('-password');
 
@@ -92,10 +111,17 @@ export const authenticateToken = async (
         return next();
         
       } catch (jwtError) {
+        console.error('JWT verification failed:', {
+          error: jwtError,
+          message: (jwtError as Error)?.message,
+          tokenLength: token?.length,
+          tokenStart: token?.substring(0, 50) + '...'
+        });
         return res.status(403).json({ error: 'Invalid token' });
       }
     }
   } catch (error) {
+    console.error('Authentication error:', error);
     return res.status(403).json({ error: 'Invalid token' });
   }
 };
@@ -104,6 +130,11 @@ export const requireRole = (roles: UserRole[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // If user hasn't selected a role yet, they need to complete role selection
+    if (req.user.role === null) {
+      return res.status(403).json({ error: 'Role selection required' });
     }
 
     if (!roles.includes(req.user.role)) {
@@ -115,5 +146,7 @@ export const requireRole = (roles: UserRole[]) => {
 };
 
 export const requireAdmin = requireRole([UserRole.ADMIN]);
+export const requireStaff = requireRole([UserRole.STAFF]);
+export const requireStaffOrAdmin = requireRole([UserRole.STAFF, UserRole.ADMIN]);
 export const requireProvider = requireRole([UserRole.PROVIDER, UserRole.ADMIN]);
 export const requireCustomer = requireRole([UserRole.CUSTOMER, UserRole.PROVIDER, UserRole.ADMIN]);

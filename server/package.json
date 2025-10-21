@@ -8,12 +8,20 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "concurrently \"tsc -w\" \"nodemon dist/server.js\"",
-    "dev:server": "nodemon dist/server.js"
+    "dev:server": "nodemon dist/server.js",
+    "type-check": "npx tsc --noEmit --project tsconfig.json",
+    "lint": "eslint . --ext .ts",
+    "check": "npm run type-check && npm run lint"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.901.0",
+    "@aws-sdk/lib-storage": "^3.901.0",
+    "@aws-sdk/s3-presigned-post": "^3.901.0",
+    "@aws-sdk/s3-request-presigner": "^3.913.0",
+    "@umami/api-client": "^0.80.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
@@ -24,20 +32,28 @@
     "helmet": "^8.1.0",
     "http-errors": "^2.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.18.3"
+    "mongoose": "^8.18.3",
+    "multer": "^2.0.2",
+    "nodemailer": "^7.0.9"
   },
   "devDependencies": {
-    "@types/mongoose": "^5.11.97",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/mongoose": "^5.11.97",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.10.10",
+    "@types/nodemailer": "^7.0.2",
+    "@typescript-eslint/eslint-plugin": "^8.46.0",
+    "@typescript-eslint/parser": "^8.46.0",
     "concurrently": "^9.1.0",
     "cookie-parser": "^1.4.7",
     "debug": "^4.4.3",
+    "eslint": "^9.37.0",
     "morgan": "^1.10.1",
     "nodemon": "^3.1.10",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.46.0"
   }
 }

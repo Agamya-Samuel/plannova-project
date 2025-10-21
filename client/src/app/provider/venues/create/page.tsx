@@ -2,10 +2,10 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../components/ui/button';
-import { Input } from '../../../../components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   MapPin, 
   Users, 
@@ -20,8 +20,11 @@ import {
   ChevronRight,
   Check
 } from 'lucide-react';
-import apiClient from '../../../../lib/api';
-import { getImageUploadService, optimizeImageForUpload, testConnection } from '../../../../lib/imageUpload';
+import apiClient from '@/lib/api';
+import { ImageUpload } from '@/components/upload';
+import VenueContactInput from '@/components/ui/VenueContactInput';
+import VenuePolicyInput from '@/components/ui/VenuePolicyInput';
+import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface VenueFormData {
   name: string;
@@ -91,12 +94,9 @@ export default function CreateVenuePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
-  const [imageUploadProgress, setImageUploadProgress] = useState(0);
-  const [isUploadingImages, setIsUploadingImages] = useState(false);
   const [venueId, setVenueId] = useState<string | null>(null);
-  const [serviceConnectionStatus, setServiceConnectionStatus] = useState<'unknown' | 'testing' | 'success' | 'failed'>('unknown');
-  const [serviceStatusMessage, setServiceStatusMessage] = useState('');
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
+  const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
 
   const [formData, setFormData] = useState<VenueFormData>({
     name: '',
@@ -132,13 +132,26 @@ export default function CreateVenuePage() {
     addonServices: []
   });
 
-  const handleInputChange = (field: string, value: any) => {
+  // Update email when user data becomes available
+  React.useEffect(() => {
+    if (user?.email && !formData.contact.email) {
+      setFormData(prev => ({
+        ...prev,
+        contact: {
+          ...prev.contact,
+          email: user.email
+        }
+      }));
+    }
+  }, [user?.email, formData.contact.email]);
+
+  const handleInputChange = (field: string, value: string | number | boolean) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setFormData(prev => ({
         ...prev,
         [parent]: {
-          ...(prev[parent as keyof VenueFormData] as any),
+          ...(prev[parent as keyof VenueFormData] as Record<string, unknown>),
           [child]: value
         }
       }));
@@ -173,7 +186,7 @@ export default function CreateVenuePage() {
     }));
   };
 
-  const updateAmenity = (index: number, field: string, value: any) => {
+  const updateAmenity = (index: number, field: string, value: string | number | boolean) => {
     setFormData(prev => ({
       ...prev,
       amenities: prev.amenities.map((amenity, i) => 
@@ -203,7 +216,7 @@ export default function CreateVenuePage() {
     }));
   };
 
-  const updateFoodOption = (index: number, field: string, value: any) => {
+  const updateFoodOption = (index: number, field: string, value: string | number | boolean | string[]) => {
     setFormData(prev => ({
       ...prev,
       foodOptions: prev.foodOptions.map((option, i) => 
@@ -217,119 +230,6 @@ export default function CreateVenuePage() {
       ...prev,
       foodOptions: prev.foodOptions.filter((_, i) => i !== index)
     }));
-  };
-
-  const addImage = (imageUrl: string, alt: string, category: string) => {
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, { url: imageUrl, alt, category, isPrimary: prev.images.length === 0 }]
-    }));
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
-  };
-
-  const setPrimaryImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.map((img, i) => ({
-        ...img,
-        isPrimary: i === index
-      }))
-    }));
-  };
-
-  // Test image upload service connection
-  const handleTestConnection = async () => {
-    setServiceConnectionStatus('testing');
-    setServiceStatusMessage('Testing connection...');
-    
-    try {
-      const result = await testConnection();
-      setServiceConnectionStatus(result.success ? 'success' : 'failed');
-      setServiceStatusMessage(result.message);
-    } catch (error: any) {
-      setServiceConnectionStatus('failed');
-      setServiceStatusMessage(`Connection test failed: ${error.message}`);
-    }
-  };
-
-  // Handle file upload (placeholder mode)
-  const handleFileUpload = async (files: FileList) => {
-    if (!files || files.length === 0) return;
-
-    try {
-      setIsUploadingImages(true);
-      setError('');
-      
-      console.log('Starting image upload (placeholder mode)...');
-      const uploadService = getImageUploadService();
-      
-      // Use venue ID if available, otherwise use a temporary ID
-      const uploadVenueId = venueId || `temp_${Date.now()}`;
-      
-      const results = await uploadService.uploadMultipleImages(
-        files,
-        'venues',
-        uploadVenueId,
-        (progress, current, total) => {
-          setImageUploadProgress(progress);
-          console.log(`Processing image ${current}/${total} - ${progress}%`);
-        }
-      );
-
-      // Add uploaded images to form data
-      results.forEach((result, index) => {
-        const file = files[index];
-        addImage(
-          result.url,
-          file.name.split('.')[0], // Use filename without extension as alt text
-          'gallery' // Default category
-        );
-      });
-
-      console.log('Images processed successfully:', results);
-    } catch (error: any) {
-      console.error('Error processing images:', error);
-      setError(`Failed to process images: ${error.message}`);
-    } finally {
-      setIsUploadingImages(false);
-      setImageUploadProgress(0);
-    }
-  };
-
-  // Handle single file upload with optimization
-  const handleSingleFileUpload = async (file: File, category: string = 'gallery') => {
-    try {
-      setIsUploadingImages(true);
-      setError('');
-      
-      // Optimize image before upload
-      const optimizedFile = await optimizeImageForUpload(file);
-      
-      const uploadService = getImageUploadService();
-      const uploadVenueId = venueId || `temp_${Date.now()}`;
-      
-      const result = await uploadService.uploadImage(optimizedFile, 'venues', uploadVenueId);
-      
-      // Add uploaded image to form data
-      addImage(
-        result.url,
-        file.name.split('.')[0],
-        category
-      );
-      
-      console.log('Image uploaded successfully:', result);
-    } catch (error: any) {
-      console.error('Error uploading image:', error);
-      setError(`Failed to upload image: ${error.message}`);
-    } finally {
-      setIsUploadingImages(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -395,7 +295,7 @@ export default function CreateVenuePage() {
       console.log('Submitting cleaned form data:', cleanFormData);
       console.log('Full API endpoint:', `${apiClient.defaults.baseURL}/venues`);
 
-      const response = await apiClient.post('/venues', cleanFormData);
+      const response = await apiClient.post('/venues', { ...cleanFormData, status: 'DRAFT' });
       
       // Set venue ID for future image uploads
       if (response.data.venue?._id) {
@@ -404,21 +304,29 @@ export default function CreateVenuePage() {
       
       // Always redirect to venues list
       router.push('/provider/venues');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating venue:', err);
-      console.error('Error response:', err.response?.data);
       
-      if (err.response?.data?.errors) {
-        // Handle validation errors
-        const validationErrors = err.response.data.errors.map((error: any) => error.msg).join(', ');
-        setError(`Validation errors: ${validationErrors}`);
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else if (err.response?.status === 500) {
-        setError('Server error occurred. Please check all required fields and try again.');
-        setActiveTab('basic'); // Go back to review data
+      // Type guard for axios error
+      if (err && typeof err === 'object' && 'response' in err) {
+        const axiosError = err as { response?: { data?: { errors?: Array<{ msg: string }>; error?: string }; status?: number } };
+        console.error('Error response:', axiosError.response?.data);
+        
+        if (axiosError.response?.data?.errors) {
+          // Handle validation errors
+          const validationErrors = axiosError.response.data.errors.map((error) => error.msg).join(', ');
+          setError(`Validation errors: ${validationErrors}`);
+        } else if (axiosError.response?.data?.error) {
+          setError(axiosError.response.data.error);
+        } else if (axiosError.response?.status === 500) {
+          setError('Server error occurred. Please check all required fields and try again.');
+          setActiveTab('basic'); // Go back to review data
+        } else {
+          setError('Failed to create venue. Please check all required fields and try again.');
+        }
       } else {
-        setError('Failed to create venue. Please check all required fields and try again.');
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+        setError(`Failed to create venue: ${errorMessage}`);
       }
     } finally {
       setLoading(false);
@@ -459,7 +367,9 @@ export default function CreateVenuePage() {
     }
     
     if (!isLastTab) {
-      setActiveTab(tabs[currentTabIndex + 1].id);
+      const nextTab = tabs[currentTabIndex + 1];
+      setActiveTab(nextTab.id);
+      setVisitedTabs(prev => new Set([...prev, nextTab.id]));
     }
   };
 
@@ -472,6 +382,9 @@ export default function CreateVenuePage() {
 
   // Helper function to check if a tab section is completed
   const isTabCompleted = (tabId: string) => {
+    // Only consider a tab completed if it has been visited and meets completion criteria
+    if (!visitedTabs.has(tabId)) return false;
+    
     switch (tabId) {
       case 'basic':
         return !!(formData.name && 
@@ -494,15 +407,17 @@ export default function CreateVenuePage() {
       case 'contact':
         return !!(formData.contact.phone && 
                formData.contact.email && 
-               formData.contact.email.includes('@'));
+               formData.contact.email.includes('@') &&
+               isValidPhoneNumber(formData.contact.phone) &&
+               (!formData.contact.whatsapp || isValidPhoneNumber(formData.contact.whatsapp)));
       case 'images':
         return formData.images.length > 0;
       case 'features':
-        return true; // Optional section - always allow navigation
+        return true; // If visited, consider it completed (optional section)
       case 'food':
-        return true; // Optional section - but prevent auto-submission
+        return true; // If visited, consider it completed (optional section)
       case 'review':
-        return true; // Review section
+        return false; // Never mark review as completed until final submission
       default:
         return false;
     }
@@ -511,7 +426,7 @@ export default function CreateVenuePage() {
   // Helper function to validate current tab before proceeding
   const validateCurrentTab = () => {
     const currentTab = activeTab;
-    let validationErrors: string[] = [];
+    const validationErrors: string[] = [];
 
     switch (currentTab) {
       case 'basic':
@@ -535,6 +450,8 @@ export default function CreateVenuePage() {
         break;
       case 'contact':
         if (!formData.contact.phone) validationErrors.push('Phone number is required');
+        if (formData.contact.phone && !isValidPhoneNumber(formData.contact.phone)) validationErrors.push('Please enter a valid phone number');
+        if (formData.contact.whatsapp && !isValidPhoneNumber(formData.contact.whatsapp)) validationErrors.push('Please enter a valid WhatsApp number');
         if (!formData.contact.email) validationErrors.push('Email address is required');
         if (formData.contact.email && !formData.contact.email.includes('@')) validationErrors.push('Please enter a valid email address');
         break;
@@ -607,83 +524,43 @@ export default function CreateVenuePage() {
               
               {/* Step Indicators */}
               <div className="flex justify-between">
-                {tabs.map((tab, index) => {
+                {tabs.map((tab) => {
                   const isCompleted = isTabCompleted(tab.id);
                   const isCurrent = activeTab === tab.id;
-                  const isPassed = index < currentTabIndex;
+                  const canAccess = isCompleted || isCurrent;
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          // Only allow navigation to previous tabs or current tab
-                          if (index <= currentTabIndex) {
+                          if (canAccess) {
                             setActiveTab(tab.id);
+                            setVisitedTabs(prev => new Set([...prev, tab.id]));
                             setError(''); // Clear errors when navigating
                           }
                         }}
-                        disabled={index > currentTabIndex}
+                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
-                            : isCompleted && index < currentTabIndex
-                            ? 'bg-green-500 text-white'
-                            : index > currentTabIndex
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            : isCompleted
+                            ? 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        {isCompleted && index < currentTabIndex ? (
+                        {isCompleted ? (
                           <Check className="h-5 w-5" />
                         ) : (
                           <tab.icon className="h-5 w-5" />
                         )}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-pink-600 font-medium' : 
-                        index > currentTabIndex ? 'text-gray-400' : 'text-gray-600'
+                        isCurrent ? 'text-pink-600 font-medium' :
+                        isCompleted ? 'text-green-600 font-medium' : 'text-gray-400'
                       }`}>
                         {tab.label}
                       </span>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="mb-8">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <div className="flex flex-wrap gap-2">
-                {tabs.map((tab, index) => {
-                  const isCompleted = isTabCompleted(tab.id);
-                  const canAccess = index <= currentTabIndex;
-                  
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => {
-                        if (canAccess) {
-                          setActiveTab(tab.id);
-                          setError(''); // Clear errors when navigating
-                        }
-                      }}
-                      disabled={!canAccess}
-                      className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-colors ${
-                        activeTab === tab.id
-                          ? 'bg-pink-600 text-white'
-                          : canAccess
-                          ? 'text-gray-600 hover:bg-gray-100'
-                          : 'text-gray-400 cursor-not-allowed bg-gray-100'
-                      }`}
-                    >
-                      <tab.icon className="h-4 w-4" />
-                      <span>{tab.label}</span>
-                      {isCompleted && index < currentTabIndex && (
-                        <Check className="h-4 w-4 text-green-500" />
-                      )}
-                    </button>
                   );
                 })}
               </div>
@@ -739,14 +616,14 @@ export default function CreateVenuePage() {
                       onChange={(e) => handleInputChange('description', e.target.value)}
                       placeholder="Describe your venue..."
                       rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                       minLength={10}
                       maxLength={2000}
                     />
-                    <div className="flex justify-between text-sm text-gray-500 mt-1">
+                    <div className="flex justify-between text-sm text-black mt-1">
                       <span>Minimum 10 characters required</span>
-                      <span className={`${formData.description.length > 2000 ? 'text-red-500' : ''}`}>
+                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
                         {formData.description.length}/2000
                       </span>
                     </div>
@@ -926,81 +803,29 @@ export default function CreateVenuePage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Cancellation Policy *
-                    </label>
-                    <textarea
-                      value={formData.cancellationPolicy}
-                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
-                      placeholder="Describe your cancellation policy..."
-                      rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
+                  <VenuePolicyInput
+                    data={{ cancellationPolicy: formData.cancellationPolicy }}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellationPolicy: data.cancellationPolicy
+                      }));
+                    }}
+                  />
                 </div>
               )}
 
               {/* Contact Tab */}
               {activeTab === 'contact' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Phone Number *
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.contact.phone}
-                        onChange={(e) => handleInputChange('contact.phone', e.target.value)}
-                        placeholder="+91 9876543210"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Email Address *
-                      </label>
-                      <Input
-                        type="email"
-                        value={formData.contact.email}
-                        onChange={(e) => handleInputChange('contact.email', e.target.value)}
-                        placeholder="venue@example.com"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        WhatsApp Number
-                      </label>
-                      <Input
-                        type="tel"
-                        value={formData.contact.whatsapp}
-                        onChange={(e) => handleInputChange('contact.whatsapp', e.target.value)}
-                        placeholder="+91 9876543210"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Website URL
-                      </label>
-                      <Input
-                        type="url"
-                        value={formData.contact.website}
-                        onChange={(e) => handleInputChange('contact.website', e.target.value)}
-                        placeholder="https://www.yourvenuewebsite.com"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <VenueContactInput
+                  data={formData.contact}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      contact: data
+                    }));
+                  }}
+                />
               )}
 
               {/* Images Tab */}
@@ -1008,167 +833,41 @@ export default function CreateVenuePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Venue Images</h2>
                   
-                  {/* Image Service Status */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-sm font-medium text-gray-900">Image Service Status</h4>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={handleTestConnection}
-                        disabled={serviceConnectionStatus === 'testing'}
-                        className="text-xs"
-                      >
-                        {serviceConnectionStatus === 'testing' ? 'Testing...' : 'Test Service'}
-                      </Button>
-                    </div>
-                    
-                    {serviceStatusMessage && (
-                      <div className={`text-sm p-2 rounded ${serviceConnectionStatus === 'success' 
-                        ? 'bg-green-50 text-green-700 border border-green-200' 
-                        : serviceConnectionStatus === 'failed' 
-                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                        : 'bg-gray-50 text-gray-700 border border-gray-200'
-                      }`}>
-                        {serviceStatusMessage}
-                        {serviceConnectionStatus === 'failed' && (
-                          <span className="block mt-1 text-xs">
-                            Using placeholder images for demonstration.
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Image Upload Section */}
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Upload venue images</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Upload high-quality images of your venue (PNG, JPG up to 10MB each)
-                      </p>
-                      
-                      {/* File Upload Input */}
-                      <div className="mt-6">
-                        <input
-                          type="file"
-                          id="venue-images"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                              handleFileUpload(e.target.files);
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="venue-images"
-                          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-pink-600 hover:bg-pink-700 cursor-pointer transition-colors duration-200"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          {isUploadingImages ? 'Uploading...' : 'Upload Images'}
-                        </label>
-                      </div>
-                      
-                      {/* Upload Progress */}
-                      {isUploadingImages && (
-                        <div className="mt-4">
-                          <div className="bg-gray-200 rounded-full h-2">
-                            <div 
-                              className="bg-pink-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${imageUploadProgress}%` }}
-                            ></div>
-                          </div>
-                          <p className="text-sm text-gray-600 mt-2">
-                            Uploading images... {imageUploadProgress}%
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Demo URL Input (fallback) */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm text-gray-500 mb-2">Or add image URL for testing:</p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const imageUrl = prompt('Enter image URL:');
-                            const alt = prompt('Enter image description:');
-                            const category = prompt('Enter category (main/gallery/room/food/decoration/amenity):') || 'gallery';
-                            if (imageUrl && alt) {
-                              addImage(imageUrl, alt, category);
-                            }
-                          }}
-                          className="text-gray-600"
-                        >
-                          Add Image URL
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {/* Uploaded Images Grid */}
-                  {formData.images.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Uploaded Images ({formData.images.length})
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {formData.images.map((image, index) => (
-                          <div key={index} className="relative group border border-gray-200 rounded-lg overflow-hidden">
-                            <img
-                              src={image.url}
-                              alt={image.alt}
-                              className="w-full h-48 object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y0ZjRmNCIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBub3QgZm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
-                              }}
-                            />
-                            
-                            {/* Image overlay with controls */}
-                            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => setPrimaryImage(index)}
-                                className={`text-xs ${
-                                  image.isPrimary 
-                                    ? 'bg-green-600 hover:bg-green-700' 
-                                    : 'bg-blue-600 hover:bg-blue-700'
-                                }`}
-                              >
-                                {image.isPrimary ? '✓ Primary' : 'Set Primary'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeImage(index)}
-                                className="text-xs bg-white text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                              </Button>
-                            </div>
-                            
-                            {/* Image info */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
-                              <p className="text-white text-xs font-medium truncate">{image.alt}</p>
-                              <p className="text-gray-200 text-xs">{image.category}</p>
-                              {image.isPrimary && (
-                                <span className="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded mt-1">
-                                  Primary Image
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* S3 Image Upload Component */}
+                  <ImageUpload
+                    uploadType="venue"
+                    venueId={venueId || undefined}
+                    maxFiles={20}
+                    images={formData.images.map(img => ({
+                      ...img,
+                      key: undefined, // Will be populated after upload
+                      uploadStatus: 'success' as const,
+                      category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity'
+                    }))}
+                    onImagesChange={(images) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        images: images.map(img => ({
+                          url: img.url,
+                          alt: img.alt,
+                          category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity',
+                          isPrimary: img.isPrimary
+                        }))
+                      }));
+                    }}
+                    onUploadStart={() => {
+                      setError('');
+                    }}
+                    onUploadProgress={() => {
+                    }}
+                    onUploadError={(error) => {
+                      setError(`Image upload failed: ${error}`);
+                    }}
+                    onUploadComplete={() => {
+                    }}
+                    disabled={loading}
+                    className=""
+                  />
                   
                   {/* Image Upload Tips */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -1177,8 +876,9 @@ export default function CreateVenuePage() {
                       <li>• Upload at least 5-10 high-quality images of your venue</li>
                       <li>• Include exterior shots, interior spaces, seating arrangements, and decor</li>
                       <li>• The first image will be used as the primary image in search results</li>
-                      <li>• Categorize images (main, gallery, rooms, food, decoration, amenities)</li>
-                      <li>• Use descriptive alt text for better accessibility</li>
+                      <li>• Click the star icon to set a different image as primary</li>
+                      <li>• Images are automatically optimized for web display</li>
+                      <li>• Supported formats: JPEG, PNG, WebP, GIF (max 10MB each)</li>
                     </ul>
                   </div>
                 </div>
@@ -1352,7 +1052,7 @@ export default function CreateVenuePage() {
                             onChange={(e) => updateFoodOption(index, 'description', e.target.value)}
                             placeholder="Describe the menu items and offerings..."
                             rows={3}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                           />
                         </div>
                         
@@ -1427,7 +1127,7 @@ export default function CreateVenuePage() {
                     
                     {formData.foodOptions.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
-                        <p>No food options added yet. Click "Add Food Option" to get started.</p>
+                        <p>No food options added yet. Click &quot;Add Food Option&quot; to get started.</p>
                       </div>
                     )}
                   </div>
@@ -1440,8 +1140,8 @@ export default function CreateVenuePage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Venue Details</h2>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Please review all information before submitting:</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
+                    <h4 className="text-sm font-medium text-black mb-2">Please review all information before submitting:</h4>
+                    <ul className="text-sm text-black space-y-1">
                       <li>• Ensure all required fields are completed</li>
                       <li>• Verify contact information is accurate</li>
                       <li>• Check that images represent your venue well</li>
@@ -1452,29 +1152,29 @@ export default function CreateVenuePage() {
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
-                      <p><strong>Name:</strong> {formData.name}</p>
-                      <p><strong>Type:</strong> {formData.type}</p>
-                      <p><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
-                      <p><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
+                      <h3 className="font-semibold text-black mb-2">Basic Information</h3>
+                      <p className="text-black"><strong>Name:</strong> {formData.name}</p>
+                      <p className="text-black"><strong>Type:</strong> {formData.type}</p>
+                      <p className="text-black"><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
+                      <p className="text-black"><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Contact & Location</h3>
-                      <p><strong>Phone:</strong> {formData.contact.phone}</p>
-                      <p><strong>Email:</strong> {formData.contact.email}</p>
-                      <p><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
+                      <h3 className="font-semibold text-black mb-2">Contact & Location</h3>
+                      <p className="text-black"><strong>Phone:</strong> {formData.contact.phone}</p>
+                      <p className="text-black"><strong>Email:</strong> {formData.contact.email}</p>
+                      <p className="text-black"><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Images</h3>
-                      <p>{formData.images.length} image(s) uploaded</p>
+                      <h3 className="font-semibold text-black mb-2">Images</h3>
+                      <p className="text-black">{formData.images.length} image(s) uploaded</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Features & Food</h3>
-                      <p><strong>Features:</strong> {formData.features.length} selected</p>
-                      <p><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
+                      <h3 className="font-semibold text-black mb-2">Features & Food</h3>
+                      <p className="text-black"><strong>Features:</strong> {formData.features.length} selected</p>
+                      <p className="text-black"><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
                     </div>
                   </div>
                 </div>

@@ -6,6 +6,15 @@ import rateLimit from "express-rate-limit";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.js";
 import venueRoutes from "./routes/venues.js";
+import adminRoutes from "./routes/admin.js";
+import analyticsRoutes from "./routes/analytics.js";
+import uploadRoutes from "./routes/upload.js";
+import bookingRoutes from "./routes/bookings.js";
+import cateringRoutes from "./routes/catering.js";
+import photographyRoutes from "./routes/photography.js";
+import videographyRoutes from "./routes/videography.js";
+import bridalMakeupRoutes from "./routes/bridalMakeup.js";
+import decorationRoutes from "./routes/decoration.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -15,19 +24,36 @@ dotenv.config();
 connectDB();
 
 const app = express();
-const port = process.env.PORT || 3000;
+
+// Trust proxy settings - required when running behind a proxy
+// This enables express-rate-limit to work correctly with X-Forwarded-For headers
+app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
+
+// Parse FRONTEND_URL environment variable (comma-separated domains)
+const allowedOrigins = process.env.FRONTEND_URL!.split(',').map(url => url.trim())
+
+console.log('🌐 CORS allowed origins:', allowedOrigins);
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL,
+  origin: allowedOrigins,
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
-// Rate limiting
+// Rate limiting - more lenient in development
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: process.env.NODE_ENV === 'development' ? 60 * 1000 : 15 * 60 * 1000, // 1 minute in dev, 15 minutes in prod
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 1000 requests in dev, 100 in prod
+  message: {
+    error: 'Too many requests from this IP, please try again later.',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use(limiter);
 
@@ -38,6 +64,15 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/venues", venueRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/admin/analytics", analyticsRoutes);
+app.use("/api/upload", uploadRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/catering", cateringRoutes);
+app.use("/api/photography", photographyRoutes);
+app.use("/api/videography", videographyRoutes);
+app.use("/api/bridal-makeup", bridalMakeupRoutes);
+app.use("/api/decoration", decorationRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
@@ -71,8 +106,3 @@ app.get("/api", (req, res) => {
 
 // Export the app for use by the server entry point
 export default app;
-
-// Only start the server if this file is run directly (not imported)
-if (import.meta.url === `file://${process.argv[1]}`) {
-  app.listen(port);
-}

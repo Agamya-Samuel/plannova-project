@@ -6,11 +6,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
-import { useAuth } from '../../../contexts/AuthContext';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
-import GoogleSignInButton from '../../../components/auth/GoogleSignInButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
+import RoleSelectionModal from '@/components/auth/RoleSelectionModal';
 import { Heart, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { UserRole } from '@/types/auth';
+import { toast } from 'sonner';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -19,11 +22,13 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
-export default function LoginPage() {
+export default function LoginPage() { 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const { login, googleSignIn } = useAuth();
+  const [showRoleSelection, setShowRoleSelection] = useState(false);
+  const [isRoleUpdateLoading, setIsRoleUpdateLoading] = useState(false);
+  const { login, updateRole, user } = useAuth();
   const router = useRouter();
 
   const {
@@ -40,11 +45,29 @@ export default function LoginPage() {
 
     try {
       await login(data.email, data.password);
+      toast.success('Welcome back! You have been successfully logged in.');
       router.push('/dashboard');
     } catch (err: unknown) {
       setError((err as Error).message);
+      toast.error('Login failed. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRoleSelection = async (role: UserRole) => {
+    setIsRoleUpdateLoading(true);
+    try {
+      await updateRole(role);
+      setShowRoleSelection(false);
+      toast.success(`Role successfully set to ${role.toLowerCase()}.`);
+      router.push('/dashboard');
+    } catch (error) {
+      console.error('Role update error:', error);
+      setError('Failed to update role. Please try again.');
+      toast.error('Failed to update role. Please try again.');
+    } finally {
+      setIsRoleUpdateLoading(false);
     }
   };
 
@@ -144,9 +167,9 @@ export default function LoginPage() {
               </div>
 
               <div className="text-sm">
-                <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+                <Link href="/auth/forgot-password" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
                   Forgot password?
-                </a>
+                </Link>
               </div>
             </div>
 
@@ -154,9 +177,7 @@ export default function LoginPage() {
               <div className="rounded-2xl bg-red-50 border-2 border-red-200 p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
-                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                    </div>
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-red-700 font-medium">{error}</p>
@@ -195,11 +216,16 @@ export default function LoginPage() {
               <GoogleSignInButton
                 onSuccess={async () => {
                   console.log('Google authentication successful');
+                  toast.success('Welcome back! You have been successfully logged in with Google.');
                   try {
                     router.push('/dashboard');
                   } catch (error) {
                     console.error('Navigation failed:', error);
                   }
+                }}
+                onRoleSelectionNeeded={() => {
+                  console.log('Role selection needed for new Google user');
+                  setShowRoleSelection(true);
                 }}
                 onError={(error) => {
                   console.error('GoogleSignInButton error:', error);
@@ -236,16 +262,30 @@ export default function LoginPage() {
 
         {/* Footer */}
         <p className="mt-8 text-center text-sm text-gray-600">
-          By signing in, you agree to our{' '}
-          <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+          By signing up, you agree to our{' '}
+          <Link href="/terms" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
             Terms of Service
-          </a>{' '}
-          and{' '}
-          <a href="#" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+          </Link>,{' '}
+          <Link href="/privacy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
             Privacy Policy
-          </a>
+          </Link>,{' '}
+          <Link href="/refund-policy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+            Refund Policy
+          </Link>, and{' '}
+          <Link href="/cancellation-policy" className="font-semibold text-pink-600 hover:text-pink-500 transition-colors">
+            Cancellation Policy
+          </Link>
         </p>
       </div>
+
+      {/* Role Selection Modal */}
+      <RoleSelectionModal
+        isOpen={showRoleSelection}
+        onRoleSelected={handleRoleSelection}
+        onClose={() => setShowRoleSelection(false)}
+        userDisplayName={user?.firstName || ''}
+        isLoading={isRoleUpdateLoading}
+      />
     </div>
   );
 }

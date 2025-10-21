@@ -10,7 +10,7 @@ export const checkFirebaseConfig = () => {
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
   };
 
-  const missing = Object.entries(config).filter(([key, value]) => !value);
+  const missing = Object.entries(config).filter(([, value]) => !value);
   
   if (missing.length > 0) {
     console.error('Missing Firebase config:', missing.map(([key]) => key));

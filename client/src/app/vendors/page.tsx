@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Search, MapPin, Star, Heart, Filter, SlidersHorizontal, Camera, Music, Utensils, Flower } from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
+import React, { useState, useEffect, useMemo } from 'react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Video, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import apiClient from '@/lib/api';
 
 interface Vendor {
   id: string;
@@ -18,94 +21,181 @@ interface Vendor {
   isVerified: boolean;
 }
 
-const sampleVendors: Vendor[] = [
-  {
-    id: '1',
-    name: 'Pixel Perfect Photography',
-    category: 'Photography',
-    location: 'Mumbai, Maharashtra',
-    rating: 4.9,
-    reviews: 187,
-    startingPrice: '₹75,000',
-    image: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Pre-Wedding Shoot', 'Wedding Photography', 'Candid Photography'],
-    isVerified: true
-  },
-  {
-    id: '2',
-    name: 'Royal Catering Services',
-    category: 'Catering',
-    location: 'Delhi, NCR',
-    rating: 4.8,
-    reviews: 156,
-    startingPrice: '₹1,200/plate',
-    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Multi-Cuisine', 'Live Counters', 'Dessert Station'],
-    isVerified: true
-  },
-  {
-    id: '3',
-    name: 'Melodic Wedding DJs',
-    category: 'Music & Entertainment',
-    location: 'Bangalore, Karnataka',
-    rating: 4.7,
-    reviews: 94,
-    startingPrice: '₹35,000',
-    image: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['DJ Services', 'Sound System', 'Lighting'],
-    isVerified: false
-  },
-  {
-    id: '4',
-    name: 'Blossom Floral Designs',
-    category: 'Decoration',
-    location: 'Mumbai, Maharashtra',
-    rating: 4.8,
-    reviews: 132,
-    startingPrice: '₹50,000',
-    image: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Floral Arrangements', 'Stage Decoration', 'Mandap Setup'],
-    isVerified: true
-  },
-  {
-    id: '5',
-    name: 'Cinema Wedding Films',
-    category: 'Videography',
-    location: 'Chennai, Tamil Nadu',
-    rating: 4.9,
-    reviews: 78,
-    startingPrice: '₹85,000',
-    image: 'https://images.unsplash.com/photo-1517604931442-7e0c8ed2963c?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Wedding Films', 'Highlights Reel', 'Drone Shots'],
-    isVerified: true
-  },
-  {
-    id: '6',
-    name: 'Spice Route Caterers',
-    category: 'Catering',
-    location: 'Pune, Maharashtra',
-    rating: 4.6,
-    reviews: 203,
-    startingPrice: '₹950/plate',
-    image: 'https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
-    services: ['Traditional Cuisine', 'Buffet Setup', 'Live Cooking'],
-    isVerified: true
-  }
-];
+// Define the CateringService interface to match the backend model
+interface CateringService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  cuisineTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+// Define the PhotographyService interface to match the backend model
+interface PhotographyService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  photographyTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string; // Add status field
+}
+
+// Define the VideographyService interface to match the backend model
+interface VideographyService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  videographyTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string; // Add status field
+}
+
+// Define the BridalMakeupService interface to match the backend model
+interface BridalMakeupService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  makeupTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string;
+}
+
+// Define the DecorationService interface to match the backend model
+interface DecorationService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  decorationTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string;
+}
 
 const categories = [
   { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
   { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
+  { name: 'Videography', icon: <Video className="h-5 w-5" />, count: 134 },
   { name: 'Decoration', icon: <Flower className="h-5 w-5" />, count: 156 },
   { name: 'Music & Entertainment', icon: <Music className="h-5 w-5" />, count: 98 },
-  { name: 'Videography', icon: <Camera className="h-5 w-5" />, count: 134 },
   { name: 'Makeup & Beauty', icon: <Heart className="h-5 w-5" />, count: 167 }
 ];
 
 export default function VendorsPage() {
+  const router = useRouter();
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [cateringServices, setCateringServices] = useState<CateringService[]>([]);
+  const [photographyServices, setPhotographyServices] = useState<PhotographyService[]>([]);
+  const [videographyServices, setVideographyServices] = useState<VideographyService[]>([]);
+  const [bridalMakeupServices, setBridalMakeupServices] = useState<BridalMakeupService[]>([]);
+  const [decorationServices, setDecorationServices] = useState<DecorationService[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  // Fetch approved services
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch catering services
+        const cateringResponse = await apiClient.get('/catering');
+        setCateringServices(cateringResponse.data.data);
+        
+        // Fetch photography services
+        const photographyResponse = await apiClient.get('/photography');
+        setPhotographyServices(photographyResponse.data.data);
+        
+        // Fetch videography services
+        const videographyResponse = await apiClient.get('/videography');
+        setVideographyServices(videographyResponse.data.data);
+        
+        // Fetch bridal makeup services
+        const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
+        setBridalMakeupServices(bridalMakeupResponse.data.data);
+        
+        // Fetch decoration services
+        const decorationResponse = await apiClient.get('/decoration');
+        setDecorationServices(decorationResponse.data.data);
+      } catch (err) {
+        console.error('Error fetching services:', err);
+        setError('Failed to load services');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const toggleFavorite = (vendorId: string) => {
     const newFavorites = new Set(favorites);
@@ -117,9 +207,108 @@ export default function VendorsPage() {
     setFavorites(newFavorites);
   };
 
+  // Transform catering services to vendor format for display
+  const cateringVendors: Vendor[] = cateringServices.map(service => ({
+    id: service._id,
+    name: service.name,
+    category: 'Catering',
+    location: `${service.serviceLocation.city}, ${service.serviceLocation.state}`,
+    rating: service.rating,
+    reviews: service.reviewCount,
+    startingPrice: `₹${service.basePrice.toLocaleString()}/plate`,
+    image: service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.cuisineTypes.slice(0, 3),
+    isVerified: true
+  }));
+
+  // Transform photography services to vendor format for display
+  const photographyVendors: Vendor[] = photographyServices.map(service => ({
+    id: service._id,
+    name: service.name || 'Untitled Service',
+    category: 'Photography',
+    location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+    rating: service.rating || 0,
+    reviews: service.reviewCount || 0,
+    startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+    image: service.images && service.images.length > 0 
+      ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+      : 'https://images.unsplash.com/photo-1519741497674-611481863552?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.photographyTypes ? service.photographyTypes.slice(0, 3) : [],
+    isVerified: true
+  }));
+
+  // Transform videography services to vendor format for display
+  const videographyVendors: Vendor[] = videographyServices.map(service => ({
+    id: service._id,
+    name: service.name || 'Untitled Service',
+    category: 'Videography',
+    location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+    rating: service.rating || 0,
+    reviews: service.reviewCount || 0,
+    startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+    image: service.images && service.images.length > 0 
+      ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+      : 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.videographyTypes ? service.videographyTypes.slice(0, 3) : [],
+    isVerified: true
+  }));
+
+  // Transform bridal makeup services to vendor format for display
+  const bridalMakeupVendors: Vendor[] = bridalMakeupServices.map(service => ({
+    id: service._id,
+    name: service.name || 'Untitled Service',
+    category: 'Makeup & Beauty',
+    location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+    rating: service.rating || 0,
+    reviews: service.reviewCount || 0,
+    startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+    image: service.images && service.images.length > 0 
+      ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+      : 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.makeupTypes ? service.makeupTypes.slice(0, 3) : [],
+    isVerified: true
+  }));
+
+  // Transform decoration services to vendor format for display
+  const decorationVendors: Vendor[] = decorationServices.map(service => ({
+    id: service._id,
+    name: service.name || 'Untitled Service',
+    category: 'Decoration',
+    location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+    rating: service.rating || 0,
+    reviews: service.reviewCount || 0,
+    startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+    image: service.images && service.images.length > 0 
+      ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+      : 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    services: service.decorationTypes ? service.decorationTypes.slice(0, 3) : [],
+    isVerified: true
+  }));
+
+  // Combine all vendors
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors]);
+
   const filteredVendors = selectedCategory === 'All' 
-    ? sampleVendors 
-    : sampleVendors.filter(vendor => vendor.category === selectedCategory);
+    ? allVendors 
+    : allVendors.filter(vendor => vendor.category === selectedCategory);
+
+  // Debug log to check if services are being fetched
+  useEffect(() => {
+    console.log('Catering services count:', cateringServices.length);
+    console.log('Photography services count:', photographyServices.length);
+    console.log('Videography services count:', videographyServices.length);
+    console.log('Bridal makeup services count:', bridalMakeupServices.length);
+    console.log('Decoration services count:', decorationServices.length);
+    console.log('All vendors count:', allVendors.length);
+  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, allVendors]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-pink-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -160,6 +349,7 @@ export default function VendorsPage() {
                     <option>Category</option>
                     <option>Photography</option>
                     <option>Catering</option>
+                    <option>Videography</option>
                     <option>Decoration</option>
                     <option>Music & Entertainment</option>
                   </select>
@@ -293,15 +483,25 @@ export default function VendorsPage() {
           </div>
         )}
 
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+            <p className="text-red-800">{error}</p>
+          </div>
+        )}
+
         {/* Vendors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredVendors.map((vendor) => (
             <div key={vendor.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
-                <img 
+                <Image 
                   src={vendor.image} 
                   alt={vendor.name}
+                  width={400}
+                  height={256}
                   className="w-full h-64 object-cover"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
                 <button
                   onClick={() => toggleFavorite(vendor.id)}
@@ -364,6 +564,18 @@ export default function VendorsPage() {
                   <Button 
                     size="sm" 
                     className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-xl"
+                    onClick={() => {
+                      if (vendor.category === 'Photography') {
+                        router.push(`/photography/${vendor.id}`);
+                      } else if (vendor.category === 'Catering') {
+                        router.push(`/catering/${vendor.id}`);
+                      } else if (vendor.category === 'Videography') {
+                        router.push(`/videography/${vendor.id}`);
+                      } else {
+                        // Default to photography for now
+                        router.push(`/photography/${vendor.id}`);
+                      }
+                    }}
                   >
                     View Profile
                   </Button>

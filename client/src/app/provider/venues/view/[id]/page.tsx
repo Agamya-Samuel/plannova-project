@@ -1,25 +1,28 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '../../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../../components/ui/button';
+import Image from 'next/image';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import { 
   MapPin, 
   Users, 
   DollarSign, 
-  Star, 
-  ArrowLeft,
+  Star,
   Phone,
   Mail,
   Globe,
-  Calendar,
   CheckCircle,
   XCircle,
-  Edit3
+  Edit3,
+  AlertCircle,
 } from 'lucide-react';
-import apiClient from '../../../../../lib/api';
+import apiClient from '@/lib/api';
+import ImageModal from '@/components/ui/ImageModal';
+import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
 interface Venue {
   _id: string;
@@ -91,6 +94,7 @@ interface Venue {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  pendingEdits?: Partial<Venue>;
 }
 
 export default function ProviderVenueViewPage() {
@@ -100,25 +104,50 @@ export default function ProviderVenueViewPage() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const venueId = params.id as string;
+
+  const fetchVenue = useCallback(async () => {
+    try {
+      setLoading(true);
+      const response = await apiClient.get(`/venues/provider/${venueId}`);
+      setVenue(response.data);
+    } catch (err: unknown) {
+      console.error('Error fetching venue:', err);
+      setError('Failed to load venue details');
+    } finally {
+      setLoading(false);
+    }
+  }, [venueId]);
 
   useEffect(() => {
     if (venueId) {
       fetchVenue();
     }
-  }, [venueId]);
+  }, [venueId, fetchVenue]);
 
-  const fetchVenue = async () => {
-    try {
-      setLoading(true);
-      const response = await apiClient.get(`/venues/provider/${venueId}`);
-      setVenue(response.data);
-    } catch (err: any) {
-      console.error('Error fetching venue:', err);
-      setError('Failed to load venue details');
-    } finally {
-      setLoading(false);
+  const handleImageClick = (index: number) => {
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  };
+
+  const handleImageModalClose = () => {
+    setShowImageModal(false);
+  };
+
+  const handleImageNavigate = (direction: 'prev' | 'next') => {
+    if (!venue || venue.images.length === 0) return;
+    
+    if (direction === 'prev') {
+      setSelectedImageIndex(prev => 
+        prev === 0 ? venue.images.length - 1 : prev - 1
+      );
+    } else {
+      setSelectedImageIndex(prev => 
+        prev === venue.images.length - 1 ? 0 : prev + 1
+      );
     }
   };
 
@@ -134,6 +163,8 @@ export default function ProviderVenueViewPage() {
         return 'bg-red-100 text-red-800';
       case 'SUSPENDED':
         return 'bg-orange-100 text-orange-800';
+      case 'PENDING_EDIT':
+        return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -152,14 +183,7 @@ export default function ProviderVenueViewPage() {
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <Button
-                    variant="outline"
-                    onClick={() => router.push('/provider/venues')}
-                    className="flex items-center space-x-2"
-                  >
-                    <ArrowLeft className="h-4 w-4" />
-                    <span>Back to Venues</span>
-                  </Button>
+                  <BackToServicesButton serviceType="venues" />
                   <div>
                     <h1 className="text-3xl font-bold text-gray-900">
                       {venue?.name || 'Venue Details'}
@@ -172,14 +196,14 @@ export default function ProviderVenueViewPage() {
                 {venue && (
                   <div className="flex items-center space-x-3">
                     <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(venue.status)}`}>
-                      {venue.status}
+                      {venue.status === 'PENDING_EDIT' ? 'Pending Edit Review' : venue.status}
                     </span>
                     <Button
                       onClick={() => router.push(`/provider/venues/edit/${venue._id}`)}
                       className="bg-pink-600 hover:bg-pink-700 text-white"
                     >
                       <Edit3 className="h-4 w-4 mr-2" />
-                      Edit Venue
+                      {venue.status === 'PENDING_EDIT' ? 'View Pending Edits' : 'Edit Venue'}
                     </Button>
                   </div>
                 )}
@@ -201,20 +225,39 @@ export default function ProviderVenueViewPage() {
             </div>
           )}
 
+          {/* Pending Edit Notice */}
+          {venue && venue.status === 'PENDING_EDIT' && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center space-x-2">
+                <AlertCircle className="h-5 w-5 text-blue-600" />
+                <p className="text-blue-800 font-medium">
+                  Your venue edits are pending review by our staff. The changes will be applied once approved.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Venue Details */}
           {venue && !loading && !error && (
             <div className="space-y-6">
               {/* Images Gallery */}
-              {venue.images.length > 0 && (
+              {(venue.images.length > 0 || (venue.pendingEdits?.images && venue.pendingEdits.images.length > 0)) && (
                 <div className="bg-white rounded-xl shadow-lg p-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-4">Venue Images</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {venue.images.map((image, index) => (
-                      <div key={index} className="relative group">
-                        <img
+                    {/* Show pending images if in pending edit status, otherwise show current images */}
+                    {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images ? venue.pendingEdits.images : venue.images).map((image, index: number) => (
+                      <div 
+                        key={index} 
+                        className="relative group cursor-pointer"
+                        onClick={() => handleImageClick(index)}
+                      >
+                        <Image
                           src={image.url}
                           alt={image.alt}
-                          className="w-full h-48 object-cover rounded-lg"
+                          width={400}
+                          height={192}
+                          className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
                         />
                         {image.isPrimary && (
                           <span className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
@@ -223,6 +266,12 @@ export default function ProviderVenueViewPage() {
                         )}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent rounded-b-lg p-2">
                           <p className="text-white text-sm">{image.category}</p>
+                        </div>
+                        {/* Overlay on hover */}
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center rounded-lg">
+                          <div className="bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1 rounded-full text-xs font-medium">
+                            Click to view
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -461,10 +510,33 @@ export default function ProviderVenueViewPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Blocked Dates Management - Only for approved venues */}
+              {(venue.status === 'APPROVED' || venue.status === 'PENDING_EDIT') && (
+                <BlockedDatesManager 
+                  serviceId={venue._id}
+                  serviceType="venue"
+                  onUpdate={() => {
+                    // Optional: Refresh venue data or show notification
+                    console.log('Blocked dates updated');
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Image Modal */}
+      {venue && venue.images.length > 0 && (
+        <ImageModal
+          isOpen={showImageModal}
+          onClose={handleImageModalClose}
+          images={venue.images}
+          currentIndex={selectedImageIndex}
+          onNavigate={handleImageNavigate}
+        />
+      )}
     </ProtectedRoute>
   );
 }

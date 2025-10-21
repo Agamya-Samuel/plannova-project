@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import User, { UserRole, IUser } from '../models/User.js';
-import { hashPassword, comparePassword, generateToken } from '../utils/auth.js';
+import User, { UserRole, ServiceCategory } from '../models/User.js';
+import PasswordResetToken from '../models/PasswordResetToken.js';
+import { hashPassword, comparePassword, generateToken, generateResetToken } from '../utils/auth.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { adminAuth } from '../firebase-admin.js';
+import { sendPasswordResetEmail } from '../utils/emailService.js';
 
 const router = Router();
 
@@ -20,6 +22,15 @@ const registerValidation = [
 const loginValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password').exists(),
+];
+
+const forgotPasswordValidation = [
+  body('email').isEmail().normalizeEmail(),
+];
+
+const resetPasswordValidation = [
+  body('token').notEmpty(),
+  body('password').isLength({ min: 6 }),
 ];
 
 // Register endpoint
@@ -59,6 +70,7 @@ router.post('/register', registerValidation, async (req: Request, res: Response)
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isActive: user.isActive,
@@ -117,11 +129,13 @@ router.post('/login', loginValidation, async (req: Request, res: Response) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isActive: user.isActive,
       isVerified: user.isVerified,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     res.json({
@@ -155,7 +169,9 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
+      whatsapp: user.whatsapp,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       isActive: user.isActive,
       isVerified: user.isVerified,
       photoURL: user.photoURL,
@@ -178,7 +194,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { firstName, lastName, phone } = req.body;
+    const { firstName, lastName, phone, whatsapp } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -186,6 +202,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
         firstName,
         lastName,
         phone,
+        whatsapp,
       },
       { new: true, select: '-password' }
     );
@@ -201,7 +218,9 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       firstName: updatedUser.firstName,
       lastName: updatedUser.lastName,
       phone: updatedUser.phone,
+      whatsapp: updatedUser.whatsapp,
       role: updatedUser.role,
+      serviceCategories: updatedUser.serviceCategories,
       updatedAt: updatedUser.updatedAt,
     };
 
@@ -264,14 +283,14 @@ router.post('/google', async (req: Request, res: Response) => {
         await user.save();
       }
     } else {
-      // Create new user from Google account
+      // Create new user from Google account - but don't assign role yet
       const nameParts = decodedToken.name?.split(' ') || ['User', ''];
       user = await User.create({
         firebaseUid: decodedToken.uid,
         email: decodedToken.email,
         firstName: nameParts[0] || 'User',
         lastName: nameParts.slice(1).join(' ') || '',
-        role: UserRole.CUSTOMER,
+        role: null, // No role assigned yet - user needs to select
         isActive: true,
         isVerified: decodedToken.email_verified || false,
         provider: decodedToken.firebase?.sign_in_provider || 'google.com',
@@ -286,6 +305,7 @@ router.post('/google', async (req: Request, res: Response) => {
       firstName: user.firstName,
       lastName: user.lastName,
       role: user.role,
+      serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
       provider: user.provider,
       isVerified: user.isVerified,
@@ -293,11 +313,14 @@ router.post('/google', async (req: Request, res: Response) => {
     };
 
     console.log('🚀 Google Sign-In - Sending response with user data:', userData);
+    // Check if user needs to select a role
+    const needsRoleSelection = user.role === null;
 
     res.json({
       message: 'Google sign-in successful',
       user: userData,
       token: idToken, // Use Firebase ID token as auth token
+      needsRoleSelection, // Indicates if frontend should show role selection
     });
   } catch (error) {
     console.error('Google sign-in error:', error);
@@ -305,9 +328,227 @@ router.post('/google', async (req: Request, res: Response) => {
   }
 });
 
+// Update user role for Google sign-in users
+router.post('/update-role', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { role } = req.body;
+
+    // Validate role
+    if (!role || !Object.values(UserRole).includes(role)) {
+      return res.status(400).json({ error: 'Invalid role provided' });
+    }
+
+    // Find and update user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Only allow updating role if it's currently null (new Google users)
+    if (user.role !== null) {
+      return res.status(400).json({ error: 'User role is already set' });
+    }
+
+    // Update the role
+    user.role = role;
+    await user.save();
+
+    // Return updated user data
+    const userData = {
+      id: (user._id as Types.ObjectId).toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      serviceCategories: user.serviceCategories,
+      photoURL: user.photoURL,
+      provider: user.provider,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+    };
+
+    res.json({
+      message: 'Role updated successfully',
+      user: userData,
+    });
+  } catch (error) {
+    console.error('Role update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update service categories for providers
+router.post('/update-service-categories', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { serviceCategories } = req.body;
+
+    // Validate service categories
+    if (!serviceCategories || !Array.isArray(serviceCategories)) {
+      return res.status(400).json({ error: 'Service categories are required' });
+    }
+
+    // Validate that at least one service category is selected
+    if (serviceCategories.length < 1) {
+      return res.status(400).json({ error: 'Providers must select at least one service category' });
+    }
+
+    const validCategories: ServiceCategory[] = ['venue', 'catering', 'photography', 'videography', 'music', 'makeup', 'decoration'];
+    
+    // Validate all selected categories
+    for (const category of serviceCategories) {
+      if (!validCategories.includes(category as ServiceCategory)) {
+        return res.status(400).json({ error: `Invalid service category provided: ${category}` });
+      }
+    }
+
+    // Find and update user
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user is a provider
+    if (user.role !== UserRole.PROVIDER) {
+      return res.status(403).json({ error: 'Only providers can set service categories' });
+    }
+
+    // Update the service categories (multiple allowed)
+    user.serviceCategories = serviceCategories as ServiceCategory[];
+    await user.save();
+
+    // Return updated user data
+    const userData = {
+      id: (user._id as Types.ObjectId).toString(),
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role,
+      serviceCategories: user.serviceCategories,
+      photoURL: user.photoURL,
+      provider: user.provider,
+      isVerified: user.isVerified,
+      createdAt: user.createdAt,
+    };
+
+    res.json({
+      message: 'Service categories updated successfully',
+      user: userData,
+    });
+  } catch (error) {
+    console.error('Service categories update error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Logout endpoint (client-side token removal)
 router.post('/logout', (req: Request, res: Response) => {
   res.json({ message: 'Logout successful' });
+});
+
+// Forgot password endpoint
+router.post('/forgot-password', forgotPasswordValidation, async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+
+    // Find user by email
+    const user = await User.findOne({ email });
+    
+    if (!user) {
+      // For security reasons, we don't reveal if the email exists
+      return res.status(200).json({ 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      });
+    }
+
+    // Generate reset token
+    const resetToken = generateResetToken();
+    const resetTokenHash = await hashPassword(resetToken); // Hash the token for storage
+    
+    // Set token expiration (1 hour)
+    const resetExpires = new Date(Date.now() + 3600000);
+
+    // Save token and expiration to separate collection
+    await PasswordResetToken.create({
+      userId: user._id,
+      token: resetTokenHash,
+      expiresAt: resetExpires
+    });
+
+    // Send reset email
+    const emailResult = await sendPasswordResetEmail(email, resetToken);
+    
+    if (emailResult.success) {
+      res.status(200).json({ 
+        message: 'If an account with that email exists, a password reset link has been sent.' 
+      });
+    } else {
+      console.error('Failed to send password reset email:', emailResult.error);
+      res.status(500).json({ error: 'Failed to send password reset email' });
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Reset password endpoint
+router.post('/reset-password', resetPasswordValidation, async (req: Request, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { token, password } = req.body;
+
+    // Find valid reset token
+    const passwordResetToken = await PasswordResetToken.findOne({
+      expiresAt: { $gt: new Date() }
+    }).populate('userId');
+
+    if (!passwordResetToken) {
+      return res.status(400).json({ error: 'Password reset token is invalid or has expired' });
+    }
+
+    // Verify token
+    const isTokenValid = await comparePassword(token, passwordResetToken.token);
+    
+    if (!isTokenValid) {
+      return res.status(400).json({ error: 'Password reset token is invalid or has expired' });
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(password);
+
+    // Update user password
+    const user = await User.findById(passwordResetToken.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    user.password = hashedPassword;
+    await user.save();
+
+    // Delete the used token
+    await PasswordResetToken.deleteOne({ _id: passwordResetToken._id });
+
+    res.status(200).json({ message: 'Password has been reset successfully' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 export default router;

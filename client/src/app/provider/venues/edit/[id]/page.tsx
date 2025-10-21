@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { useAuth } from '../../../../../contexts/AuthContext';
-import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
-import { Button } from '../../../../../components/ui/button';
-import { Input } from '../../../../../components/ui/input';
+import { useAuth } from '@/contexts/AuthContext';
+import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import { 
-  ArrowLeft, 
   Save, 
   AlertCircle, 
   MapPin, 
@@ -20,7 +20,8 @@ import {
   ChevronRight,
   Check
 } from 'lucide-react';
-import apiClient from '../../../../../lib/api';
+import apiClient from '@/lib/api';
+import { ImageUpload } from '@/components/upload';
 
 interface VenueFormData {
   name: string;
@@ -37,6 +38,22 @@ interface VenueFormData {
   amenities: Array<{ name: string; description: string; included: boolean; additionalCost: number }>;
   features: string[];
   foodOptions: Array<{ name: string; description: string; price: number; cuisine: string[]; isVeg: boolean; servingSize: string }>;
+}
+
+interface Amenity {
+  name: string;
+  description: string;
+  included: boolean;
+  additionalCost: number;
+}
+
+interface FoodOption {
+  name: string;
+  description: string;
+  price: number;
+  cuisine: string[];
+  isVeg: boolean;
+  servingSize: string;
 }
 
 const venueTypes = ['Banquet Hall', 'Hotel', 'Resort', 'Outdoor', 'Palace', 'Farmhouse'];
@@ -82,49 +99,59 @@ export default function EditVenuePage() {
     foodOptions: []
   });
 
-  useEffect(() => {
-    if (venueId) {
-      fetchVenueForEdit();
-    }
-  }, [venueId]);
-
-  const fetchVenueForEdit = async () => {
+  const fetchVenueForEdit = React.useCallback(async () => {
     try {
       setInitialLoading(true);
       const response = await apiClient.get(`/venues/provider/${venueId}`);
       const venue = response.data;
       
+      // If venue is in PENDING_EDIT status, use pendingEdits data if available
+      const venueData = venue.status === 'PENDING_EDIT' && venue.pendingEdits 
+        ? { ...venue, ...venue.pendingEdits }
+        : venue;
+      
       setFormData({
-        name: venue.name || '',
-        description: venue.description || '',
-        type: venue.type || '',
-        basePrice: venue.basePrice || 0,
-        pricePerGuest: venue.pricePerGuest || 0,
-        advancePayment: venue.advancePayment || 25,
-        cancellationPolicy: venue.cancellationPolicy || '',
-        capacity: venue.capacity || { min: 0, max: 0 },
-        contact: venue.contact || { phone: '', email: '', whatsapp: '', website: '' },
-        address: venue.address || { street: '', area: '', city: '', state: '', pincode: '', landmark: '' },
-        images: venue.images || [],
-        amenities: venue.amenities || [],
-        features: venue.features || [],
-        foodOptions: venue.foodOptions || []
+        name: venueData.name || '',
+        description: venueData.description || '',
+        type: venueData.type || '',
+        basePrice: venueData.basePrice || 0,
+        pricePerGuest: venueData.pricePerGuest || 0,
+        advancePayment: venueData.advancePayment || 25,
+        cancellationPolicy: venueData.cancellationPolicy || '',
+        capacity: venueData.capacity || { min: 0, max: 0 },
+        contact: venueData.contact || { phone: '', email: '', whatsapp: '', website: '' },
+        address: venueData.address || { street: '', area: '', city: '', state: '', pincode: '', landmark: '' },
+        images: venueData.images || [],
+        amenities: venueData.amenities || [],
+        features: venueData.features || [],
+        foodOptions: venueData.foodOptions || []
       });
-    } catch (err: any) {
+      
+      // Show notification if venue is in pending edit status
+      if (venue.status === 'PENDING_EDIT') {
+        setError('This venue has pending edits that are awaiting staff approval. Any changes you make now will replace your previous pending edits.');
+      }
+    } catch (err) {
       console.error('Error fetching venue for edit:', err);
       setError('Failed to load venue data for editing');
     } finally {
       setInitialLoading(false);
     }
-  };
+  }, [venueId]);
 
-  const handleInputChange = (field: string, value: any) => {
+  useEffect(() => {
+    if (venueId) {
+      fetchVenueForEdit();
+    }
+  }, [venueId, fetchVenueForEdit]);
+
+  const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
     if (field.includes('.')) {
       const [parent, child] = field.split('.');
       setFormData(prev => ({
         ...prev,
         [parent]: {
-          ...(prev[parent as keyof VenueFormData] as any),
+          ...(prev[parent as keyof VenueFormData] as object),
           [child]: value
         }
       }));
@@ -134,37 +161,6 @@ export default function EditVenuePage() {
         [field]: value
       }));
     }
-  };
-
-  const addImage = (imageUrl: string, alt: string, category: string) => {
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, { url: imageUrl, alt, category, isPrimary: prev.images.length === 0 }]
-    }));
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => {
-      const newImages = prev.images.filter((_, i) => i !== index);
-      // If we removed the primary image, make the first remaining image primary
-      if (prev.images[index].isPrimary && newImages.length > 0) {
-        newImages[0].isPrimary = true;
-      }
-      return {
-        ...prev,
-        images: newImages
-      };
-    });
-  };
-
-  const setPrimaryImage = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.map((img, i) => ({
-        ...img,
-        isPrimary: i === index
-      }))
-    }));
   };
 
   const addFeature = (feature: string) => {
@@ -190,10 +186,10 @@ export default function EditVenuePage() {
     }));
   };
 
-  const updateAmenity = (index: number, field: string, value: any) => {
+  const updateAmenity = (index: number, field: keyof Amenity, value: string | number | boolean) => {
     setFormData(prev => ({
       ...prev,
-      amenities: prev.amenities.map((amenity, i) => 
+      amenities: prev.amenities.map((amenity, i) =>
         i === index ? { ...amenity, [field]: value } : amenity
       )
     }));
@@ -220,10 +216,10 @@ export default function EditVenuePage() {
     }));
   };
 
-  const updateFoodOption = (index: number, field: string, value: any) => {
+  const updateFoodOption = (index: number, field: keyof FoodOption, value: string | number | boolean | string[]) => {
     setFormData(prev => ({
       ...prev,
-      foodOptions: prev.foodOptions.map((option, i) => 
+      foodOptions: prev.foodOptions.map((option, i) =>
         i === index ? { ...option, [field]: value } : option
       )
     }));
@@ -276,7 +272,7 @@ export default function EditVenuePage() {
 
   const validateCurrentTab = () => {
     const currentTab = activeTab;
-    let validationErrors: string[] = [];
+    const validationErrors: string[] = [];
 
     switch (currentTab) {
       case 'basic':
@@ -382,23 +378,30 @@ export default function EditVenuePage() {
       
       console.log('Updating venue with cleaned data:', cleanFormData);
 
-      await apiClient.put(`/venues/${venueId}`, cleanFormData);
-      router.push('/provider/venues');
-    } catch (err: any) {
-      console.error('Error updating venue:', err);
-      console.error('Error response:', err.response?.data);
+      const response = await apiClient.put(`/venues/${venueId}`, cleanFormData);
       
-      if (err.response?.data?.errors) {
-        const validationErrors = err.response.data.errors.map((error: any) => error.msg).join(', ');
-        setError(`Validation errors: ${validationErrors}`);
-      } else if (err.response?.data?.error) {
-        setError(err.response.data.error);
-      } else if (err.response?.status === 500) {
-        setError('Server error occurred. Please check all required fields and try again.');
-        setActiveTab('basic');
+      // Show appropriate message based on response
+      if (response.data.message.includes('submitted for approval')) {
+        router.push('/provider/venues');
+        // You might want to show a toast notification here
       } else {
-        setError('Failed to update venue. Please check all required fields and try again.');
+        router.push('/provider/venues');
       }
+    } catch (err: unknown) {
+      console.error('Error updating venue:', err);
+      let errorMessage = 'Failed to update venue. Please check all required fields and try again.';
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const response = (err as { response?: { data?: { errors?: { msg: string }[]; error?: string }; status?: number } }).response;
+        if (response?.data?.errors) {
+          errorMessage = `Validation errors: ${response.data.errors.map((error) => error.msg).join(', ')}`;
+        } else if (response?.data?.error) {
+          errorMessage = response.data.error;
+        } else if (response?.status === 500) {
+          errorMessage = 'Server error occurred. Please check all required fields and try again.';
+          setActiveTab('basic');
+        }
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -465,14 +468,7 @@ export default function EditVenuePage() {
           <div className="mb-8">
             <div className="bg-white rounded-2xl shadow-lg p-8">
               <div className="flex items-center space-x-4 mb-4">
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/provider/venues')}
-                  className="flex items-center space-x-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back</span>
-                </Button>
+                <BackToServicesButton serviceType="venues" />
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900">Edit Venue</h1>
                   <p className="text-gray-600 text-lg">Update your wedding venue information</p>
@@ -508,31 +504,30 @@ export default function EditVenuePage() {
               
               {/* Step Indicators */}
               <div className="flex justify-between">
-                {tabs.map((tab, index) => {
+                {tabs.map((tab) => {
                   const isCompleted = isTabCompleted(tab.id);
                   const isCurrent = activeTab === tab.id;
+                  const canAccess = isCompleted || isCurrent;
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (index <= currentTabIndex) {
+                          if (canAccess) {
                             setActiveTab(tab.id);
                             setError('');
                           }
                         }}
-                        disabled={index > currentTabIndex}
+                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
-                            : isCompleted && index < currentTabIndex
-                            ? 'bg-green-500 text-white'
-                            : index > currentTabIndex
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                            : isCompleted
+                            ? 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
+                            : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                         }`}
                       >
-                        {isCompleted && index < currentTabIndex ? (
+                        {isCompleted ? (
                           <Check className="h-5 w-5" />
                         ) : (
                           <tab.icon className="h-5 w-5" />
@@ -540,7 +535,7 @@ export default function EditVenuePage() {
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
                         isCurrent ? 'text-pink-600 font-medium' : 
-                        index > currentTabIndex ? 'text-gray-400' : 'text-gray-600'
+                        isCompleted ? 'text-green-600 font-medium' : 'text-gray-400'
                       }`}>
                         {tab.label}
                       </span>
@@ -600,14 +595,14 @@ export default function EditVenuePage() {
                       onChange={(e) => handleInputChange('description', e.target.value)}
                       placeholder="Describe your venue..."
                       rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                       minLength={10}
                       maxLength={2000}
                     />
-                    <div className="flex justify-between text-sm text-gray-500 mt-1">
+                    <div className="flex justify-between text-sm text-black mt-1">
                       <span>Minimum 10 characters required</span>
-                      <span className={`${formData.description.length > 2000 ? 'text-red-500' : ''}`}>
+                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
                         {formData.description.length}/2000
                       </span>
                     </div>
@@ -796,7 +791,7 @@ export default function EditVenuePage() {
                       onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
                       placeholder="Describe your cancellation policy..."
                       rows={3}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
                     />
                   </div>
@@ -869,150 +864,52 @@ export default function EditVenuePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Venue Images</h2>
                   
-                  {/* Image Upload Section */}
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-8">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <h3 className="mt-2 text-sm font-medium text-gray-900">Upload venue images</h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        Upload high-quality images of your venue (PNG, JPG up to 10MB each)
-                      </p>
-                      
-                      {/* File Upload Input */}
-                      <div className="mt-6">
-                        <input
-                          type="file"
-                          id="venue-images"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => {
-                            if (e.target.files && e.target.files.length > 0) {
-                              // Handle file upload here
-                              Array.from(e.target.files).forEach((file, index) => {
-                                const reader = new FileReader();
-                                reader.onload = (event) => {
-                                  if (event.target?.result) {
-                                    addImage(
-                                      event.target.result as string,
-                                      file.name.split('.')[0],
-                                      'gallery'
-                                    );
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              });
-                            }
-                          }}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor="venue-images"
-                          className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-xl text-white bg-pink-600 hover:bg-pink-700 cursor-pointer transition-colors duration-200"
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          Import Images
-                        </label>
-                      </div>
-                      
-                      {/* Demo URL Input (fallback) */}
-                      <div className="mt-4 pt-4 border-t border-gray-200">
-                        <p className="text-sm text-gray-500 mb-2">Or add image URL:</p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const imageUrl = prompt('Enter image URL:');
-                            const alt = prompt('Enter image description:');
-                            const category = prompt('Enter category (main/gallery/room/food/decoration/amenity):') || 'gallery';
-                            if (imageUrl && alt) {
-                              addImage(imageUrl, alt, category);
-                            }
-                          }}
-                          className="text-gray-600"
-                        >
-                          Add Image URL
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                  {/* S3 Image Upload Component */}
+                  <ImageUpload
+                    uploadType="venue"
+                    venueId={venueId}
+                    maxFiles={20}
+                    images={formData.images.map(img => ({
+                      ...img,
+                      key: undefined, // Will be populated after upload
+                      uploadStatus: 'success' as const,
+                      category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity'
+                    }))}
+                    onImagesChange={(images) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        images: images.map(img => ({
+                          url: img.url,
+                          alt: img.alt,
+                          category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity',
+                          isPrimary: img.isPrimary
+                        }))
+                      }));
+                    }}
+                    onUploadStart={() => {
+                      setError('');
+                    }}
+                    onUploadProgress={() => {
+                    }}
+                    onUploadError={(error) => {
+                      setError(`Image upload failed: ${error}`);
+                    }}
+                    onUploadComplete={() => {
+                    }}
+                    disabled={loading}
+                    className=""
+                  />
                   
-                  {/* Current Images Display */}
-                  {formData.images.length > 0 && (
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                        Current Images ({formData.images.length})
-                      </h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {formData.images.map((image, index) => (
-                          <div key={index} className="relative group border border-gray-200 rounded-lg overflow-hidden">
-                            <img
-                              src={image.url}
-                              alt={image.alt}
-                              className="w-full h-48 object-cover"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y0ZjRmNCIvPgogIDx0ZXh0IHg9IjEwMCIgeT0iMTAwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiM5OTk5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5JbWFnZSBub3QgZm91bmQ8L3RleHQ+Cjwvc3ZnPg==';
-                              }}
-                            />
-                            
-                            {/* Image overlay with controls */}
-                            <div className="absolute inset-0 bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                onClick={() => setPrimaryImage(index)}
-                                className={`text-xs ${
-                                  image.isPrimary 
-                                    ? 'bg-green-600 hover:bg-green-700' 
-                                    : 'bg-blue-600 hover:bg-blue-700'
-                                }`}
-                              >
-                                {image.isPrimary ? '✓ Primary' : 'Set Primary'}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => removeImage(index)}
-                                className="text-xs bg-white text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-3 w-3" />
-                                Delete
-                              </Button>
-                            </div>
-                            
-                            {/* Image info */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-2">
-                              <p className="text-white text-xs font-medium truncate">{image.alt}</p>
-                              <p className="text-gray-200 text-xs">{image.category}</p>
-                              {image.isPrimary && (
-                                <span className="inline-block bg-green-500 text-white text-xs px-2 py-1 rounded mt-1">
-                                  Primary Image
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {/* No Images State */}
-                  {formData.images.length === 0 && (
-                    <div className="text-center py-8 text-gray-500">
-                      <p>No images uploaded yet. Click "Import Images" to get started.</p>
-                    </div>
-                  )}
-                  
-                  {/* Image Management Tips */}
+                  {/* Image Upload Tips */}
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Management Tips:</h4>
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
                     <ul className="text-sm text-blue-800 space-y-1">
                       <li>• Upload at least 5-10 high-quality images of your venue</li>
                       <li>• Include exterior shots, interior spaces, seating arrangements, and decor</li>
-                      <li>• Set one image as primary - it will be shown in search results</li>
-                      <li>• Click "Delete" to remove unwanted images</li>
-                      <li>• Use descriptive names for better organization</li>
+                      <li>• The first image will be used as the primary image in search results</li>
+                      <li>• Click the star icon to set a different image as primary</li>
+                      <li>• Images are automatically optimized for web display</li>
+                      <li>• Supported formats: JPEG, PNG, WebP, GIF (max 10MB each)</li>
                     </ul>
                   </div>
                 </div>
@@ -1188,7 +1085,7 @@ export default function EditVenuePage() {
                             onChange={(e) => updateFoodOption(index, 'description', e.target.value)}
                             placeholder="Describe the menu items and offerings..."
                             rows={3}
-                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent"
+                            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                           />
                         </div>
                         
@@ -1263,7 +1160,7 @@ export default function EditVenuePage() {
                     
                     {formData.foodOptions.length === 0 && (
                       <div className="text-center py-8 text-gray-500">
-                        <p>No food options added yet. Click "Add Food Option" to get started.</p>
+                        <p>No food options added yet. Click Add Food Option to get started.</p>
                       </div>
                     )}
                   </div>
@@ -1276,8 +1173,8 @@ export default function EditVenuePage() {
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Venue Details</h2>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h4 className="text-sm font-medium text-blue-900 mb-2">Please review all information before submitting:</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
+                    <h4 className="text-sm font-medium text-black mb-2">Please review all information before submitting:</h4>
+                    <ul className="text-sm text-black space-y-1">
                       <li>• Ensure all required fields are completed</li>
                       <li>• Verify contact information is accurate</li>
                       <li>• Check that images represent your venue well</li>
@@ -1288,29 +1185,29 @@ export default function EditVenuePage() {
                   {/* Summary Cards */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
-                      <p><strong>Name:</strong> {formData.name}</p>
-                      <p><strong>Type:</strong> {formData.type}</p>
-                      <p><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
-                      <p><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
+                      <h3 className="font-semibold text-black mb-2">Basic Information</h3>
+                      <p className="text-black"><strong>Name:</strong> {formData.name}</p>
+                      <p className="text-black"><strong>Type:</strong> {formData.type}</p>
+                      <p className="text-black"><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
+                      <p className="text-black"><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Contact & Location</h3>
-                      <p><strong>Phone:</strong> {formData.contact.phone}</p>
-                      <p><strong>Email:</strong> {formData.contact.email}</p>
-                      <p><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
+                      <h3 className="font-semibold text-black mb-2">Contact & Location</h3>
+                      <p className="text-black"><strong>Phone:</strong> {formData.contact.phone}</p>
+                      <p className="text-black"><strong>Email:</strong> {formData.contact.email}</p>
+                      <p className="text-black"><strong>Address:</strong> {formData.address.city}, {formData.address.state}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Images</h3>
-                      <p>{formData.images.length} image(s) uploaded</p>
+                      <h3 className="font-semibold text-black mb-2">Images</h3>
+                      <p className="text-black">{formData.images.length} image(s) uploaded</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
-                      <h3 className="font-semibold text-gray-900 mb-2">Features & Food</h3>
-                      <p><strong>Features:</strong> {formData.features.length} selected</p>
-                      <p><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
+                      <h3 className="font-semibold text-black mb-2">Features & Food</h3>
+                      <p className="text-black"><strong>Features:</strong> {formData.features.length} selected</p>
+                      <p className="text-black"><strong>Food Options:</strong> {formData.foodOptions.length} added</p>
                     </div>
                   </div>
                 </div>

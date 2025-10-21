@@ -1,4 +1,14 @@
-export type UserRole = 'CUSTOMER' | 'PROVIDER' | 'ADMIN';
+export type UserRole = 'CUSTOMER' | 'PROVIDER' | 'STAFF' | 'ADMIN';
+
+export type ServiceCategory = 
+  | 'venue'
+  | 'catering'
+  | 'photography'
+  | 'videography'
+  | 'music'
+  | 'makeup'
+  | 'bridal-makeup'
+  | 'decoration';
 
 export interface User {
   id: string;
@@ -6,11 +16,13 @@ export interface User {
   firstName: string;
   lastName: string;
   phone?: string;
-  role: UserRole;
+  role: UserRole | null; // Allow null for new Google users who haven't selected role
+  serviceCategories?: ServiceCategory[]; // Array of service categories for providers (only one allowed)
   isActive: boolean;
   isVerified: boolean;
   photoURL?: string;
   provider?: string;
+  favorites?: string[]; // Array of favorite venue IDs
   createdAt: string;
   updatedAt: string;
 }
@@ -22,7 +34,9 @@ export interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
-  googleSignIn: () => Promise<void>;
+  googleSignIn: () => Promise<{ needsRoleSelection?: boolean }>;
+  updateRole: (role: UserRole) => Promise<void>;
+  updateServiceCategories: (serviceCategories: ServiceCategory[]) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
 }
 
@@ -39,6 +53,16 @@ export interface LoginResponse {
   message: string;
   user: User;
   token: string;
+  needsRoleSelection?: boolean; // For Google sign-in new users
+}
+
+export interface RoleUpdateRequest {
+  role: UserRole;
+}
+
+export interface RoleUpdateResponse {
+  message: string;
+  user: User;
 }
 
 export interface ApiError {

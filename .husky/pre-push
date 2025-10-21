@@ -1,0 +1,45 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "Running pre-push checks..."
+
+# Get root directory
+ROOT_DIR="$(git rev-parse --show-toplevel)"
+
+# Check client
+echo -e "\n\nChecking client..."
+cd "client"
+echo "Running TypeScript compilation check for client..."
+npm run type-check || exit 1
+echo "Running ESLint for client..."
+npm run lint || exit 1
+
+echo "==============================="
+echo "All checks passed for Client. ✅"
+echo "==============================="
+
+# Check server
+echo -e "\n\nChecking server..."
+cd "$ROOT_DIR"
+cd "server"
+echo "Running TypeScript compilation check for server..."
+npm run type-check || exit 1
+echo "Running ESLint for server..."
+npm run lint || exit 1
+
+echo "==============================="
+echo "All checks passed for Server. ✅"
+echo "==============================="
+
+echo -e "\n\nProceeding with Final code build."
+
+# Build
+echo "Building..."
+cd "$ROOT_DIR"
+npm run build
+
+echo "==============================="
+echo "Build completed successfully. ✅"
+echo "==============================="
+
+echo -e "\n\nPushing to Remote. 🔼"
