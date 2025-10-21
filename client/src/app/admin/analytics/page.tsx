@@ -124,6 +124,7 @@ export default function AdminAnalyticsPage() {
     if (currentUser?.role === 'ADMIN') {
       fetchAnalytics();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, timeRange]);
 
   // Pageviews chart data
