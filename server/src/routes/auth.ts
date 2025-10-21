@@ -169,6 +169,7 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
+      whatsapp: user.whatsapp,
       role: user.role,
       serviceCategories: user.serviceCategories,
       isActive: user.isActive,
@@ -193,7 +194,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { firstName, lastName, phone } = req.body;
+    const { firstName, lastName, phone, whatsapp } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -201,6 +202,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
         firstName,
         lastName,
         phone,
+        whatsapp,
       },
       { new: true, select: '-password' }
     );
@@ -216,6 +218,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       firstName: updatedUser.firstName,
       lastName: updatedUser.lastName,
       phone: updatedUser.phone,
+      whatsapp: updatedUser.whatsapp,
       role: updatedUser.role,
       serviceCategories: updatedUser.serviceCategories,
       updatedAt: updatedUser.updatedAt,
