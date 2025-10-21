@@ -16,11 +16,6 @@ import {
   User,
   Building,
   CheckCircle,
-  MapPin,
-  Calendar,
-  BarChart3,
-  Camera,
-  Settings,
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
@@ -58,7 +53,7 @@ interface UsersResponse {
   };
 }
 
-export default function AdminDashboardPage() {
+export default function AdminUsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -249,82 +244,76 @@ export default function AdminDashboardPage() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                    Admin Dashboard
+                    User Management
                   </h1>
                   <p className="text-gray-600 text-lg">
-                    Manage users, venues, and system settings
+                    Manage all users, customers, and providers
                   </p>
-                  <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-blue-800">
-                      <strong>&#128161; Tip:</strong> You can create staff by changing any user&apos;s role to &quot;Staff&quot; using the role dropdown below. 
-                      Staff members will then have access to approve/reject venues.
-                    </p>
-                  </div>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
-                  <Shield className="h-5 w-5 text-red-500" />
-                  <span>Admin Portal</span>
+                  <Users className="h-5 w-5 text-blue-500" />
+                  <span>User Administration</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Admin Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <DashboardCard
-              title="User Management"
-              description="Manage all users, customers, and providers"
-              icon={<Users className="h-8 w-8 text-blue-600" />}
-              action="Manage Users"
-              href="/admin/users"
-              stats="2,847 Users"
-              color="blue"
-            />
-            <DashboardCard
-              title="Venue Management"
-              description="Review and approve venue listings"
-              icon={<MapPin className="h-8 w-8 text-pink-600" />}
-              action="Manage Venues"
-              href="/admin/venues"
-              stats="12 Pending"
-              color="pink"
-            />
-            <DashboardCard
-              title="Bookings Overview"
-              description="Monitor all bookings across the platform"
-              icon={<Calendar className="h-8 w-8 text-green-600" />}
-              action="View Bookings"
-              href="/admin/bookings"
-              stats="1,234 Total"
-              color="green"
-            />
-            <DashboardCard
-              title="Reports & Analytics"
-              description="Generate platform analytics and reports"
-              icon={<BarChart3 className="h-8 w-8 text-purple-600" />}
-              action="View Reports"
-              href="/admin/reports"
-              stats="Weekly Report"
-              color="purple"
-            />
-            <DashboardCard
-              title="Content Management"
-              description="Manage site content and configurations"
-              icon={<Camera className="h-8 w-8 text-orange-600" />}
-              action="Manage Content"
-              href="/admin/content"
-              stats="45 Posts"
-              color="orange"
-            />
-            <DashboardCard
-              title="System Settings"
-              description="Configure system-wide settings"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="System Settings"
-              href="/admin/settings"
-              stats="All Systems OK"
-              color="gray"
-            />
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Users className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Users</p>
+                  <p className="text-2xl font-bold text-gray-900">{pagination.total}</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-green-100 rounded-lg">
+                  <Building className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Providers</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {users.filter(u => u.role === 'PROVIDER').length}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-lg p-6 border-2 border-orange-200">
+              <div className="flex items-center">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <UserCheck className="h-6 w-6 text-orange-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Staff Members</p>
+                  <p className="text-2xl font-bold text-orange-600">
+                    {users.filter(u => u.role === 'STAFF').length}
+                  </p>
+                  <p className="text-xs text-gray-500">Can approve venues</p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="flex items-center">
+                <div className="p-2 bg-red-100 rounded-lg">
+                  <Shield className="h-6 w-6 text-red-600" />
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Admins</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {users.filter(u => u.role === 'ADMIN').length}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Filters and Search */}
@@ -608,74 +597,5 @@ export default function AdminDashboardPage() {
         </div>
       </div>
     </ProtectedRoute>
-  );
-}
-
-interface DashboardCardProps {
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  action: string;
-  href: string;
-  stats?: string;
-  color: string;
-}
-
-function DashboardCard({ title, description, icon, action, href, stats, color }: DashboardCardProps) {
-  const getColorClasses = (color: string) => {
-    const colors = {
-      pink: 'from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700',
-      purple: 'from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
-      blue: 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
-      green: 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
-      red: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
-      yellow: 'from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700',
-      orange: 'from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700',
-      gray: 'from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700',
-    };
-    return colors[color as keyof typeof colors] || colors.gray;
-  };
-
-  return (
-    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group">
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <div className="p-2 rounded-xl bg-gray-50 group-hover:bg-gray-100 transition-colors">
-            {icon}
-          </div>
-          {stats && (
-            <span className="bg-gradient-to-r text-white px-3 py-1 rounded-full text-sm font-semibold">
-              {stats}
-            </span>
-          )}
-        </div>
-        
-        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors">
-          {title}
-        </h3>
-        <p className="text-gray-600 mb-6 text-sm leading-relaxed">
-          {description}
-        </p>
-        
-        <a
-          href={href}
-          className={`inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r ${getColorClasses(color)} text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105`}
-        >
-          {action}
-          <svg
-            className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </a>
-      </div>
-    </div>
   );
 }

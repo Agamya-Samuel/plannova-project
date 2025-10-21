@@ -925,7 +925,7 @@ function AdminDashboard() {
           color="green"
         />
         <DashboardCard
-          title="Reports"
+          title="Analytics & Reports"
           description="Generate platform analytics and reports"
           icon={<BarChart3 className="h-8 w-8 text-purple-600" />}
           action="View Reports"

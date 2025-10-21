@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import apiClient from '../../../../lib/api';
 import ImageModal from '../../../../components/ui/ImageModal';
+import { BlockedDatesManager } from '../../../../components/booking/BlockedDatesManager';
 
 interface Review {
   id: string;
@@ -525,6 +526,18 @@ export default function CateringServiceViewPage() {
 
             {/* Sidebar */}
             <div className="space-y-6">
+              {/* Blocked Dates Manager - Only show for approved services */}
+              {service.status === 'APPROVED' && (
+                <BlockedDatesManager
+                  serviceId={service._id}
+                  serviceType="catering"
+                  onUpdate={() => {
+                    // Optionally refresh service data after blocking/unblocking dates
+                    console.log('Blocked dates updated');
+                  }}
+                />
+              )}
+
               {/* Contact Information */}
               <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
                 <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center">

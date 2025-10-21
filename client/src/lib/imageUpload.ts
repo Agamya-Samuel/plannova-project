@@ -58,7 +58,7 @@ class S3ImageUploadService {
           image: 10 * 1024 * 1024, // 10MB
           document: 25 * 1024 * 1024, // 25MB
         },
-        uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup']
+        uploadTypes: ['venue', 'profile', 'document', 'catering', 'photography', 'videography', 'bridal-makeup', 'decoration']
       };
     }
   }
