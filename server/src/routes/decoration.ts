@@ -117,6 +117,18 @@ router.post('/', authenticateToken, createDecorationValidation, async (req: Auth
       paymentTerms
     } = req.body;
 
+    // Filter out empty descriptions from packages to prevent validation errors
+    const validPackages = packages.map((pkg: { name: string; description: string; includes: string[]; duration?: string; price: number; isPopular: boolean }) => ({
+      ...pkg,
+      description: pkg.description?.trim() || 'Package description' // Provide default if empty
+    }));
+
+    // Filter out empty descriptions from addons
+    const validAddons = addons ? addons.map((addon: { name: string; description: string; price: number }) => ({
+      ...addon,
+      description: addon.description?.trim() || 'Add-on service' // Provide default if empty
+    })) : [];
+
     const decoration = await Decoration.create({
       name,
       description,
@@ -125,8 +137,8 @@ router.post('/', authenticateToken, createDecorationValidation, async (req: Auth
       contact,
       images: images || [],
       decorationTypes,
-      packages,
-      addons: addons || [],
+      packages: validPackages,
+      addons: validAddons,
       basePrice,
       cancellationPolicy,
       paymentTerms,
@@ -281,6 +293,18 @@ router.put('/:id', authenticateToken, createDecorationValidation, async (req: Au
       paymentTerms
     } = req.body;
 
+    // Filter out empty descriptions from packages to prevent validation errors
+    const validPackages = packages.map((pkg: { name: string; description: string; includes: string[]; duration?: string; price: number; isPopular: boolean }) => ({
+      ...pkg,
+      description: pkg.description?.trim() || 'Package description' // Provide default if empty
+    }));
+
+    // Filter out empty descriptions from addons
+    const validAddons = addons ? addons.map((addon: { name: string; description: string; price: number }) => ({
+      ...addon,
+      description: addon.description?.trim() || 'Add-on service' // Provide default if empty
+    })) : [];
+
     // For approved services, store edits in pendingEdits instead of directly updating
     if (decoration.status === ApprovalStatus.APPROVED) {
       // Store the edits in pendingEdits field
@@ -291,8 +315,8 @@ router.put('/:id', authenticateToken, createDecorationValidation, async (req: Au
         contact,
         images: images || [],
         decorationTypes,
-        packages,
-        addons: addons || [],
+        packages: validPackages,
+        addons: validAddons,
         basePrice,
         cancellationPolicy,
         paymentTerms,
@@ -308,8 +332,8 @@ router.put('/:id', authenticateToken, createDecorationValidation, async (req: Au
       decoration.contact = contact;
       decoration.images = images || [];
       decoration.decorationTypes = decorationTypes;
-      decoration.packages = packages;
-      decoration.addons = addons || [];
+      decoration.packages = validPackages;
+      decoration.addons = validAddons;
       decoration.basePrice = basePrice;
       decoration.cancellationPolicy = cancellationPolicy;
       decoration.paymentTerms = paymentTerms;
