@@ -25,7 +25,6 @@ export interface IUser extends Document {
   firstName: string;
   lastName: string;
   phone?: string;
-  whatsapp?: string; // WhatsApp number (can be different from phone)
   role: UserRole | null;
   serviceCategories?: ServiceCategory[]; // Array of service categories for providers (only one allowed)
   isActive: boolean;
@@ -62,11 +61,6 @@ const UserSchema: Schema<IUser> = new Schema({
     trim: true
   },
   phone: {
-    type: String,
-    required: false,
-    trim: true
-  },
-  whatsapp: {
     type: String,
     required: false,
     trim: true

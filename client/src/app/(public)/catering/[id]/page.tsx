@@ -21,7 +21,6 @@ interface CateringService {
   };
   contact: {
     phone: string;
-    whatsapp?: string;
     email: string;
   };
   basePrice: number;
@@ -398,16 +397,6 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
                     <p className="text-sm text-gray-700">{service.contact.phone}</p>
                   </div>
                 </div>
-                
-                {service.contact.whatsapp && (
-                  <div className="flex items-start py-2">
-                    <Phone className="h-5 w-5 text-gray-500 mt-0.5" />
-                    <div className="ml-3">
-                      <p className="text-sm font-bold text-gray-900">WhatsApp</p>
-                      <p className="text-sm text-gray-700">{service.contact.whatsapp}</p>
-                    </div>
-                  </div>
-                )}
                 
                 <div className="flex items-start py-2">
                   <Mail className="h-5 w-5 text-gray-500 mt-0.5" />

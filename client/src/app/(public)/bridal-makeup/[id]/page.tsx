@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Camera, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
+import { ArrowLeft, Heart, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 
-interface PhotographyService {
+interface BridalMakeupService {
   _id: string;
   name: string;
   description: string;
@@ -25,7 +25,7 @@ interface PhotographyService {
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
-  photographyTypes: string[];
+  makeupTypes: string[];
   packages: Array<{
     name: string;
     description: string;
@@ -57,11 +57,11 @@ interface PhotographyService {
   updatedAt: string;
 }
 
-export default function PhotographyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function BridalMakeupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [service, setService] = useState<PhotographyService | null>(null);
+  const [service, setService] = useState<BridalMakeupService | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,13 +73,13 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
     unwrapParams();
   }, [params]);
 
-  const fetchPhotographyService = React.useCallback(async () => {
+  const fetchBridalMakeupService = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/photography/${serviceId}`);
+      const response = await apiClient.get(`/bridal-makeup/${serviceId}`);
       setService(response.data.data);
     } catch (err: unknown) {
-      let errorMessage = 'Failed to fetch photography service';
+      let errorMessage = 'Failed to fetch bridal makeup service';
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const response = (err as { response?: { data?: { error?: string } } }).response;
         if (response?.data?.error) {
@@ -87,7 +87,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
         }
       }
       setError(errorMessage);
-      console.error('Error fetching photography service:', err);
+      console.error('Error fetching bridal makeup service:', err);
     } finally {
       setLoading(false);
     }
@@ -95,13 +95,13 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     if (serviceId) {
-      fetchPhotographyService();
+      fetchBridalMakeupService();
     }
-  }, [serviceId, fetchPhotographyService]);
+  }, [serviceId, fetchBridalMakeupService]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <button
@@ -111,8 +111,8 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Vendors
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
-            <div></div> {/* Spacer for alignment */}
+            <h1 className="text-3xl font-bold text-gray-900">Bridal Makeup Service</h1>
+            <div></div>
           </div>
           <div className="flex justify-center items-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
@@ -124,7 +124,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <button
@@ -134,8 +134,8 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Vendors
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
-            <div></div> {/* Spacer for alignment */}
+            <h1 className="text-3xl font-bold text-gray-900">Bridal Makeup Service</h1>
+            <div></div>
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
             {error}
@@ -147,7 +147,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
   if (!service) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <button
@@ -157,14 +157,14 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Vendors
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
-            <div></div> {/* Spacer for alignment */}
+            <h1 className="text-3xl font-bold text-gray-900">Bridal Makeup Service</h1>
+            <div></div>
           </div>
           <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-            <Camera className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <Heart className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
             <p className="text-gray-600 mb-6">
-              The photography service you are looking for does not exist or has been removed.
+              The bridal makeup service you are looking for does not exist or has been removed.
             </p>
             <button
               onClick={() => router.push('/vendors')}
@@ -179,9 +179,8 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => router.push('/vendors')}
@@ -190,13 +189,11 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
             <ArrowLeft className="h-5 w-5 mr-2" />
             Back to Vendors
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
-          <div></div> {/* Spacer for alignment */}
+          <h1 className="text-3xl font-bold text-gray-900">Bridal Makeup Service</h1>
+          <div></div>
         </div>
 
-        {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-          {/* Service Header */}
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-start">
               <div>
@@ -209,7 +206,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             </div>
             
-            {/* Rating */}
             <div className="flex items-center mt-4">
               <div className="flex items-center">
                 {[...Array(5)].map((_, i) => (
@@ -229,7 +225,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
 
-          {/* Image Gallery */}
           <div className="p-6 border-b border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {service.images && service.images.map((image, index) => (
@@ -245,13 +240,11 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
 
-          {/* Service Details */}
           <div className="p-6">
-            {/* Photography Types */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Photography Types</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Makeup Types</h3>
               <div className="flex flex-wrap gap-2">
-                {service.photographyTypes.map((type, index) => (
+                {service.makeupTypes.map((type, index) => (
                   <span key={index} className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm">
                     {type}
                   </span>
@@ -259,7 +252,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             </div>
 
-            {/* Location Information */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Location</h3>
               <div className="flex items-start">
@@ -273,7 +265,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             </div>
 
-            {/* Contact Information */}
             <div className="mb-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
               <div className="space-y-3">
@@ -288,7 +279,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             </div>
 
-            {/* Packages */}
             <div className="mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">Packages</h3>
@@ -331,7 +321,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             </div>
 
-            {/* Addons */}
             {service.addons.length > 0 && (
               <div className="mb-8">
                 <div className="flex justify-between items-center mb-4">
@@ -355,7 +344,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             )}
 
-            {/* Policies */}
             {(service.cancellationPolicy || service.paymentTerms) && (
               <div className="mb-8">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Policies</h3>
@@ -376,7 +364,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               </div>
             )}
 
-            {/* Metadata */}
             <div className="pt-6 border-t border-gray-200">
               <div className="flex justify-between text-sm text-gray-500">
                 <div>
@@ -391,7 +378,6 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
             </div>
           </div>
           
-          {/* Action Buttons */}
           <div className="p-6 border-t border-gray-200 bg-gray-50">
             <div className="flex justify-end space-x-4">
               <Button
@@ -401,7 +387,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
                 Back to Vendors
               </Button>
               <Button
-                className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
+                className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700"
               >
                 Contact Vendor
               </Button>

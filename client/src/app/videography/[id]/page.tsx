@@ -110,7 +110,9 @@ export default function VideographyDetailPage() {
         break;
       case 'whatsapp':
         const whatsappNumber = service.contact.whatsapp || service.contact.phone;
-        window.open(`https://wa.me/${whatsappNumber.replace(/\D/g, '')}`);
+        const cleanNumber = whatsappNumber.replace(/\D/g, '');
+        const message = encodeURIComponent(`Hello! I'm interested in ${service.name}`);
+        window.open(`https://wa.me/${cleanNumber}?text=${message}`);
         break;
       case 'email':
         window.open(`mailto:${service.contact.email}`);

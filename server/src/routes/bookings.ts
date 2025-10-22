@@ -59,8 +59,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       let providerContact = {
         name: 'Provider',
         email: '',
-        phone: '',
-        whatsapp: ''
+        phone: ''
       };
       
       try {
@@ -97,8 +96,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
             providerContact = {
               name: service.contact.name || serviceName,
               email: service.contact.email || '',
-              phone: service.contact.phone || '',
-              whatsapp: service.contact.whatsapp || service.contact.phone || ''
+              phone: service.contact.phone || ''
             };
           }
         }
@@ -110,8 +108,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           providerContact = {
             name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
             email: provider.email || '',
-            phone: provider.phone || '',
-            whatsapp: provider.whatsapp || provider.phone || ''
+            phone: provider.phone || ''
           };
         }
       } catch (error) {
@@ -480,6 +477,11 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
 
     if (!service || !providerId) {
       return res.status(404).json({ error: 'Service not found or not available for booking' });
+    }
+
+    // Prevent self-booking: Check if the user is trying to book their own service
+    if (req.user!.id === providerId.toString()) {
+      return res.status(400).json({ error: 'Providers cannot book their own services' });
     }
 
     const booking = await Booking.create({
