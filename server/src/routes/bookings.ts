@@ -221,12 +221,20 @@ router.get('/availability/:serviceType/:serviceId', async (req, res: Response) =
       // Continue without blocked dates if there's an error
     }
 
+    // Helper function to format date as YYYY-MM-DD in UTC
+    const formatDateUTC = (date: Date): string => {
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     // Build bookedDates object
     const bookedDates: { [date: string]: Array<{ time: string; status: string; type?: string; reason?: string }> } = {};
 
     // Add booking dates
     bookings.forEach(booking => {
-      const dateStr = booking.date.toISOString().split('T')[0];
+      const dateStr = formatDateUTC(booking.date);
       if (!bookedDates[dateStr]) {
         bookedDates[dateStr] = [];
       }
@@ -239,7 +247,7 @@ router.get('/availability/:serviceType/:serviceId', async (req, res: Response) =
 
     // Add manually blocked dates
     blockedDates.forEach(blocked => {
-      const dateStr = new Date(blocked.date).toISOString().split('T')[0];
+      const dateStr = formatDateUTC(new Date(blocked.date));
       if (!bookedDates[dateStr]) {
         bookedDates[dateStr] = [];
       }
