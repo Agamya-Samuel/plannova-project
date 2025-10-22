@@ -23,6 +23,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
 interface BridalMakeupService {
   _id: string;
@@ -432,6 +433,18 @@ function ViewBridalMakeupServiceContent() {
               </div>
             </div>
           </div>
+
+          {/* Blocked Dates Management - Only for approved services */}
+          {(service.status === 'APPROVED' || service.status === 'PENDING_EDIT') && (
+            <BlockedDatesManager 
+              serviceId={service._id}
+              serviceType="bridal-makeup"
+              onUpdate={() => {
+                // Optional: Refresh service data or show notification
+                console.log('Blocked dates updated');
+              }}
+            />
+          )}
         </div>
       </div>
     </ProtectedRoute>

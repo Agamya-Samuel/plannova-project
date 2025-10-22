@@ -47,19 +47,45 @@ app.use(cors({
 // Rate limiting - more lenient in development
 const limiter = rateLimit({
   windowMs: process.env.NODE_ENV === 'development' ? 60 * 1000 : 15 * 60 * 1000, // 1 minute in dev, 15 minutes in prod
-  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // 1000 requests in dev, 100 in prod
+  max: process.env.NODE_ENV === 'development' ? 2000 : 200, // 2000 requests in dev, 200 in prod
   message: {
     error: 'Too many requests from this IP, please try again later.',
     code: 'RATE_LIMIT_EXCEEDED'
   },
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting for certain paths
+  skip: (req) => {
+    // Skip rate limiting for health checks
+    return req.path.includes('/health');
+  },
+  // Add logging when rate limit is hit
+  handler: (req, res) => {
+    console.error('⚠️ Rate limit exceeded for:', {
+      ip: req.ip,
+      path: req.path,
+      method: req.method,
+      timestamp: new Date().toISOString()
+    });
+    res.status(429).json({
+      error: 'Too many requests from this IP, please try again later.',
+      code: 'RATE_LIMIT_EXCEEDED'
+    });
+  },
 });
 app.use(limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// Request logging middleware (in development)
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`🔵 ${req.method} ${req.path}`);
+    next();
+  });
+}
 
 // Routes
 app.use("/api/auth", authRoutes);

@@ -20,7 +20,6 @@ export interface IDecoration extends Document {
   };
   contact: {
     phone: string;
-    whatsapp?: string;
     email: string;
   };
   images: Array<{
@@ -53,6 +52,12 @@ export interface IDecoration extends Document {
   isActive: boolean;
   pendingEdits?: Partial<IDecoration>;
   pendingEditSubmittedAt?: Date;
+  // Blocked dates for offline bookings or unavailability
+  blockedDates?: Array<{
+    date: Date;
+    reason?: string;
+    blockedAt: Date;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,10 +106,6 @@ const DecorationSchema = new Schema<IDecoration>({
     phone: {
       type: String,
       required: true,
-      trim: true
-    },
-    whatsapp: {
-      type: String,
       trim: true
     },
     email: {
@@ -226,7 +227,22 @@ const DecorationSchema = new Schema<IDecoration>({
   },
   pendingEditSubmittedAt: {
     type: Date
-  }
+  },
+  // Blocked dates for offline bookings or unavailability
+  blockedDates: [{
+    date: {
+      type: Date,
+      required: true
+    },
+    reason: {
+      type: String,
+      default: 'Offline booking'
+    },
+    blockedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }]
 }, {
   timestamps: true
 });

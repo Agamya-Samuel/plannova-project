@@ -571,9 +571,13 @@ export default function VendorsPage() {
                         router.push(`/catering/${vendor.id}`);
                       } else if (vendor.category === 'Videography') {
                         router.push(`/videography/${vendor.id}`);
+                      } else if (vendor.category === 'Decoration') {
+                        router.push(`/decoration/${vendor.id}`);
+                      } else if (vendor.category === 'Makeup & Beauty') {
+                        router.push(`/bridal-makeup/${vendor.id}`);
                       } else {
-                        // Default to photography for now
-                        router.push(`/photography/${vendor.id}`);
+                        // Default fallback
+                        router.push(`/vendors`);
                       }
                     }}
                   >

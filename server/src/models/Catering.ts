@@ -38,7 +38,6 @@ export interface ICatering extends Document {
   };
   contact: {
     phone: string;
-    whatsapp?: string;
     email: string;
   };
   images: Array<{
@@ -115,10 +114,6 @@ const CateringSchema: Schema<ICatering> = new Schema({
     phone: {
       type: String,
       required: true,
-      trim: true
-    },
-    whatsapp: {
-      type: String,
       trim: true
     },
     email: {

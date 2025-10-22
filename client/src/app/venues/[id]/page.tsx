@@ -767,7 +767,7 @@ export default function VenueDetailsPage() {
                 {venue.contact?.whatsapp && (
                   <div className="flex items-center space-x-3">
                     <Phone className="h-4 w-4 text-green-600" />
-                    <a href={`https://wa.me/${venue.contact.whatsapp.replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700">
+                    <a href={`https://wa.me/${venue.contact.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello! I'm interested in ${venue.name}`)}`} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700">
                       WhatsApp: {venue.contact.whatsapp}
                     </a>
                   </div>

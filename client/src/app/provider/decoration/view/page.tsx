@@ -22,6 +22,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
 interface DecorationService {
   _id: string;
@@ -457,6 +458,18 @@ function ViewDecorationServiceContent() {
               </div>
             </div>
           </div>
+
+          {/* Blocked Dates Management - Only for approved services */}
+          {(service.status === 'APPROVED' || service.status === 'PENDING_EDIT') && (
+            <BlockedDatesManager 
+              serviceId={service._id}
+              serviceType="decoration"
+              onUpdate={() => {
+                // Optional: Refresh service data or show notification
+                console.log('Blocked dates updated');
+              }}
+            />
+          )}
         </div>
       </div>
     </ProtectedRoute>
