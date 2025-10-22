@@ -3,11 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Camera, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
+import { ArrowLeft, Flower, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 
-interface PhotographyService {
+interface DecorationService {
   _id: string;
   name: string;
   description: string;
@@ -25,7 +25,7 @@ interface PhotographyService {
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
-  photographyTypes: string[];
+  decorationTypes: string[];
   packages: Array<{
     name: string;
     description: string;
@@ -57,11 +57,11 @@ interface PhotographyService {
   updatedAt: string;
 }
 
-export default function PhotographyDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function DecorationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [service, setService] = useState<PhotographyService | null>(null);
+  const [service, setService] = useState<DecorationService | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,13 +73,13 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
     unwrapParams();
   }, [params]);
 
-  const fetchPhotographyService = React.useCallback(async () => {
+  const fetchDecorationService = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/photography/${serviceId}`);
+      const response = await apiClient.get(`/decoration/${serviceId}`);
       setService(response.data.data);
     } catch (err: unknown) {
-      let errorMessage = 'Failed to fetch photography service';
+      let errorMessage = 'Failed to fetch decoration service';
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const response = (err as { response?: { data?: { error?: string } } }).response;
         if (response?.data?.error) {
@@ -87,7 +87,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
         }
       }
       setError(errorMessage);
-      console.error('Error fetching photography service:', err);
+      console.error('Error fetching decoration service:', err);
     } finally {
       setLoading(false);
     }
@@ -95,27 +95,27 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     if (serviceId) {
-      fetchPhotographyService();
+      fetchDecorationService();
     }
-  }, [serviceId, fetchPhotographyService]);
+  }, [serviceId, fetchDecorationService]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => router.push('/vendors')}
-              className="inline-flex items-center text-pink-600 hover:text-pink-800"
+              className="inline-flex items-center text-green-600 hover:text-green-800"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Vendors
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Decoration Service</h1>
             <div></div> {/* Spacer for alignment */}
           </div>
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
           </div>
         </div>
       </div>
@@ -124,17 +124,17 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => router.push('/vendors')}
-              className="inline-flex items-center text-pink-600 hover:text-pink-800"
+              className="inline-flex items-center text-green-600 hover:text-green-800"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Vendors
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Decoration Service</h1>
             <div></div> {/* Spacer for alignment */}
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
@@ -147,28 +147,28 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
   if (!service) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
             <button
               onClick={() => router.push('/vendors')}
-              className="inline-flex items-center text-pink-600 hover:text-pink-800"
+              className="inline-flex items-center text-green-600 hover:text-green-800"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Vendors
             </button>
-            <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Decoration Service</h1>
             <div></div> {/* Spacer for alignment */}
           </div>
           <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-            <Camera className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <Flower className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
             <p className="text-gray-600 mb-6">
-              The photography service you are looking for does not exist or has been removed.
+              The decoration service you are looking for does not exist or has been removed.
             </p>
             <button
               onClick={() => router.push('/vendors')}
-              className="inline-flex items-center px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+              className="inline-flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               Back to Vendors
             </button>
@@ -179,18 +179,18 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => router.push('/vendors')}
-            className="inline-flex items-center text-pink-600 hover:text-pink-800"
+            className="inline-flex items-center text-green-600 hover:text-green-800"
           >
             <ArrowLeft className="h-5 w-5 mr-2" />
             Back to Vendors
           </button>
-          <h1 className="text-3xl font-bold text-gray-900">Photography Service</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Decoration Service</h1>
           <div></div> {/* Spacer for alignment */}
         </div>
 
@@ -204,7 +204,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
                 <p className="mt-2 text-gray-600">{service.description}</p>
               </div>
               <div className="text-right">
-                <p className="text-2xl font-bold text-pink-600">₹{service.basePrice.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600">₹{service.basePrice.toLocaleString()}</p>
                 <p className="text-sm text-gray-500">Starting Price</p>
               </div>
             </div>
@@ -247,12 +247,12 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
 
           {/* Service Details */}
           <div className="p-6">
-            {/* Photography Types */}
+            {/* Decoration Types */}
             <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Photography Types</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Decoration Types</h3>
               <div className="flex flex-wrap gap-2">
-                {service.photographyTypes.map((type, index) => (
-                  <span key={index} className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm">
+                {service.decorationTypes.map((type, index) => (
+                  <span key={index} className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
                     {type}
                   </span>
                 ))}
@@ -308,7 +308,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
                     </div>
                     <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
                     <div className="flex justify-between items-center">
-                      <span className="text-lg font-semibold text-pink-600">₹{pkg.price.toLocaleString()}</span>
+                      <span className="text-lg font-semibold text-green-600">₹{pkg.price.toLocaleString()}</span>
                       {pkg.duration && (
                         <span className="text-sm text-gray-500">{pkg.duration}</span>
                       )}
@@ -347,7 +347,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
                       </div>
                       <p className="text-sm text-gray-600 mb-3">{addon.description}</p>
                       <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-pink-600">₹{addon.price.toLocaleString()}</span>
+                        <span className="text-lg font-semibold text-green-600">₹{addon.price.toLocaleString()}</span>
                       </div>
                     </div>
                   ))}
@@ -401,7 +401,7 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
                 Back to Vendors
               </Button>
               <Button
-                className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
               >
                 Contact Vendor
               </Button>

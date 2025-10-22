@@ -43,6 +43,17 @@ apiClient.interceptors.response.use(
         data: error.response?.data,
         url: error.config?.url
       });
+    } else if (error.response?.status === 429) {
+      console.warn('⚠️ Rate limit exceeded. Please wait a moment before trying again.');
+      console.log('🔍 Rate limit details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        retryAfter: error.response?.headers['retry-after']
+      });
+      // Don't redirect or clear auth on rate limit
+      // Just let the component handle the error
     }
     return Promise.reject(error);
   }

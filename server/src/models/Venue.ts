@@ -71,7 +71,6 @@ export interface IVenueImage {
 export interface IContactInfo {
   phone: string;
   email: string;
-  whatsapp?: string;
   website?: string;
 }
 
@@ -229,7 +228,6 @@ const VenueSchema: Schema<IVenue> = new Schema({
   contact: {
     phone: { type: String, required: true },
     email: { type: String, required: true },
-    whatsapp: String,
     website: String
   },
   

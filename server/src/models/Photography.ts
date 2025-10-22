@@ -22,7 +22,6 @@ export interface IPhotography extends Document {
   };
   contact: {
     phone: string;
-    whatsapp?: string;
     email: string;
   };
   images: Array<{
@@ -54,6 +53,12 @@ export interface IPhotography extends Document {
   // Add pending edits field for approved services
   pendingEdits?: Partial<IPhotography>;
   pendingEditSubmittedAt?: Date;
+  // Blocked dates for offline bookings or unavailability
+  blockedDates?: Array<{
+    date: Date;
+    reason?: string;
+    blockedAt: Date;
+  }>;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -102,10 +107,6 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
     phone: {
       type: String,
       required: true,
-      trim: true
-    },
-    whatsapp: {
-      type: String,
       trim: true
     },
     email: {
@@ -217,6 +218,21 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
   pendingEditSubmittedAt: {
     type: Date
   },
+  // Blocked dates for offline bookings or unavailability
+  blockedDates: [{
+    date: {
+      type: Date,
+      required: true
+    },
+    reason: {
+      type: String,
+      default: 'Offline booking'
+    },
+    blockedAt: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   isActive: {
     type: Boolean,
     default: true
