@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { ArrowLeft, Heart, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
+import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import { BookingModal } from '@/components/booking/BookingModal';
 
 interface BridalMakeupService {
   _id: string;
@@ -63,6 +65,8 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
   const [error, setError] = useState('');
   const [service, setService] = useState<BridalMakeupService | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -72,6 +76,11 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
     
     unwrapParams();
   }, [params]);
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    setShowBookingModal(true);
+  };
 
   const fetchBridalMakeupService = React.useCallback(async () => {
     try {
@@ -180,7 +189,7 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-rose-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-8">
           <button
             onClick={() => router.push('/vendors')}
@@ -193,6 +202,9 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
           <div></div>
         </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Content */}
+          <div className="lg:col-span-2">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-start">
@@ -388,12 +400,62 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
               </Button>
               <Button
                 className="bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700"
+                onClick={() => window.open(`tel:${service.contact.phone}`)}
               >
                 Contact Vendor
               </Button>
             </div>
           </div>
         </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Availability Calendar */}
+            <AvailabilityCalendar
+              serviceId={service._id}
+              serviceType="bridal-makeup"
+              onDateSelect={handleDateSelect}
+              selectedDate={selectedDate}
+            />
+
+            {/* Booking Card */}
+            <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
+              <div className="text-center mb-6">
+                <div className="text-3xl font-bold text-gray-900 mb-2">
+                  ₹{service.basePrice.toLocaleString()}
+                </div>
+                <p className="text-gray-600">Starting Price</p>
+              </div>
+
+              {selectedDate ? (
+                <Button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white"
+                >
+                  Book for {selectedDate}
+                </Button>
+              ) : (
+                <div className="text-center">
+                  <Heart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Booking Modal */}
+        <BookingModal
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          serviceId={service._id}
+          serviceName={service.name}
+          serviceType="bridal-makeup"
+          basePrice={service.basePrice}
+          pricePerGuest={0}
+          preselectedDate={selectedDate}
+        />
       </div>
     </div>
   );

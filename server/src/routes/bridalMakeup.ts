@@ -26,6 +26,8 @@ const createBridalMakeupValidation = [
   body('basePrice').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
   body('makeupTypes').isArray({ min: 1 }).withMessage('At least one makeup type is required'),
   body('packages').isArray({ min: 1 }).withMessage('At least one package is required'),
+  body('packages.*.name').trim().isLength({ min: 1 }).withMessage('Package name is required'),
+  body('packages.*.price').isFloat({ min: 0 }).withMessage('Package price must be a positive number'),
 ];
 
 // GET /api/bridal-makeup - Get all approved bridal makeup services (for customers)
@@ -117,6 +119,18 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
       paymentTerms
     } = req.body;
 
+    // Filter out empty descriptions from packages to prevent validation errors
+    const validPackages = packages.map((pkg: { name: string; description: string; includes: string[]; duration?: string; price: number; isPopular: boolean }) => ({
+      ...pkg,
+      description: pkg.description?.trim() || 'Package description' // Provide default if empty
+    }));
+
+    // Filter out empty descriptions from addons
+    const validAddons = addons ? addons.map((addon: { name: string; description: string; price: number }) => ({
+      ...addon,
+      description: addon.description?.trim() || 'Add-on service' // Provide default if empty
+    })) : [];
+
     const bridalMakeup = await BridalMakeup.create({
       name,
       description,
@@ -125,8 +139,8 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
       contact,
       images: images || [],
       makeupTypes,
-      packages,
-      addons: addons || [],
+      packages: validPackages,
+      addons: validAddons,
       basePrice,
       cancellationPolicy,
       paymentTerms,
@@ -281,6 +295,18 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
       paymentTerms
     } = req.body;
 
+    // Filter out empty descriptions from packages to prevent validation errors
+    const validPackages = packages.map((pkg: { name: string; description: string; includes: string[]; duration?: string; price: number; isPopular: boolean }) => ({
+      ...pkg,
+      description: pkg.description?.trim() || 'Package description' // Provide default if empty
+    }));
+
+    // Filter out empty descriptions from addons
+    const validAddons = addons ? addons.map((addon: { name: string; description: string; price: number }) => ({
+      ...addon,
+      description: addon.description?.trim() || 'Add-on service' // Provide default if empty
+    })) : [];
+
     // For approved services, store edits in pendingEdits instead of directly updating
     if (bridalMakeup.status === ApprovalStatus.APPROVED) {
       // Store the edits in pendingEdits field
@@ -291,8 +317,8 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
         contact,
         images: images || [],
         makeupTypes,
-        packages,
-        addons: addons || [],
+        packages: validPackages,
+        addons: validAddons,
         basePrice,
         cancellationPolicy,
         paymentTerms,
@@ -308,8 +334,8 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
       bridalMakeup.contact = contact;
       bridalMakeup.images = images || [];
       bridalMakeup.makeupTypes = makeupTypes;
-      bridalMakeup.packages = packages;
-      bridalMakeup.addons = addons || [];
+      bridalMakeup.packages = validPackages;
+      bridalMakeup.addons = validAddons;
       bridalMakeup.basePrice = basePrice;
       bridalMakeup.cancellationPolicy = cancellationPolicy;
       bridalMakeup.paymentTerms = paymentTerms;

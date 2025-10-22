@@ -11,6 +11,11 @@ interface BlockedDate {
   date: Date;
   reason?: string;
   blockedAt: Date;
+  type?: 'manual' | 'booking'; // Track if it's a manual block or a customer booking
+  bookingInfo?: {
+    time: string;
+    status: string;
+  };
 }
 
 interface BlockedDatesManagerProps {
@@ -35,7 +40,7 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
   useEffect(() => {
     fetchBlockedDates();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceId, serviceType]);
+  }, [serviceId, serviceType, currentMonth]); // Add currentMonth to refetch when month changes
 
   // Helper to get API path based on service type
   const getApiPath = () => {
@@ -60,8 +65,51 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
   const fetchBlockedDates = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(getApiPath());
-      setBlockedDates(response.data.blockedDates || []);
+      
+      // Fetch both manually blocked dates and customer bookings
+      const [blockedResponse, availabilityResponse] = await Promise.all([
+        apiClient.get(getApiPath()),
+        apiClient.get(`/bookings/availability/${serviceType}/${serviceId}?month=${currentMonth.getMonth() + 1}&year=${currentMonth.getFullYear()}`)
+      ]);
+      
+      const manuallyBlocked = blockedResponse.data.blockedDates || [];
+      const availability = availabilityResponse.data.bookedDates || {};
+      
+      // Combine manually blocked dates with customer bookings
+      const allBlockedDates: BlockedDate[] = [...manuallyBlocked.map((bd: BlockedDate) => ({
+        ...bd,
+        type: 'manual' as const
+      }))];
+      
+      // Add customer bookings as blocked dates
+      Object.entries(availability).forEach(([dateStr, bookings]) => {
+        const bookingArray = bookings as Array<{ time: string; status: string; type?: string; reason?: string }>;
+        const hasCustomerBooking = bookingArray.some(b => b.type === 'booking');
+        
+        if (hasCustomerBooking) {
+          // Check if this date is not already in manually blocked dates
+          const alreadyBlocked = allBlockedDates.some(bd => {
+            const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+            return formatDateToString(bdDate) === dateStr;
+          });
+          
+          if (!alreadyBlocked) {
+            const customerBooking = bookingArray.find(b => b.type === 'booking');
+            allBlockedDates.push({
+              date: parseLocalDate(dateStr) as unknown as Date,
+              reason: `Customer booking at ${customerBooking?.time || 'scheduled time'}`,
+              blockedAt: new Date(),
+              type: 'booking' as const,
+              bookingInfo: {
+                time: customerBooking?.time || '',
+                status: customerBooking?.status || ''
+              }
+            });
+          }
+        }
+      });
+      
+      setBlockedDates(allBlockedDates);
     } catch (error) {
       console.error('Error fetching blocked dates:', error);
       toast.error('Failed to load blocked dates');
@@ -105,7 +153,11 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
   const handleUnblockDate = async (dateStr: string) => {
     // Find the blocked date to get its reason
     const blockedDate = blockedDates.find(
-      bd => new Date(bd.date).toISOString().split('T')[0] === dateStr
+      bd => {
+        const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+        const blockedDateStr = formatDateToString(bdDate);
+        return blockedDateStr === dateStr;
+      }
     );
     
     if (!blockedDate) {
@@ -114,7 +166,7 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
     }
 
     // Set the date to unblock and show modal
-    setDateToUnblock(new Date(dateStr));
+    setDateToUnblock(parseLocalDate(dateStr));
     setCurrentBlockReason(blockedDate.reason || 'Not specified');
     setShowUnblockModal(true);
   };
@@ -122,7 +174,7 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
   const confirmUnblockDate = async (reason: string) => {
     if (!dateToUnblock) return;
 
-    const dateStr = dateToUnblock.toISOString().split('T')[0];
+    const dateStr = formatDateToString(dateToUnblock);
 
     try {
       setLoading(true);
@@ -148,6 +200,20 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
     }
   };
 
+  // Helper function to format date as YYYY-MM-DD in local timezone
+  const formatDateToString = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper function to parse YYYY-MM-DD string to local Date object
+  const parseLocalDate = (dateStr: string): Date => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+  };
+
   const getDaysInMonth = (date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
@@ -160,10 +226,12 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
   };
 
   const isDateBlocked = (date: Date): boolean => {
-    const dateStr = date.toISOString().split('T')[0];
-    return blockedDates.some(bd => 
-      new Date(bd.date).toISOString().split('T')[0] === dateStr
-    );
+    const dateStr = formatDateToString(date);
+    return blockedDates.some(bd => {
+      const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+      const blockedDateObj = parseLocalDate(formatDateToString(bdDate));
+      return formatDateToString(blockedDateObj) === dateStr;
+    });
   };
 
   const isDatePast = (date: Date): boolean => {
@@ -174,22 +242,33 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
   };
 
   const isDateSelected = (date: Date): boolean => {
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
     return selectedDates.includes(dateStr);
   };
 
   const handleDateClick = (date: Date) => {
     if (isDatePast(date)) return;
 
-    const dateStr = date.toISOString().split('T')[0];
+    const dateStr = formatDateToString(date);
+    const blockedDate = blockedDates.find(
+      bd => {
+        const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+        return formatDateToString(bdDate) === dateStr;
+      }
+    );
 
-    if (isDateBlocked(date)) {
-      // If already blocked, prompt for unblocking with reason
+    if (blockedDate) {
+      // If it's a customer booking, show info but don't allow unblocking
+      if (blockedDate.type === 'booking') {
+        toast.info('This date has a customer booking. Manage it from the Bookings page.');
+        return;
+      }
+      // If manually blocked, prompt for unblocking with reason
       handleUnblockDate(dateStr);
       return;
     }
 
-    // Toggle selection
+    // Toggle selection for blocking
     if (selectedDates.includes(dateStr)) {
       setSelectedDates(selectedDates.filter(d => d !== dateStr));
     } else {
@@ -219,20 +298,36 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
     // Add cells for each day of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(year, month, day);
-      const isBlocked = isDateBlocked(currentDate);
+      const dateStr = formatDateToString(currentDate);
+      const blockedDate = blockedDates.find(bd => {
+        const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+        return formatDateToString(bdDate) === dateStr;
+      });
+      const isBlocked = !!blockedDate;
+      const isCustomerBooking = blockedDate?.type === 'booking';
       const isPast = isDatePast(currentDate);
       const isSelected = isDateSelected(currentDate);
 
       let dayClasses = 'h-10 flex items-center justify-center text-sm rounded-lg transition-all cursor-pointer ';
+      let title = '';
 
       if (isSelected) {
         dayClasses += 'bg-blue-600 text-white font-semibold ring-2 ring-blue-300';
+        title = 'Selected - Click to deselect';
+      } else if (isCustomerBooking) {
+        // Customer bookings in green
+        dayClasses += 'bg-green-100 text-green-700 font-medium hover:bg-green-200 border border-green-300';
+        title = `Customer booking - ${blockedDate?.bookingInfo?.time || 'Scheduled'}`;
       } else if (isBlocked) {
+        // Manually blocked in orange
         dayClasses += 'bg-orange-100 text-orange-700 font-medium hover:bg-orange-200 border border-orange-300';
+        title = 'Manually blocked - Click to unblock';
       } else if (isPast) {
         dayClasses += 'bg-gray-50 text-gray-300 cursor-not-allowed';
+        title = 'Past date';
       } else {
         dayClasses += 'hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-transparent hover:border-blue-200';
+        title = 'Click to select for blocking';
       }
 
       days.push(
@@ -241,13 +336,7 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
           onClick={() => handleDateClick(currentDate)}
           disabled={isPast && !isBlocked}
           className={dayClasses}
-          title={
-            isBlocked 
-              ? 'Click to unblock this date' 
-              : isSelected 
-              ? 'Selected - Click to deselect' 
-              : 'Click to select for blocking'
-          }
+          title={title}
         >
           {day}
         </button>
@@ -289,9 +378,10 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
               <p className="font-medium mb-1">How to use:</p>
               <ul className="list-disc list-inside space-y-1 text-xs">
                 <li><span className="font-medium">Click dates</span> to select them for blocking</li>
-                <li><span className="font-medium text-orange-700">Orange dates</span> are already blocked - click to unblock</li>
+                <li><span className="font-medium text-green-700">Green dates</span> are customer bookings (view-only)</li>
+                <li><span className="font-medium text-orange-700">Orange dates</span> are manually blocked - click to unblock</li>
                 <li>Blocked dates will be unavailable for online bookings</li>
-                <li>Use this for offline bookings or maintenance periods</li>
+                <li>Use manual blocking for offline bookings or maintenance periods</li>
               </ul>
             </div>
           </div>
@@ -340,16 +430,16 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
             <span className="text-xs text-gray-600">Selected</span>
           </div>
           <div className="flex items-center space-x-2">
+            <div className="w-6 h-6 rounded bg-green-100 border border-green-300" />
+            <span className="text-xs text-gray-600">Customer Booking</span>
+          </div>
+          <div className="flex items-center space-x-2">
             <div className="w-6 h-6 rounded bg-orange-100 border border-orange-300" />
-            <span className="text-xs text-gray-600">Blocked</span>
+            <span className="text-xs text-gray-600">Manually Blocked</span>
           </div>
           <div className="flex items-center space-x-2">
             <div className="w-6 h-6 rounded bg-gray-50" />
             <span className="text-xs text-gray-600">Past Date</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-6 h-6 rounded border border-gray-200" />
-            <span className="text-xs text-gray-600">Available</span>
           </div>
         </div>
       </div>
@@ -363,33 +453,52 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
           <div className="max-h-48 overflow-y-auto space-y-2">
             {blockedDates
               .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-              .map((bd, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between bg-orange-50 rounded-lg p-3 border border-orange-200"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {new Date(bd.date).toLocaleDateString('en-US', {
-                        weekday: 'short',
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })}
-                    </p>
-                    {bd.reason && (
-                      <p className="text-xs text-gray-600 mt-1">{bd.reason}</p>
+              .map((bd, index) => {
+                const isCustomerBooking = bd.type === 'booking';
+                return (
+                  <div
+                    key={index}
+                    className={`flex items-center justify-between rounded-lg p-3 border ${
+                      isCustomerBooking
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-orange-50 border-orange-200'
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium text-gray-900">
+                          {new Date(bd.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                        {isCustomerBooking && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
+                            Customer Booking
+                          </span>
+                        )}
+                      </div>
+                      {bd.reason && (
+                        <p className="text-xs text-gray-600 mt-1">{bd.reason}</p>
+                      )}
+                    </div>
+                    {!isCustomerBooking && (
+                      <button
+                        onClick={() => {
+                          const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+                          handleUnblockDate(formatDateToString(bdDate));
+                        }}
+                        className="ml-3 p-1.5 hover:bg-orange-100 rounded transition-colors"
+                        title="Unblock this date"
+                      >
+                        <Trash2 className="h-4 w-4 text-orange-600" />
+                      </button>
                     )}
                   </div>
-                  <button
-                    onClick={() => handleUnblockDate(new Date(bd.date).toISOString().split('T')[0])}
-                    className="ml-3 p-1.5 hover:bg-orange-100 rounded transition-colors"
-                    title="Unblock this date"
-                  >
-                    <Trash2 className="h-4 w-4 text-orange-600" />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
           </div>
         </div>
       )}
