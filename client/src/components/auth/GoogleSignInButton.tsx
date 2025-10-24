@@ -11,7 +11,6 @@ interface GoogleSignInButtonProps {
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
-  userDisplayName?: string;
 }
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
@@ -20,8 +19,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onRoleSelectionNeeded,
   disabled = false,
   className = '',
-  children,
-  userDisplayName = 'there'
+  children
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { googleSignIn } = useAuth();
