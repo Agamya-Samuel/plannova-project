@@ -63,7 +63,9 @@ export default function LoginPage() {
       toast.success(`Role successfully set to ${role.toLowerCase()}.`);
       router.push('/dashboard');
     } catch (error) {
-      console.error('Role update error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Role update error:', error);
+      }
       setError('Failed to update role. Please try again.');
       toast.error('Failed to update role. Please try again.');
     } finally {
@@ -215,20 +217,28 @@ export default function LoginPage() {
             <div className="mt-6">
               <GoogleSignInButton
                 onSuccess={async () => {
-                  console.log('Google authentication successful');
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('Google authentication successful');
+                  }
                   toast.success('Welcome back! You have been successfully logged in with Google.');
                   try {
                     router.push('/dashboard');
                   } catch (error) {
-                    console.error('Navigation failed:', error);
+                    if (process.env.NODE_ENV === 'development') {
+                      console.error('Navigation failed:', error);
+                    }
                   }
                 }}
                 onRoleSelectionNeeded={() => {
-                  console.log('Role selection needed for new Google user');
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('Role selection needed for new Google user');
+                  }
                   setShowRoleSelection(true);
                 }}
                 onError={(error) => {
-                  console.error('GoogleSignInButton error:', error);
+                  if (process.env.NODE_ENV === 'development') {
+                    console.error('GoogleSignInButton error:', error);
+                  }
                   setError('Google sign-in failed. Please try again.');
                 }}
                 disabled={isLoading}

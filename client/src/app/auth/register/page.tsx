@@ -76,7 +76,9 @@ export default function RegisterPage() {
       toast.success(`Role successfully set to ${role.toLowerCase()}.`);
       router.push('/dashboard');
     } catch (error) {
-      console.error('Role update error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Role update error:', error);
+      }
       setError('Failed to update role. Please try again.');
       toast.error('Failed to update role. Please try again.');
     } finally {
@@ -335,16 +337,22 @@ export default function RegisterPage() {
             <div className="mt-6">
               <GoogleSignInButton
                 onSuccess={() => {
-                  console.log('Google sign-in successful');
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('Google sign-in successful');
+                  }
                   toast.success('Welcome! Your account has been successfully created with Google.');
                   router.push('/dashboard');
                 }}
                 onRoleSelectionNeeded={() => {
-                  console.log('Role selection needed for new Google user');
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('Role selection needed for new Google user');
+                  }
                   setShowRoleSelection(true);
                 }}
                 onError={(error) => {
-                  console.error('GoogleSignInButton error:', error);
+                  if (process.env.NODE_ENV === 'development') {
+                    console.error('GoogleSignInButton error:', error);
+                  }
                   setError('Google sign-in failed. Please try again.');
                 }}
                 disabled={isLoading}
