@@ -38,6 +38,7 @@ export interface AuthContextType {
   updateRole: (role: UserRole) => Promise<void>;
   updateServiceCategories: (serviceCategories: ServiceCategory[]) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
+  updateMobileNumber: (mobile: string) => Promise<void>;
 }
 
 export interface RegisterData {
@@ -54,6 +55,7 @@ export interface LoginResponse {
   user: User;
   token: string;
   needsRoleSelection?: boolean; // For Google sign-in new users
+  // Removed needsMobileNumber since we handle this on the dashboard
 }
 
 export interface RoleUpdateRequest {
