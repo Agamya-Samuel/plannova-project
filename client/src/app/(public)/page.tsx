@@ -227,7 +227,7 @@ export default function Home() {
             Ready to Plan Your Perfect Event?
           </h2>
           <p className="text-xl text-pink-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of clients who found their perfect venue through Plannova
+            Join thousands of people who found their perfect venue through Plannova
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/auth/register">
