@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -11,6 +11,7 @@ interface GoogleSignInButtonProps {
   disabled?: boolean;
   className?: string;
   children?: React.ReactNode;
+  userDisplayName?: string;
 }
 
 export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
@@ -19,9 +20,10 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   onRoleSelectionNeeded,
   disabled = false,
   className = '',
-  children
+  children,
+  userDisplayName = 'there'
 }) => {
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { googleSignIn } = useAuth();
 
   const handleGoogleSignIn = async () => {
@@ -38,6 +40,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
         console.log('GoogleSignInButton: Role selection needed');
         onRoleSelectionNeeded?.();
       } else {
+        // We no longer check for mobile number during login - this is handled on the dashboard
         console.log('GoogleSignInButton: Complete sign-in successful');
         onSuccess?.();
       }
