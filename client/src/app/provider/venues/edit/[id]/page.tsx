@@ -471,7 +471,7 @@ export default function EditVenuePage() {
                 <BackToServicesButton serviceType="venues" />
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900">Edit Venue</h1>
-                  <p className="text-gray-600 text-lg">Update your wedding venue information</p>
+                  <p className="text-gray-600 text-lg">Update your event venue information</p>
                 </div>
               </div>
             </div>
