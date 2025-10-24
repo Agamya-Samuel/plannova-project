@@ -35,7 +35,9 @@ app.use(helmet());
 // Parse FRONTEND_URL environment variable (comma-separated domains)
 const allowedOrigins = process.env.FRONTEND_URL!.split(',').map(url => url.trim())
 
-console.log('🌐 CORS allowed origins:', allowedOrigins);
+if (process.env.NODE_ENV === 'development') {
+  console.log('🌐 CORS allowed origins:', allowedOrigins);
+}
 
 app.use(cors({
   origin: allowedOrigins,
@@ -61,12 +63,14 @@ const limiter = rateLimit({
   },
   // Add logging when rate limit is hit
   handler: (req, res) => {
-    console.error('⚠️ Rate limit exceeded for:', {
-      ip: req.ip,
-      path: req.path,
-      method: req.method,
-      timestamp: new Date().toISOString()
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.error('⚠️ Rate limit exceeded for:', {
+        ip: req.ip,
+        path: req.path,
+        method: req.method,
+        timestamp: new Date().toISOString()
+      });
+    }
     res.status(429).json({
       error: 'Too many requests from this IP, please try again later.',
       code: 'RATE_LIMIT_EXCEEDED'
@@ -117,7 +121,9 @@ app.get("/api/health/db", async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Database health check failed:', err);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Database health check failed:', err);
+    }
     res.status(500).json({ 
       status: 'error', 
       message: 'Database connection failed',
