@@ -734,4 +734,136 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
   }
 });
 
+// ============ BLOCKED DATES MANAGEMENT ROUTES ============
+
+// GET /api/photography/:id/blocked-dates - Get blocked dates for a photography service
+router.get('/:id/blocked-dates', async (req: Request, res: Response) => {
+  try {
+    const photography = await Photography.findOne({
+      _id: req.params.id,
+      status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
+      isActive: true
+    });
+
+    if (!photography) {
+      return res.status(404).json({ error: 'Photography service not found' });
+    }
+
+    res.json({
+      blockedDates: photography.blockedDates || []
+    });
+  } catch (error) {
+    console.error('Error fetching blocked dates:', error);
+    res.status(500).json({ error: 'Failed to fetch blocked dates' });
+  }
+});
+
+// Helper middleware to check if user is the provider of the photography service
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+const requirePhotographyProvider = async (req: AuthRequest, res: Response, next: Function) => {
+  if (!req.user || req.user.role !== UserRole.PROVIDER) {
+    return res.status(403).json({ error: 'Only providers can perform this action' });
+  }
+  next();
+};
+
+// POST /api/photography/:id/blocked-dates - Add blocked dates (Provider only)
+router.post('/:id/blocked-dates', authenticateToken, requirePhotographyProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dates, reason } = req.body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ error: 'Dates array is required' });
+    }
+
+    const photography = await Photography.findOne({
+      _id: req.params.id,
+      provider: req.user!.id
+    });
+
+    if (!photography) {
+      return res.status(404).json({ error: 'Photography service not found or unauthorized' });
+    }
+
+    // Initialize blockedDates if it doesn't exist
+    if (!photography.blockedDates) {
+      photography.blockedDates = [];
+    }
+
+    // Add new blocked dates
+    const newBlockedDates = dates.map((dateStr: string) => ({
+      date: new Date(dateStr),
+      reason: reason || 'Offline booking',
+      blockedAt: new Date()
+    }));
+
+    // Filter out dates that are already blocked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingBlockedDates = photography.blockedDates.map((bd: any) => 
+      bd.date.toISOString().split('T')[0]
+    );
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uniqueNewDates = newBlockedDates.filter((bd: any) => 
+      !existingBlockedDates.includes(bd.date.toISOString().split('T')[0])
+    );
+
+    photography.blockedDates.push(...uniqueNewDates);
+    await photography.save();
+
+    res.json({
+      message: `Successfully blocked ${uniqueNewDates.length} date(s)`,
+      blockedDates: photography.blockedDates
+    });
+  } catch (error) {
+    console.error('Error adding blocked dates:', error);
+    res.status(500).json({ error: 'Failed to add blocked dates' });
+  }
+});
+
+// DELETE /api/photography/:id/blocked-dates - Remove blocked date (Provider only)
+router.delete('/:id/blocked-dates', authenticateToken, requirePhotographyProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { date, reason } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Unblocking reason is required' });
+    }
+
+    const photography = await Photography.findOne({
+      _id: req.params.id,
+      provider: req.user!.id
+    });
+
+    if (!photography) {
+      return res.status(404).json({ error: 'Photography service not found or unauthorized' });
+    }
+
+    if (!photography.blockedDates || photography.blockedDates.length === 0) {
+      return res.status(404).json({ error: 'No blocked dates found' });
+    }
+
+    // Remove the blocked date
+    const dateToRemove = new Date(date).toISOString().split('T')[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    photography.blockedDates = photography.blockedDates.filter((bd: any) => 
+      bd.date.toISOString().split('T')[0] !== dateToRemove
+    );
+
+    await photography.save();
+
+    res.json({
+      message: 'Blocked date removed successfully',
+      blockedDates: photography.blockedDates
+    });
+  } catch (error) {
+    console.error('Error removing blocked date:', error);
+    res.status(500).json({ error: 'Failed to remove blocked date' });
+  }
+});
+
 export default router;

@@ -1218,4 +1218,152 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
   }
 });
 
+// ============ BLOCKED DATES MANAGEMENT ROUTES ============
+
+// GET /api/venues/:id/blocked-dates - Get blocked dates for a venue
+router.get('/:id/blocked-dates', async (req: Request, res: Response) => {
+  try {
+    const venue = await Venue.findOne({
+      _id: req.params.id,
+      status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] },
+      isActive: true
+    });
+
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found' });
+    }
+
+    res.json({
+      blockedDates: venue.blockedDates || []
+    });
+  } catch (error) {
+    console.error('Error fetching blocked dates:', error);
+    res.status(500).json({ error: 'Failed to fetch blocked dates' });
+  }
+});
+
+// POST /api/venues/:id/blocked-dates - Add blocked date(s) (Provider only)
+router.post('/:id/blocked-dates', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dates, reason } = req.body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ error: 'Dates array is required' });
+    }
+
+    const venue = await Venue.findOne({
+      _id: req.params.id,
+      providerId: req.user!.id
+    });
+
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found or unauthorized' });
+    }
+
+    // Initialize blockedDates if it doesn't exist
+    if (!venue.blockedDates) {
+      venue.blockedDates = [];
+    }
+
+    // Add new blocked dates
+    const newBlockedDates = dates.map((dateStr: string) => ({
+      date: new Date(dateStr),
+      reason: reason || 'Offline booking',
+      blockedAt: new Date()
+    }));
+
+    // Filter out dates that are already blocked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingBlockedDates = venue.blockedDates.map((bd: any) => 
+      bd.date.toISOString().split('T')[0]
+    );
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uniqueNewDates = newBlockedDates.filter((bd: any) => 
+      !existingBlockedDates.includes(bd.date.toISOString().split('T')[0])
+    );
+
+    venue.blockedDates.push(...uniqueNewDates);
+    await venue.save();
+
+    res.json({
+      message: `Successfully blocked ${uniqueNewDates.length} date(s)`,
+      blockedDates: venue.blockedDates
+    });
+  } catch (error) {
+    console.error('Error adding blocked dates:', error);
+    res.status(500).json({ error: 'Failed to add blocked dates' });
+  }
+});
+
+// DELETE /api/venues/:id/blocked-dates - Remove blocked date (Provider only)
+router.delete('/:id/blocked-dates', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { date, reason } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Unblocking reason is required' });
+    }
+
+    const venue = await Venue.findOne({
+      _id: req.params.id,
+      providerId: req.user!.id
+    });
+
+    if (!venue) {
+      return res.status(404).json({ error: 'Venue not found or unauthorized' });
+    }
+
+    if (!venue.blockedDates || venue.blockedDates.length === 0) {
+      return res.status(404).json({ error: 'No blocked dates found' });
+    }
+
+    // Find the blocked date to get its original reason
+    const dateToRemove = new Date(date).toISOString().split('T')[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const blockedDate = venue.blockedDates.find((bd: any) => 
+      bd.date.toISOString().split('T')[0] === dateToRemove
+    );
+
+    if (!blockedDate) {
+      return res.status(404).json({ error: 'Blocked date not found' });
+    }
+
+    // Store in unblock history before removing
+    if (!venue.unblockHistory) {
+      venue.unblockHistory = [];
+    }
+
+    venue.unblockHistory.push({
+      date: new Date(date),
+      reason: reason.trim(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      originalBlockReason: (blockedDate as any).reason || 'Not specified',
+      unblockedAt: new Date(),
+      unblockedBy: new Types.ObjectId(req.user!.id)
+    });
+
+    // Remove the blocked date
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    venue.blockedDates = venue.blockedDates.filter((bd: any) => 
+      bd.date.toISOString().split('T')[0] !== dateToRemove
+    );
+
+    await venue.save();
+
+    res.json({
+      message: 'Blocked date removed successfully',
+      blockedDates: venue.blockedDates,
+      unblockHistory: venue.unblockHistory
+    });
+  } catch (error) {
+    console.error('Error removing blocked date:', error);
+    res.status(500).json({ error: 'Failed to remove blocked date' });
+  }
+});
+
 export default router;

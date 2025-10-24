@@ -3,16 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { Booking } from '@/types/booking';
+import { useRouter } from 'next/navigation';
+
 
 export default function BookingsPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactBooking, setContactBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -42,6 +47,8 @@ export default function BookingsPage() {
         return <AlertCircle className="h-5 w-5 text-yellow-500" />;
       case 'cancelled':
         return <XCircle className="h-5 w-5 text-red-500" />;
+      case 'rejected':
+        return <XCircle className="h-5 w-5 text-red-500" />;
       default:
         return null;
     }
@@ -55,6 +62,8 @@ export default function BookingsPage() {
         return 'Pending';
       case 'cancelled':
         return 'Cancelled';
+      case 'rejected':
+        return 'Rejected';
       default:
         return '';
     }
@@ -67,11 +76,73 @@ export default function BookingsPage() {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'cancelled':
+      case 'rejected':
         return 'bg-red-100 text-red-800';
       default:
         return '';
     }
   };
+
+  const getServiceTypeLabel = (serviceType?: string) => {
+    switch (serviceType) {
+      case 'venue':
+        return 'Venue';
+      case 'catering':
+        return 'Catering';
+      case 'photography':
+        return 'Photography';
+      case 'videography':
+        return 'Videography';
+      case 'bridal-makeup':
+        return 'Bridal Makeup';
+      case 'decoration':
+        return 'Decoration';
+      default:
+        return 'Service';
+    }
+  };
+
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      await apiClient.put(`/bookings/${bookingId}/cancel`);
+      // Refresh bookings
+      const response = await apiClient.get<Booking[]>('/bookings');
+      setBookings(response.data);
+    } catch (err) {
+      console.error('Error cancelling booking:', err);
+      setError('Failed to cancel booking. Please try again.');
+    }
+  };
+
+  const handleViewDetails = (booking: Booking) => {
+    // Navigate to the service details page
+    if (booking.serviceId && booking.serviceType) {
+      const serviceRoutes: Record<string, string> = {
+        'venue': '/venues',
+        'catering': '/catering',
+        'photography': '/photography',
+        'videography': '/videography',
+        'bridal-makeup': '/bridal-makeup',
+        'decoration': '/decoration'
+      };
+      
+      const route = serviceRoutes[booking.serviceType];
+      if (route) {
+        router.push(`${route}/${booking.serviceId}`);
+      }
+    }
+  };
+
+  const handleContactProvider = (booking: Booking) => {
+    setContactBooking(booking);
+    setShowContactModal(true);
+  };
+
+  const handlePhoneCall = (phone: string) => {
+    window.location.href = `tel:${phone}`;
+  };
+
+
 
   if (loading) {
     return (
@@ -94,7 +165,7 @@ export default function BookingsPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
                   <p className="text-gray-600">
-                    View and manage your wedding venue bookings
+                    View and manage your wedding service bookings
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0">
@@ -124,8 +195,8 @@ export default function BookingsPage() {
                     <div className="lg:w-1/4 mb-4 lg:mb-0 lg:mr-6">
                       <div className="aspect-video bg-gray-200 rounded-xl overflow-hidden">
                         <Image 
-                          src={booking.venueImage} 
-                          alt={booking.venueName}
+                          src={booking.serviceImage || booking.venueImage} 
+                          alt={booking.serviceName || booking.venueName}
                           width={400}
                           height={225}
                           className="w-full h-full object-cover"
@@ -145,10 +216,15 @@ export default function BookingsPage() {
                       <div className="flex flex-col md:flex-row md:justify-between md:items-start">
                         <div>
                           <div className="flex items-center mb-2">
-                            <h2 className="text-xl font-bold text-gray-900 mr-3">{booking.venueName}</h2>
+                            <h2 className="text-xl font-bold text-gray-900 mr-3">{booking.serviceName || booking.venueName}</h2>
                             <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(booking.status)}`}>
                               {getStatusIcon(booking.status)}
                               <span className="ml-1">{getStatusText(booking.status)}</span>
+                            </span>
+                          </div>
+                          <div className="mb-2">
+                            <span className="inline-block px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">
+                              {getServiceTypeLabel(booking.serviceType)}
                             </span>
                           </div>
                           
@@ -183,52 +259,63 @@ export default function BookingsPage() {
                         </div>
                       </div>
                       
-                      {/* Contact Information */}
+                      {/* Provider Information */}
                       <div className="mt-6 pt-6 border-t border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Contact Information</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Provider Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="flex items-center text-gray-600">
                             <User className="h-5 w-5 mr-3 text-pink-600" />
-                            <span>{booking.contactPerson}</span>
+                            <div>
+                              <p className="text-sm text-gray-500">Provider</p>
+                              <p className="font-medium text-gray-900">{booking.provider?.name || 'Provider'}</p>
+                            </div>
                           </div>
                           
-                          <div className="flex items-center text-gray-600">
-                            <Phone className="h-5 w-5 mr-3 text-pink-600" />
-                            <span>{booking.contactPhone}</span>
-                          </div>
+                          {booking.provider?.phone && (
+                            <div className="flex items-center text-gray-600">
+                              <Phone className="h-5 w-5 mr-3 text-pink-600" />
+                              <div>
+                                <p className="text-sm text-gray-500">Phone</p>
+                                <p className="font-medium text-gray-900">{booking.provider.phone}</p>
+                              </div>
+                            </div>
+                          )}
                           
                           <div className="flex items-center text-gray-600">
                             <Mail className="h-5 w-5 mr-3 text-pink-600" />
-                            <span>{booking.contactEmail}</span>
+                            <div>
+                              <p className="text-sm text-gray-500">Email</p>
+                              <p className="font-medium text-gray-900">{booking.provider?.email || 'N/A'}</p>
+                            </div>
                           </div>
                         </div>
                       </div>
                       
                       {/* Action Buttons */}
                       <div className="mt-6 flex flex-wrap gap-3">
-                        {booking.status === 'pending' && (
-                          <>
-                            <button className="px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors">
-                              Confirm Booking
-                            </button>
-                            <button className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
-                              Cancel Booking
-                            </button>
-                          </>
-                        )}
-                        
-                        {booking.status === 'confirmed' && (
-                          <button className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors">
+                        {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                          <button 
+                            onClick={() => handleCancelBooking(booking.id)}
+                            className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+                          >
                             Cancel Booking
                           </button>
                         )}
                         
-                        <button className="px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors">
+                        <button 
+                          onClick={() => handleViewDetails(booking)}
+                          className="px-4 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
                           View Details
                         </button>
                         
-                        <button className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors">
-                          Contact Venue
+                        <button 
+                          onClick={() => handleContactProvider(booking)}
+                          className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Contact Provider
                         </button>
                       </div>
                     </div>
@@ -243,14 +330,98 @@ export default function BookingsPage() {
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
               <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings yet</h3>
-              <p className="text-gray-600 mb-6">You haven{`'`}t made any venue bookings yet.</p>
+              <p className="text-gray-600 mb-6">You haven{`'`}t made any service bookings yet.</p>
               <button className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
                 <MapPin className="h-5 w-5 mr-2" />
-                Browse Venues
+                Browse Services
               </button>
             </div>
           )}
         </div>
+
+        {/* Contact Provider Modal */}
+        {showContactModal && contactBooking && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Contact Provider</h3>
+                <button 
+                  onClick={() => setShowContactModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Provider Info */}
+                <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-4">
+                  <div className="flex items-center space-x-3 mb-2">
+                    <User className="h-5 w-5 text-pink-600" />
+                    <span className="font-semibold text-gray-900">{contactBooking.provider?.name || 'Provider'}</span>
+                  </div>
+                  {contactBooking.provider?.email && (
+                    <div className="flex items-center space-x-3 text-sm text-gray-600">
+                      <Mail className="h-4 w-4 text-pink-600" />
+                      <span>{contactBooking.provider.email}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Contact Options */}
+                <div className="space-y-3">
+                  {/* Phone Call */}
+                  {contactBooking.provider?.phone && (
+                    <button
+                      onClick={() => {
+                        handlePhoneCall(contactBooking.provider!.phone!);
+                        setShowContactModal(false);
+                      }}
+                      className="w-full flex items-center justify-between p-4 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-blue-600 p-2 rounded-full">
+                          <Phone className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-900">Call Provider</p>
+                          <p className="text-sm text-gray-600">{contactBooking.provider.phone}</p>
+                        </div>
+                      </div>
+                      <div className="text-blue-600 group-hover:translate-x-1 transition-transform">
+                        →
+                      </div>
+                    </button>
+                  )}
+
+                  {/* Email */}
+                  {contactBooking.provider?.email && (
+                    <button
+                      onClick={() => {
+                        window.location.href = `mailto:${contactBooking.provider!.email}?subject=Regarding my booking at ${contactBooking.serviceName || contactBooking.venueName}`;
+                        setShowContactModal(false);
+                      }}
+                      className="w-full flex items-center justify-between p-4 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors group"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="bg-purple-600 p-2 rounded-full">
+                          <Mail className="h-5 w-5 text-white" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-semibold text-gray-900">Send Email</p>
+                          <p className="text-sm text-gray-600">{contactBooking.provider.email}</p>
+                        </div>
+                      </div>
+                      <div className="text-purple-600 group-hover:translate-x-1 transition-transform">
+                        →
+                      </div>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ProtectedRoute>
   );

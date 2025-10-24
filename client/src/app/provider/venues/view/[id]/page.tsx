@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import ImageModal from '@/components/ui/ImageModal';
+import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
 interface Venue {
   _id: string;
@@ -509,6 +510,18 @@ export default function ProviderVenueViewPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Blocked Dates Management - Only for approved venues */}
+              {(venue.status === 'APPROVED' || venue.status === 'PENDING_EDIT') && (
+                <BlockedDatesManager 
+                  serviceId={venue._id}
+                  serviceType="venue"
+                  onUpdate={() => {
+                    // Optional: Refresh venue data or show notification
+                    console.log('Blocked dates updated');
+                  }}
+                />
+              )}
             </div>
           )}
         </div>

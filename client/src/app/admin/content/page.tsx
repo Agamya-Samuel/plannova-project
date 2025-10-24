@@ -27,7 +27,7 @@ interface ContentItem {
 
 export default function AdminContentPage() {
   const { user: currentUser } = useAuth();
-  const [contentItems, setContentItems] = useState<ContentItem[]>([
+  const [contentItems] = useState<ContentItem[]>([
     {
       id: '1',
       title: 'Top 10 Wedding Venues in Mumbai',

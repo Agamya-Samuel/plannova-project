@@ -2,6 +2,14 @@ import axios from 'axios';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// Debug: Log the API URL
+console.log('🔍 API URL configured:', API_URL);
+
+if (!API_URL) {
+  console.error('❌ NEXT_PUBLIC_API_URL is not defined! Backend requests will fail.');
+  console.error('❌ Make sure you have a .env.local file with NEXT_PUBLIC_API_URL=http://localhost:5000/api');
+}
+
 const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
@@ -35,6 +43,17 @@ apiClient.interceptors.response.use(
         data: error.response?.data,
         url: error.config?.url
       });
+    } else if (error.response?.status === 429) {
+      console.warn('⚠️ Rate limit exceeded. Please wait a moment before trying again.');
+      console.log('🔍 Rate limit details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        retryAfter: error.response?.headers['retry-after']
+      });
+      // Don't redirect or clear auth on rate limit
+      // Just let the component handle the error
     }
     return Promise.reject(error);
   }

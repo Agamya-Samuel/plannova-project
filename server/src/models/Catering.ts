@@ -9,6 +9,22 @@ export enum ApprovalStatus {
   PENDING_EDIT = 'PENDING_EDIT' // New status for pending edits
 }
 
+// Interface for Blocked Dates (manually marked as unavailable)
+export interface IBlockedDate {
+  date: Date;
+  reason?: string; // Optional reason for blocking (e.g., "Offline booking", "Maintenance")
+  blockedAt: Date; // When this date was blocked
+}
+
+// Interface for Unblocking History (audit trail for unblocked dates)
+export interface IUnblockHistory {
+  date: Date; // The date that was unblocked
+  reason: string; // Reason for unblocking (e.g., "Cancel Booking", "Reject Booking")
+  originalBlockReason?: string; // What was the original blocking reason
+  unblockedAt: Date; // When the date was unblocked
+  unblockedBy: mongoose.Types.ObjectId; // Provider who unblocked it
+}
+
 // Define the Catering interface
 export interface ICatering extends Document {
   name: string;
@@ -22,7 +38,6 @@ export interface ICatering extends Document {
   };
   contact: {
     phone: string;
-    whatsapp?: string;
     email: string;
   };
   images: Array<{
@@ -48,6 +63,9 @@ export interface ICatering extends Document {
   // Add pending edits field for approved services
   pendingEdits?: Partial<ICatering>;
   pendingEditSubmittedAt?: Date;
+  // Blocked dates for offline bookings
+  blockedDates: IBlockedDate[]; // Manually blocked dates (offline bookings, maintenance, etc.)
+  unblockHistory: IUnblockHistory[]; // Audit trail of unblocked dates
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -96,10 +114,6 @@ const CateringSchema: Schema<ICatering> = new Schema({
     phone: {
       type: String,
       required: true,
-      trim: true
-    },
-    whatsapp: {
-      type: String,
       trim: true
     },
     email: {
@@ -191,6 +205,20 @@ const CateringSchema: Schema<ICatering> = new Schema({
   pendingEditSubmittedAt: {
     type: Date
   },
+  // Blocked Dates (manually marked as unavailable)
+  blockedDates: [{
+    date: { type: Date, required: true },
+    reason: { type: String, trim: true },
+    blockedAt: { type: Date, default: Date.now }
+  }],
+  // Unblock History (audit trail)
+  unblockHistory: [{
+    date: { type: Date, required: true },
+    reason: { type: String, required: true, trim: true },
+    originalBlockReason: { type: String, trim: true },
+    unblockedAt: { type: Date, default: Date.now },
+    unblockedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
+  }],
   isActive: {
     type: Boolean,
     default: true
