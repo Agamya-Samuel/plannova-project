@@ -165,6 +165,7 @@ See `FIREBASE_SETUP.md` for detailed Firebase configuration.
 - **Authentication**: Firebase Admin SDK
 - **Security**: Helmet, CORS, Rate Limiting
 - **File Upload**: AWS S3 with multer
+- **Image Processing**: Sharp for automatic image compression
 
 ## 🚀 Deployment
 
@@ -206,6 +207,20 @@ To configure the email service for password reset:
    EMAIL_PASS=your_app_password
    ```
 2. For Gmail, you'll need to use an App Password instead of your regular password
+
+### Image Compression
+
+The backend automatically compresses images before uploading them to S3 storage to reduce storage costs and bandwidth usage. This feature uses the Sharp library for high-performance image processing.
+
+Key features:
+- Automatic compression of JPEG, PNG, WebP, TIFF, and AVIF images
+- Configurable quality settings (default: 65%)
+- Automatic resizing to maximum dimensions (default: 1920x1080)
+- Optional conversion to WebP format for better compression
+- Metadata stripping to reduce file size
+- Fallback to original image if compression doesn't reduce size
+
+See `server/docs/image-compression.md` for detailed documentation.
 
 ## 📝 Available Scripts
 
