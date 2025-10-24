@@ -40,8 +40,8 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/real-weddings" className="text-gray-300 hover:text-white transition-colors">
-                  Real Events
+                <Link href="/past-events" className="text-gray-300 hover:text-white transition-colors">
+                  Past Events
                 </Link>
               </li>
               <li>
