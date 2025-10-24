@@ -29,10 +29,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Verify token is still valid by fetching profile
           const response = await apiClient.get('/auth/profile');
-          console.log('👤 Current user profile data:', response.data);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('👤 Current user profile data:', response.data);
+          }
           setUser(response.data);
         } catch (error) {
-          console.error('Auth initialization error:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Auth initialization error:', error);
+          }
           // Token is invalid, clear storage
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -82,7 +86,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Sign out from Firebase
       await firebaseLogout();
     } catch (error) {
-      console.error('Firebase logout error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Firebase logout error:', error);
+      }
     }
     
     // Clear local storage
@@ -93,36 +99,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const googleSignIn = async (): Promise<{ needsRoleSelection?: boolean }> => {
     try {
-      console.log('🚀 Starting Google sign-in process...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 Starting Google sign-in process...');
+      }
       const result = await signInWithGoogle();
       const user = result.user;
       
-      console.log('✅ Firebase Google sign-in successful:', {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Firebase Google sign-in successful:', {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        });
+      }
       
       // Get the ID token and send to backend
       const idToken = await user.getIdToken();
-      console.log('🔑 Got Firebase ID token, sending to backend...');
-      console.log('🌐 API URL:', apiClient.defaults.baseURL);
-      console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔑 Got Firebase ID token, sending to backend...');
+        console.log('🌐 API URL:', apiClient.defaults.baseURL);
+        console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+      }
       
       // Test API connectivity first
       try {
-        console.log('🔍 Testing API connectivity...');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Testing API connectivity...');
+        }
         const healthCheck = await apiClient.get('/health/db');
-        console.log('✅ API connectivity test passed:', healthCheck.data);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ API connectivity test passed:', healthCheck.data);
+        }
       } catch (connectivityError: unknown) {
         if (connectivityError instanceof Error && 'response' in connectivityError) {
           const response = (connectivityError as { response?: { status?: number; statusText?: string; data?: unknown } }).response;
-          console.error('❌ API connectivity test failed:', {
-            message: connectivityError.message,
-            status: response?.status,
-            statusText: response?.statusText,
-            data: response?.data
-          });
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ API connectivity test failed:', {
+              message: connectivityError.message,
+              status: response?.status,
+              statusText: response?.statusText,
+              data: response?.data
+            });
+          }
 
           // More specific error messages based on the type of error
           if (response?.status === 429) {
@@ -133,36 +151,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             throw new Error(`Server error (${response?.status}). Please try again later.`);
           }
         } else {
-          console.error('❌ API connectivity test failed:', connectivityError);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ API connectivity test failed:', connectivityError);
+          }
           throw new Error('An unknown error occurred during the connectivity test.');
         }
       }
       
       // Send to backend for user creation/verification
-      console.log('📡 Sending request to backend /auth/google endpoint...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📡 Sending request to backend /auth/google endpoint...');
+      }
       const response = await apiClient.post<LoginResponse>('/auth/google', {
         idToken,
       });
 
-      console.log('✅ Backend response successful:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Backend response successful:', response.data);
+      }
       const { user: userData, token, needsRoleSelection } = response.data;
       
       // Debug: Log the photoURL we received
-      console.log('🖼️ User photoURL received:', userData.photoURL);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🖼️ User photoURL received:', userData.photoURL);
+      }
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      console.log('✅ Google sign-in completed successfully');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Google sign-in completed successfully');
+      }
       return { needsRoleSelection };
     } catch (error: unknown) {
-      console.error('❌ Google sign-in error details:', {
-        error,
-        message: (error as Error)?.message,
-        response: (error as { response?: { data?: unknown } })?.response?.data,
-        status: (error as { response?: { status?: number } })?.response?.status,
-        code: (error as { code?: string })?.code
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Google sign-in error details:', {
+          error,
+          message: (error as Error)?.message,
+          response: (error as { response?: { data?: unknown } })?.response?.data,
+          status: (error as { response?: { status?: number } })?.response?.status,
+          code: (error as { code?: string })?.code
+        });
+      }
       
       let errorMessage = 'Google sign-in failed';
       
@@ -266,11 +296,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await apiClient.put('/auth/profile', { phone: mobile });
       const updatedUser = response.data.user;
       
-      console.log('Mobile number updated, new user data:', updatedUser);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Mobile number updated, new user data:', updatedUser);
+      }
       localStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
     } catch (error: unknown) {
-      console.error('Mobile number update failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Mobile number update failed:', error);
+      }
       throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Mobile number update failed');
     }
   };

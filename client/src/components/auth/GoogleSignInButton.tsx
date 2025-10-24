@@ -29,21 +29,29 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
     setIsLoading(true);
     try {
-      console.log('GoogleSignInButton: Starting Google authentication...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('GoogleSignInButton: Starting Google authentication...');
+      }
       
       // Use the AuthContext googleSignIn method which handles everything
       const result = await googleSignIn();
       
       if (result.needsRoleSelection) {
-        console.log('GoogleSignInButton: Role selection needed');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('GoogleSignInButton: Role selection needed');
+        }
         onRoleSelectionNeeded?.();
       } else {
         // We no longer check for mobile number during login - this is handled on the dashboard
-        console.log('GoogleSignInButton: Complete sign-in successful');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('GoogleSignInButton: Complete sign-in successful');
+        }
         onSuccess?.();
       }
     } catch (error) {
-      console.error('GoogleSignInButton: Authentication failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('GoogleSignInButton: Authentication failed:', error);
+      }
       onError?.(error);
     } finally {
       setIsLoading(false);
