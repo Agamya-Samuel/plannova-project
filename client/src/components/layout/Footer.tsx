@@ -41,7 +41,7 @@ export default function Footer() {
               </li>
               <li>
                 <Link href="/real-weddings" className="text-gray-300 hover:text-white transition-colors">
-                  Real Weddings
+                  Real Events
                 </Link>
               </li>
               <li>
