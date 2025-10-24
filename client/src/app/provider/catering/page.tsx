@@ -66,26 +66,34 @@ export default function CateringDashboardPage() {
     const fetchServices = async () => {
       try {
         setLoading(true);
-        console.log('🔍 Fetching catering services for user:', user);
-        console.log('🔍 User role:', user?.role);
-        console.log('🔍 Service categories:', user?.serviceCategories);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Fetching catering services for user:', user);
+          console.log('🔍 User role:', user?.role);
+          console.log('🔍 Service categories:', user?.serviceCategories);
+        }
         
         const response = await apiClient.get('/catering/my-services');
-        console.log('API Response:', response.data);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('API Response:', response.data);
+        }
         
         // Ensure we have an array of services
         const servicesData = Array.isArray(response.data.data) ? response.data.data : [];
-        console.log('Services data:', servicesData);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Services data:', servicesData);
+        }
         
         setServices(servicesData);
         setFilteredServices(servicesData);
       } catch (err: unknown) {
-        console.error('❌ Error fetching catering services:', err);
-        console.error('❌ Error details:', {
-          message: (err as Error)?.message,
-          status: (err as { response?: { status?: number } })?.response?.status,
-          data: (err as { response?: { data?: unknown } })?.response?.data
-        });
+        if (process.env.NODE_ENV === 'development') {
+          console.error('❌ Error fetching catering services:', err);
+          console.error('❌ Error details:', {
+            message: (err as Error)?.message,
+            status: (err as { response?: { status?: number } })?.response?.status,
+            data: (err as { response?: { data?: unknown } })?.response?.data
+          });
+        }
         
         const errorStatus = (err as { response?: { status?: number } })?.response?.status;
         const errorData = (err as { response?: { data?: unknown } })?.response?.data as { error?: string };
@@ -136,7 +144,9 @@ export default function CateringDashboardPage() {
       setServices(prevServices => prevServices.filter(service => service._id !== serviceId));
       setFilteredServices(prevServices => prevServices.filter(service => service._id !== serviceId));
     } catch (err: unknown) {
-      console.error('Error deleting catering service:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error deleting catering service:', err);
+      }
       setError('Failed to delete catering service');
       throw err; // Re-throw to let DeleteButton handle the error display
     } finally {
@@ -170,7 +180,9 @@ export default function CateringDashboardPage() {
       
       toast.success('Service submitted for approval successfully!');
     } catch (err: unknown) {
-      console.error('Error submitting service for approval:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error submitting service for approval:', err);
+      }
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit service for approval';
       toast.error(errorMessage);
     } finally {
@@ -181,7 +193,9 @@ export default function CateringDashboardPage() {
   // Search and filter handlers
   const handleSearch = () => {
     // Auto-filtering is handled by useEffect, this is just for button click
-    console.log('Search triggered');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Search triggered');
+    }
   };
 
   const handleClear = () => {
@@ -388,7 +402,9 @@ export default function CateringDashboardPage() {
   }
 
   // Calculate statistics with defensive programming
-  console.log('Raw services data for stats calculation:', services);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Raw services data for stats calculation:', services);
+  }
   const totalServices = services.length;
   
   // Safely calculate average rating
@@ -419,7 +435,9 @@ export default function CateringDashboardPage() {
     ? Math.round(validPrices.reduce((sum, price) => sum + price, 0) / validPrices.length) 
     : 0;
 
-  console.log('Calculated stats:', { totalServices, avgRating, totalReviews, avgPrice });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Calculated stats:', { totalServices, avgRating, totalReviews, avgPrice });
+  }
 
   // Get services by status
   const pendingServices = services.filter(service => service.status === 'PENDING');

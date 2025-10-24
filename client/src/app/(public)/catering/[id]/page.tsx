@@ -75,9 +75,13 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
   const fetchCateringService = React.useCallback(async () => {
     try {
       setLoading(true);
-      console.log('🔍 Fetching public catering service with ID:', serviceId);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Fetching public catering service with ID:', serviceId);
+      }
       const response = await apiClient.get(`/catering/${serviceId}`);
-      console.log('🔍 Catering service response:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 Catering service response:', response.data);
+      }
       setService(response.data.data);
     } catch (err: unknown) {
       let errorMessage = 'Failed to fetch catering service';
@@ -88,7 +92,9 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
         }
       }
       setError(errorMessage);
-      console.error('❌ Error fetching catering service:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Error fetching catering service:', err);
+      }
     } finally {
       setLoading(false);
     }

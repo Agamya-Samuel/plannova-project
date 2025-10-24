@@ -3,6 +3,7 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getS3Client, getS3Config, generateFileKey, getS3Url } from '../utils/s3.js';
+import { compressImageBuffer } from './imageCompressionService.js';
 
 // File type configurations
 export const ALLOWED_IMAGE_TYPES = [
@@ -169,8 +170,42 @@ export const uploadToS3 = async (
       };
     }
 
+    // Compress image if it's an image file
+    let finalBuffer = buffer;
+    let finalFileName = fileName;
+    let finalFileType = fileType;
+    
+    if (uploadCategory === 'image') {
+      console.log(`Compressing image: ${fileName} (${fileSize} bytes)`);
+      
+      try {
+        const compressionResult = await compressImageBuffer(buffer, fileType);
+        
+        if (compressionResult.success && compressionResult.buffer) {
+          finalBuffer = compressionResult.buffer;
+          const sizeReduction = ((buffer.length - finalBuffer.length) / buffer.length * 100).toFixed(2);
+          
+          console.log(`Image compression successful: ${fileName}`);
+          console.log(`  Original size: ${buffer.length} bytes`);
+          console.log(`  Compressed size: ${finalBuffer.length} bytes`);
+          console.log(`  Size reduction: ${sizeReduction}%`);
+          
+          // Update file type if converted to WebP
+          if (compressionResult.format === 'webp') {
+            finalFileType = 'image/webp';
+            // Update file extension
+            finalFileName = fileName.replace(/\.[^/.]+$/, '') + '.webp';
+          }
+        } else {
+          console.warn(`Image compression failed for ${fileName}:`, compressionResult.error);
+        }
+      } catch (compressionError) {
+        console.warn(`Image compression error for ${fileName}:`, compressionError);
+      }
+    }
+
     // Generate file key
-    const key = generateFileKey(userId, uploadType, fileName, venueId);
+    const key = generateFileKey(userId, uploadType, finalFileName, venueId);
     
     // Get S3 client and config
     const client = getS3Client();
@@ -182,8 +217,8 @@ export const uploadToS3 = async (
       params: {
         Bucket: config.bucket,
         Key: key,
-        Body: buffer,
-        ContentType: fileType,
+        Body: finalBuffer,
+        ContentType: finalFileType,
         Metadata: {
           userId,
           uploadType,

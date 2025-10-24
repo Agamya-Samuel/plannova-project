@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { 
   Calendar, 
   Search,
@@ -399,13 +400,12 @@ export default function AdminBookingsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
-                              <img 
+                              <Image 
                                 src={booking.venueImage} 
                                 alt={booking.venueName}
-                                className="h-10 w-10 rounded-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
-                                }}
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover"
                               />
                             </div>
                             <div className="ml-4">
