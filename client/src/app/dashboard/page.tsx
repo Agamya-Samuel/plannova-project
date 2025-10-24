@@ -1,14 +1,30 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [showMobileAlert, setShowMobileAlert] = useState(false);
+
+  // Check if user needs to provide mobile number
+  useEffect(() => {
+    console.log('Dashboard useEffect triggered', { user });
+    
+    // Only show the alert if user is authenticated and doesn't have a phone number
+    if (user && !user.phone) {
+      console.log('User does not have phone number, showing alert');
+      setShowMobileAlert(true);
+    } else if (user && user.phone) {
+      console.log('User has phone number, hiding alert if it was shown');
+      setShowMobileAlert(false);
+    }
+  }, [user]);
 
   const renderDashboardContent = () => {
     switch (user?.role) {
@@ -68,6 +84,12 @@ export default function DashboardPage() {
           
           {renderDashboardContent()}
         </div>
+        
+        <MobileNumberAlertDialog
+          isOpen={showMobileAlert}
+          onClose={() => setShowMobileAlert(false)}
+          userDisplayName={user?.firstName || 'there'}
+        />
       </div>
     </ProtectedRoute>
   );
