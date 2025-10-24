@@ -18,8 +18,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Plannova - Wedding Hall Booking",
-  description: "Find and book the perfect wedding venue for your special day",
+  title: "Plannova - Event Venue Booking",
+  description: "Find and book the perfect event venue for your special occasion",
 };
 
 export default function RootLayout({

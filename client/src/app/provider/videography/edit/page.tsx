@@ -70,8 +70,8 @@ interface AddonFormData {
 
 const videographyTypeOptions = [
   'Wedding Videography',
-  'Pre-wedding Videography',
-  'Post-wedding Videography',
+  'Pre-event Videography',
+  'Post-event Videography',
   'Corporate Videography',
   'Event Videography',
   'Documentary Videography',

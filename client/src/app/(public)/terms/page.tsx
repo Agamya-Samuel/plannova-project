@@ -32,7 +32,7 @@ export default function TermsAndConditions() {
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Introduction</h2>
                 <p className="text-gray-700">
-                  Plannova (&quot;Plannova&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is a wedding planning platform that provides valuable wedding-related information and services for modern couples. The services offered by us include the Plannova website located at plannova.com or any subdomain of plannova.com (the &quot;Plannova Website&quot;), the Plannova wedding planning app, and any other features, content, or applications offered from time to time by Plannova in connection with the Plannova Website (collectively, the &quot;Plannova Services&quot;).
+                  Plannova (&quot;Plannova&quot;, &quot;we&quot;, &quot;us&quot;, or &quot;our&quot;) is an event planning platform that provides valuable event-related information and services for modern clients. The services offered by us include the Plannova website located at plannova.com or any subdomain of plannova.com (the &quot;Plannova Website&quot;), the Plannova event planning app, and any other features, content, or applications offered from time to time by Plannova in connection with the Plannova Website (collectively, the &quot;Plannova Services&quot;).
                 </p>
                 <p className="text-gray-700 mt-3">
                   These Terms of Use (this &quot;Agreement&quot;) set forth the legally binding terms for your use of the Plannova Services. By using the Plannova Services, whether as a &quot;Visitor&quot; (meaning you simply browse the Plannova website) or as a &quot;User&quot; (meaning you have registered with and/or submitted content to the Plannova website either as an individual or as a company), you agree to be bound by this Agreement and the Plannova Privacy Policy.
@@ -183,7 +183,7 @@ export default function TermsAndConditions() {
                   <strong>Email:</strong> support@plannova.in
                 </p>
                 <p className="text-gray-700 mt-1">
-                  <strong>Address:</strong> Plannova Inc., 123 Wedding Plaza, San Francisco, CA 94102
+                  <strong>Address:</strong> Plannova Inc., 123 Event Plaza, San Francisco, CA 94102
                 </p>
               </section>
             </div>

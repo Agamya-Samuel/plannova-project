@@ -165,7 +165,7 @@ export default function BookingsPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
                   <p className="text-gray-600">
-                    View and manage your wedding service bookings
+                    View and manage your event service bookings
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0">
