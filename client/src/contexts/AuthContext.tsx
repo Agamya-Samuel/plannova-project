@@ -31,7 +31,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const response = await apiClient.get('/auth/profile');
           console.log('👤 Current user profile data:', response.data);
           setUser(response.data);
-        } catch {
+        } catch (error) {
+          console.error('Auth initialization error:', error);
           // Token is invalid, clear storage
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -260,6 +261,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateMobileNumber = async (mobile: string): Promise<void> => {
+    try {
+      const response = await apiClient.put('/auth/profile', { phone: mobile });
+      const updatedUser = response.data.user;
+      
+      console.log('Mobile number updated, new user data:', updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error: unknown) {
+      console.error('Mobile number update failed:', error);
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Mobile number update failed');
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -271,6 +286,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateRole,
     updateServiceCategories,
     updateProfile,
+    updateMobileNumber,
   };
 
   return (
