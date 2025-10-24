@@ -233,7 +233,6 @@ export default function LoginPage() {
                 }}
                 disabled={isLoading}
                 className="w-full h-14 !bg-white !text-gray-700 border-2 border-gray-300 hover:border-pink-300 hover:!bg-pink-50 font-semibold text-lg rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
-                userDisplayName={user?.firstName || 'there'}
               />
             </div>
           </div>
