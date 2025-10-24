@@ -46,10 +46,10 @@ export default function Home() {
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
           <div className="text-center text-white max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Your Wedding, <span className="text-pink-200">Your Way</span>
+              Perfect Events, <span className="text-pink-200">Perfectly Planned</span>
             </h1>
             <p className="text-xl md:text-2xl mb-8 text-pink-100 max-w-2xl mx-auto">
-              Find the best wedding venues with thousands of trusted reviews
+              Find the best event venues with thousands of trusted reviews
             </p>
             
             {/* Search Bar */}
@@ -94,11 +94,11 @@ export default function Home() {
               <p className="text-pink-100 mb-3 font-medium">Popular Searches:</p>
               <div className="flex flex-wrap gap-2">
                 {[
-                  "Wedding Venues in Mumbai",
+                  "Event Venues in Mumbai",
                   "Banquet Halls in Delhi",
-                  "Destination Weddings",
-                  "Beach Resorts",
-                  "Palace Weddings"
+                  "Corporate Events",
+                  "Beach Venues",
+                  "Luxury Venues"
                 ].map((search, index) => (
                   <span 
                     key={index}
@@ -121,7 +121,7 @@ export default function Home() {
               Popular Venue Categories
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Discover the perfect venue for your special day
+              Discover the perfect venue for your special event
             </p>
           </div>
 
@@ -181,7 +181,7 @@ export default function Home() {
               Why Choose Plannova?
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              We make your wedding planning journey seamless and memorable
+              We make your event planning journey seamless and memorable
             </p>
           </div>
 
@@ -190,12 +190,12 @@ export default function Home() {
               {
                 icon: <Star className="h-12 w-12 text-pink-600" />,
                 title: "Verified Reviews",
-                description: "Read authentic reviews from real couples"
+                description: "Read authentic reviews from real clients"
               },
               {
                 icon: <Heart className="h-12 w-12 text-pink-600" />,
                 title: "Curated Selection",
-                description: "Hand-picked venues for your perfect day"
+                description: "Hand-picked venues for your perfect event"
               },
               {
                 icon: <Calendar className="h-12 w-12 text-pink-600" />,
@@ -205,7 +205,7 @@ export default function Home() {
               {
                 icon: <Users className="h-12 w-12 text-pink-600" />,
                 title: "Expert Support",
-                description: "Dedicated support throughout your journey"
+                description: "Dedicated support throughout your planning"
               }
             ].map((feature, index) => (
               <div key={index} className="text-center p-6 rounded-xl hover:shadow-lg transition-shadow duration-300">
@@ -224,10 +224,10 @@ export default function Home() {
       <div className="bg-gradient-to-r from-pink-600 to-purple-600 py-16">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Ready to Plan Your Dream Wedding?
+            Ready to Plan Your Perfect Event?
           </h2>
           <p className="text-xl text-pink-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of couples who found their perfect wedding venue through Plannova
+            Join thousands of clients who found their perfect venue through Plannova
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/auth/register">
