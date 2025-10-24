@@ -98,9 +98,9 @@ export default function DashboardPage() {
 function getRoleMessage(role?: string) {
   switch (role) {
     case 'CUSTOMER':
-      return "Let's find the perfect venue for your dream wedding";
+      return "Let's find the perfect venue for your perfect event";
     case 'PROVIDER':
-      return "Manage your service offerings and connect with couples";
+      return "Manage your service offerings and connect with clients";
     case 'ADMIN':
       return "Oversee the platform and support our community";
     default:
@@ -113,7 +113,7 @@ function CustomerDashboard() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <DashboardCard
         title="My Bookings"
-        description="View and manage your wedding venue bookings"
+        description="View and manage your event venue bookings"
         icon={<Calendar className="h-8 w-8 text-pink-600" />}
         action="View Bookings"
         href="/bookings"
@@ -122,7 +122,7 @@ function CustomerDashboard() {
       />
       <DashboardCard
         title="Browse Venues"
-        description="Discover beautiful wedding venues for your special day"
+        description="Discover beautiful event venues for your special occasion"
         icon={<MapPin className="h-8 w-8 text-purple-600" />}
         action="Browse Venues"
         href="/venues"
@@ -264,7 +264,7 @@ function ProviderDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <DashboardCard
           title="My Venues"
-          description="Manage your wedding venues and listings"
+          description="Manage your event venues and listings"
           icon={<MapPin className="h-8 w-8 text-pink-600" />}
           action="Manage Venues"
           href="/provider/venues"
@@ -329,7 +329,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <DashboardCard
               title="My Venues"
-              description="Manage your wedding venues and listings"
+              description="Manage your event venues and listings"
               icon={<MapPin className="h-8 w-8 text-pink-600" />}
               action="Manage Venues"
               href="/provider/venues"
