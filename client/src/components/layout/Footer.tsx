@@ -10,7 +10,7 @@ export default function Footer() {
           <div className="col-span-1 md:col-span-2">
             <h3 className="text-2xl font-bold mb-4">Plannova</h3>
             <p className="text-gray-300 mb-4 max-w-md">
-              Making your wedding planning journey seamless and memorable with the best venues and services.
+              Making your event planning journey seamless and memorable with the best venues and services.
             </p>
             <p className="text-gray-400 text-sm">
               © {new Date().getFullYear()} Plannova. All rights reserved.
@@ -81,7 +81,7 @@ export default function Footer() {
         
         <div className="border-t border-gray-800 mt-8 pt-8 text-center">
           <p className="text-gray-400 text-sm">
-            Made with <Heart className="inline h-4 w-4 text-pink-500" /> for couples planning their dream wedding
+            Made with <Heart className="inline h-4 w-4 text-pink-500" /> for people planning their perfect events
           </p>
         </div>
       </div>
