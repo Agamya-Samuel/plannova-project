@@ -84,7 +84,7 @@ const decorationTypeOptions = [
   'Baby Shower',
   'Engagement',
   'Reception',
-  'Pre-wedding',
+  'Pre-event',
   'Festival Decoration',
   'Theme Parties'
 ];
