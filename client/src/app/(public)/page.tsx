@@ -24,6 +24,13 @@ export default function Home() {
   const [loadingVenues, setLoadingVenues] = useState(false);
   // Controls whether we show only a subset of category cards or all of them
   const [showAllCategories, setShowAllCategories] = useState(false);
+  // Dynamic homepage settings (admin managed)
+  const [pageTitle, setPageTitle] = useState<string>('');
+  const [bgImages, setBgImages] = useState<string[]>([]);
+  const [pageDescription, setPageDescription] = useState<string>('');
+  const [bgIndex, setBgIndex] = useState<number>(0);
+  const [textFrom, setTextFrom] = useState<string>('');
+  const [textTo, setTextTo] = useState<string>('');
 
   useEffect(() => {
     const fetchVenues = async () => {
@@ -40,7 +47,45 @@ export default function Home() {
       }
     };
     fetchVenues();
+    // Fetch dynamic homepage settings (title + background)
+    const fetchPageSettings = async () => {
+      try {
+        const res = await apiClient.get('/page-settings/home');
+        const data = res?.data || {};
+        setPageTitle(typeof data.title === 'string' ? data.title : '');
+        const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
+        setBgImages(imgs);
+        if (imgs.length > 0) {
+          setBgIndex(Math.floor(Math.random() * imgs.length));
+        }
+        setPageDescription(typeof data.description === 'string' ? data.description : '');
+        setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
+        setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
+      } catch {
+        // If not configured yet, keep defaults (no title rendered)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Homepage page-settings not found yet');
+        }
+      }
+    };
+    fetchPageSettings();
   }, []);
+
+  // Rotate background images randomly every 10 seconds if multiple provided
+  useEffect(() => {
+    if (bgImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setBgIndex((current) => {
+        if (bgImages.length <= 1) return 0;
+        let next = Math.floor(Math.random() * bgImages.length);
+        if (next === current) {
+          next = (current + 1) % bgImages.length; // ensure change
+        }
+        return next;
+      });
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [bgImages]);
 
   const handleCategoryClick = (categoryTitle: string) => {
     // Map category titles to venue types for filtering
@@ -142,7 +187,8 @@ export default function Home() {
       <div className="relative min-h-[80vh] bg-gradient-to-r from-pink-600 to-purple-600 overflow-hidden">
         {/* Background Image Overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100"
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700"
+          style={bgImages.length > 0 ? { backgroundImage: `url(${bgImages[bgIndex]})` } : undefined}
         />
         
         {/* Gradient Overlay */}
@@ -151,12 +197,22 @@ export default function Home() {
         {/* Hero Content */}
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
           <div className="text-center text-white max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Perfect Events, <span className="text-pink-200">Perfectly Planned</span>
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 text-pink-100 max-w-2xl mx-auto">
-              Find the best event venues with thousands of trusted reviews
-            </p>
+            {pageTitle ? (
+              <h1
+                className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
+                style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+              >
+                {pageTitle}
+              </h1>
+            ) : null}
+            {pageDescription ? (
+              <p
+                className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto ${textFrom && textTo ? 'bg-clip-text text-transparent' : 'text-pink-100'}`}
+                style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+              >
+                {pageDescription}
+              </p>
+            ) : null}
             
             {/* Search Bar */}
             <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8">
