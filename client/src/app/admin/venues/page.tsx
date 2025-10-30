@@ -386,7 +386,7 @@ export default function AdminVenuesPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => handleStatusFilterChange(e.target.value)}
-                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent text-black"
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   >
                     <option value="ALL">All Statuses</option>
                     <option value="PENDING">Pending</option>
