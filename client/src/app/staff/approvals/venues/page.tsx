@@ -23,6 +23,7 @@ import {
   Trash2
 } from 'lucide-react';
 import apiClient from '../../../../lib/api';
+import ImageModal from '../../../../components/ui/ImageModal';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '../../../../lib/sonner-confirm';
 import { sonnerPrompt } from '../../../../lib/sonner-prompt';
@@ -100,6 +101,9 @@ export default function StaffVenueApprovalsPage() {
   });
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
 
   const fetchVenues = async (page = 1, status = 'PENDING', search = '') => {
     try {
@@ -132,6 +136,31 @@ export default function StaffVenueApprovalsPage() {
   useEffect(() => {
     fetchVenues(currentPage, statusFilter, searchTerm);
   }, [currentPage, statusFilter, searchTerm]);
+
+  const handleImageClick = (venue: Venue, index: number) => {
+    setSelectedVenue(venue);
+    setSelectedImageIndex(index);
+    setShowImageModal(true);
+  };
+
+  const handleImageModalClose = () => {
+    setShowImageModal(false);
+    setSelectedVenue(null);
+  };
+
+  const handleImageNavigate = (direction: 'prev' | 'next') => {
+    if (!selectedVenue || selectedVenue.images.length === 0) return;
+    
+    if (direction === 'prev') {
+      setSelectedImageIndex(prev => 
+        prev === 0 ? selectedVenue.images.length - 1 : prev - 1
+      );
+    } else {
+      setSelectedImageIndex(prev => 
+        prev === selectedVenue.images.length - 1 ? 0 : prev + 1
+      );
+    }
+  };
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
@@ -466,17 +495,38 @@ export default function StaffVenueApprovalsPage() {
                       <div className="md:flex">
                         {/* Image */}
                         <div className="md:w-1/3">
-                          <div className="h-64 md:h-full">
+                          <div 
+                            className="h-64 md:h-full relative group cursor-pointer"
+                            onClick={() => {
+                              const images = venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images;
+                              if (images.length > 0) {
+                                handleImageClick(venue, 0);
+                              }
+                            }}
+                          >
                             {/* Show pending images if in pending edit status, otherwise show current images */}
                             {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).length > 0 ? (
-                              <Image
-                                src={(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).find((img: { isPrimary: boolean; }) => img.isPrimary)?.url || 
-                                ((venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images)[0]?.url) || '/placeholder-image.jpg'}
-                                alt={venue.name}
-                                width={800}
-                                height={600}
-                                className="w-full h-full object-cover"
-                              />
+                              <>
+                                <Image
+                                  src={(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).find((img: { isPrimary: boolean; }) => img.isPrimary)?.url || 
+                                  ((venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images)[0]?.url) || '/placeholder-image.jpg'}
+                                  alt={venue.name}
+                                  fill
+                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                                {/* Overlay on hover */}
+                                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                  <div className="bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1 rounded-full text-xs font-medium">
+                                    Click to view gallery
+                                  </div>
+                                </div>
+                                {/* Image count badge */}
+                                {((venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).length > 1) && (
+                                  <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded-full text-xs font-medium">
+                                    {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).length} photos
+                                  </div>
+                                )}
+                              </>
                             ) : (
                               <div className="w-full h-full bg-gray-200 flex items-center justify-center">
                                 <Upload className="h-12 w-12 text-gray-400" />
@@ -665,6 +715,17 @@ export default function StaffVenueApprovalsPage() {
           )}
         </div>
       </div>
+
+      {/* Image Modal */}
+      {selectedVenue && selectedVenue.images.length > 0 && (
+        <ImageModal
+          isOpen={showImageModal}
+          onClose={handleImageModalClose}
+          images={selectedVenue.images}
+          currentIndex={selectedImageIndex}
+          onNavigate={handleImageNavigate}
+        />
+      )}
     </ProtectedRoute>
   );
 }

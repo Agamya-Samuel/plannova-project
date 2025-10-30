@@ -11,7 +11,8 @@ import {
   Utensils,
   Heart,
   Video,
-  Sparkles
+  Sparkles,
+  Music
 } from 'lucide-react';
 
 interface StatsOverviewProps {
@@ -19,7 +20,7 @@ interface StatsOverviewProps {
   approvedServices: number;
   pendingServices: number;
   averagePrice: number;
-  serviceType: 'catering' | 'photography' | 'decoration' | 'bridal-makeup' | 'videography' | 'venues';
+  serviceType: 'catering' | 'photography' | 'decoration' | 'bridal-makeup' | 'videography' | 'venues' | 'entertainment';
   className?: string;
 }
 
@@ -29,6 +30,7 @@ const serviceIcons = {
   decoration: { icon: Heart, color: 'text-pink-600', bg: 'bg-pink-100' },
   'bridal-makeup': { icon: Sparkles, color: 'text-pink-600', bg: 'bg-pink-100' },
   videography: { icon: Video, color: 'text-pink-600', bg: 'bg-pink-100' },
+  entertainment: { icon: Music, color: 'text-pink-600', bg: 'bg-pink-100' },
   venues: { icon: Building, color: 'text-pink-600', bg: 'bg-pink-100' }
 };
 

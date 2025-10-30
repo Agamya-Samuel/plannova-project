@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -8,6 +8,7 @@ import { Camera, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
 import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
+import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
 interface PhotographyService {
   _id: string;
@@ -52,7 +53,7 @@ interface PhotographyService {
   updatedAt: string;
 }
 
-export default function ViewPhotographyService() {
+function ViewPhotographyServiceContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -410,8 +411,38 @@ export default function ViewPhotographyService() {
               </div>
             </div>
           </div>
+
+          {/* Blocked Dates Management - Only for approved services */}
+          {(service.status === 'APPROVED' || service.status === 'PENDING_EDIT') && (
+            <BlockedDatesManager 
+              serviceId={service._id}
+              serviceType="photography"
+              onUpdate={() => {
+                // Optional: Refresh service data or show notification
+                console.log('Blocked dates updated');
+              }}
+            />
+          )}
         </div>
       </div>
     </ProtectedRoute>
+  );
+}
+
+export default function ViewPhotographyService() {
+  return (
+    <Suspense fallback={
+      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
+        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-center items-center h-64">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
+            </div>
+          </div>
+        </div>
+      </ProtectedRoute>
+    }>
+      <ViewPhotographyServiceContent />
+    </Suspense>
   );
 }

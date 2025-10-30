@@ -13,11 +13,15 @@ export const checkFirebaseConfig = () => {
   const missing = Object.entries(config).filter(([, value]) => !value);
   
   if (missing.length > 0) {
-    console.error('Missing Firebase config:', missing.map(([key]) => key));
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Missing Firebase config:', missing.map(([key]) => key));
+    }
     return false;
   }
 
-  console.log('✅ All Firebase environment variables are set');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('✅ All Firebase environment variables are set');
+  }
   return true;
 };
 

@@ -26,6 +26,8 @@ const createBridalMakeupValidation = [
   body('basePrice').isFloat({ min: 0 }).withMessage('Base price must be a positive number'),
   body('makeupTypes').isArray({ min: 1 }).withMessage('At least one makeup type is required'),
   body('packages').isArray({ min: 1 }).withMessage('At least one package is required'),
+  body('packages.*.name').trim().isLength({ min: 1 }).withMessage('Package name is required'),
+  body('packages.*.price').isFloat({ min: 0 }).withMessage('Package price must be a positive number'),
 ];
 
 // GET /api/bridal-makeup - Get all approved bridal makeup services (for customers)
@@ -117,6 +119,18 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
       paymentTerms
     } = req.body;
 
+    // Filter out empty descriptions from packages to prevent validation errors
+    const validPackages = packages.map((pkg: { name: string; description: string; includes: string[]; duration?: string; price: number; isPopular: boolean }) => ({
+      ...pkg,
+      description: pkg.description?.trim() || 'Package description' // Provide default if empty
+    }));
+
+    // Filter out empty descriptions from addons
+    const validAddons = addons ? addons.map((addon: { name: string; description: string; price: number }) => ({
+      ...addon,
+      description: addon.description?.trim() || 'Add-on service' // Provide default if empty
+    })) : [];
+
     const bridalMakeup = await BridalMakeup.create({
       name,
       description,
@@ -125,8 +139,8 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
       contact,
       images: images || [],
       makeupTypes,
-      packages,
-      addons: addons || [],
+      packages: validPackages,
+      addons: validAddons,
       basePrice,
       cancellationPolicy,
       paymentTerms,
@@ -281,6 +295,18 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
       paymentTerms
     } = req.body;
 
+    // Filter out empty descriptions from packages to prevent validation errors
+    const validPackages = packages.map((pkg: { name: string; description: string; includes: string[]; duration?: string; price: number; isPopular: boolean }) => ({
+      ...pkg,
+      description: pkg.description?.trim() || 'Package description' // Provide default if empty
+    }));
+
+    // Filter out empty descriptions from addons
+    const validAddons = addons ? addons.map((addon: { name: string; description: string; price: number }) => ({
+      ...addon,
+      description: addon.description?.trim() || 'Add-on service' // Provide default if empty
+    })) : [];
+
     // For approved services, store edits in pendingEdits instead of directly updating
     if (bridalMakeup.status === ApprovalStatus.APPROVED) {
       // Store the edits in pendingEdits field
@@ -291,8 +317,8 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
         contact,
         images: images || [],
         makeupTypes,
-        packages,
-        addons: addons || [],
+        packages: validPackages,
+        addons: validAddons,
         basePrice,
         cancellationPolicy,
         paymentTerms,
@@ -308,8 +334,8 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
       bridalMakeup.contact = contact;
       bridalMakeup.images = images || [];
       bridalMakeup.makeupTypes = makeupTypes;
-      bridalMakeup.packages = packages;
-      bridalMakeup.addons = addons || [];
+      bridalMakeup.packages = validPackages;
+      bridalMakeup.addons = validAddons;
       bridalMakeup.basePrice = basePrice;
       bridalMakeup.cancellationPolicy = cancellationPolicy;
       bridalMakeup.paymentTerms = paymentTerms;
@@ -721,6 +747,138 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
   } catch (error) {
     console.error('Error rejecting bridal makeup service edits:', error);
     res.status(500).json({ error: 'Failed to reject bridal makeup service edits' });
+  }
+});
+
+// ============ BLOCKED DATES MANAGEMENT ROUTES ============
+
+// GET /api/bridal-makeup/:id/blocked-dates - Get blocked dates for a bridal makeup service
+router.get('/:id/blocked-dates', async (req: Request, res: Response) => {
+  try {
+    const bridalMakeup = await BridalMakeup.findOne({
+      _id: req.params.id,
+      status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
+      isActive: true
+    });
+
+    if (!bridalMakeup) {
+      return res.status(404).json({ error: 'Bridal makeup service not found' });
+    }
+
+    res.json({
+      blockedDates: bridalMakeup.blockedDates || []
+    });
+  } catch (error) {
+    console.error('Error fetching blocked dates:', error);
+    res.status(500).json({ error: 'Failed to fetch blocked dates' });
+  }
+});
+
+// Helper middleware to check if user is the provider of the bridal makeup service
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+const requireBridalMakeupProvider = async (req: AuthRequest, res: Response, next: Function) => {
+  if (!req.user || req.user.role !== UserRole.PROVIDER) {
+    return res.status(403).json({ error: 'Only providers can perform this action' });
+  }
+  next();
+};
+
+// POST /api/bridal-makeup/:id/blocked-dates - Add blocked dates (Provider only)
+router.post('/:id/blocked-dates', authenticateToken, requireBridalMakeupProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dates, reason } = req.body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ error: 'Dates array is required' });
+    }
+
+    const bridalMakeup = await BridalMakeup.findOne({
+      _id: req.params.id,
+      provider: req.user!.id
+    });
+
+    if (!bridalMakeup) {
+      return res.status(404).json({ error: 'Bridal makeup service not found or unauthorized' });
+    }
+
+    // Initialize blockedDates if it doesn't exist
+    if (!bridalMakeup.blockedDates) {
+      bridalMakeup.blockedDates = [];
+    }
+
+    // Add new blocked dates
+    const newBlockedDates = dates.map((dateStr: string) => ({
+      date: new Date(dateStr),
+      reason: reason || 'Offline booking',
+      blockedAt: new Date()
+    }));
+
+    // Filter out dates that are already blocked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingBlockedDates = bridalMakeup.blockedDates.map((bd: any) => 
+      bd.date.toISOString().split('T')[0]
+    );
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uniqueNewDates = newBlockedDates.filter((bd: any) => 
+      !existingBlockedDates.includes(bd.date.toISOString().split('T')[0])
+    );
+
+    bridalMakeup.blockedDates.push(...uniqueNewDates);
+    await bridalMakeup.save();
+
+    res.json({
+      message: `Successfully blocked ${uniqueNewDates.length} date(s)`,
+      blockedDates: bridalMakeup.blockedDates
+    });
+  } catch (error) {
+    console.error('Error adding blocked dates:', error);
+    res.status(500).json({ error: 'Failed to add blocked dates' });
+  }
+});
+
+// DELETE /api/bridal-makeup/:id/blocked-dates - Remove blocked date (Provider only)
+router.delete('/:id/blocked-dates', authenticateToken, requireBridalMakeupProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { date, reason } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Unblocking reason is required' });
+    }
+
+    const bridalMakeup = await BridalMakeup.findOne({
+      _id: req.params.id,
+      provider: req.user!.id
+    });
+
+    if (!bridalMakeup) {
+      return res.status(404).json({ error: 'Bridal makeup service not found or unauthorized' });
+    }
+
+    if (!bridalMakeup.blockedDates || bridalMakeup.blockedDates.length === 0) {
+      return res.status(404).json({ error: 'No blocked dates found' });
+    }
+
+    // Remove the blocked date
+    const dateToRemove = new Date(date).toISOString().split('T')[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    bridalMakeup.blockedDates = bridalMakeup.blockedDates.filter((bd: any) => 
+      bd.date.toISOString().split('T')[0] !== dateToRemove
+    );
+
+    await bridalMakeup.save();
+
+    res.json({
+      message: 'Blocked date removed successfully',
+      blockedDates: bridalMakeup.blockedDates
+    });
+  } catch (error) {
+    console.error('Error removing blocked date:', error);
+    res.status(500).json({ error: 'Failed to remove blocked date' });
   }
 });
 

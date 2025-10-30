@@ -21,7 +21,7 @@ const navItems: NavItem[] = [
   { label: 'Venues', href: '/venues', icon: <MapPin className="h-4 w-4" /> },
   { label: 'Vendors', href: '/vendors', roles: ['CUSTOMER', 'PROVIDER', 'ADMIN'], icon: <Users className="h-4 w-4" /> },
   { label: 'Photos', href: '/photos', icon: <Camera className="h-4 w-4" /> },
-  { label: 'Real Weddings', href: '/real-weddings', icon: <Heart className="h-4 w-4" /> },
+  { label: 'Past Events', href: '/past-events', icon: <Heart className="h-4 w-4" /> },
   { label: 'My Bookings', href: '/bookings', roles: ['CUSTOMER'], icon: <Calendar className="h-4 w-4" /> },
   // My Service dropdown will be added dynamically for providers
   { label: 'Approvals', href: '/staff/approvals', roles: ['STAFF'], icon: <CheckCircle className="h-4 w-4" /> },

@@ -71,7 +71,6 @@ export interface IVenueImage {
 export interface IContactInfo {
   phone: string;
   email: string;
-  whatsapp?: string;
   website?: string;
 }
 
@@ -95,6 +94,22 @@ export interface IAvailability {
   isAvailable: boolean;
   slots?: string[];
   specialPrice?: number;
+}
+
+// Interface for Blocked Dates (manually marked as unavailable)
+export interface IBlockedDate {
+  date: Date;
+  reason?: string; // Optional reason for blocking (e.g., "Offline booking", "Maintenance")
+  blockedAt: Date; // When this date was blocked
+}
+
+// Interface for Unblocking History (audit trail for unblocked dates)
+export interface IUnblockHistory {
+  date: Date; // The date that was unblocked
+  reason: string; // Reason for unblocking (e.g., "Cancel Booking", "Reject Booking")
+  originalBlockReason?: string; // What was the original blocking reason
+  unblockedAt: Date; // When the date was unblocked
+  unblockedBy: mongoose.Types.ObjectId; // Provider who unblocked it
 }
 
 // Interface for Reviews
@@ -147,6 +162,8 @@ export interface IVenue extends Document {
   // Availability
   availability: IAvailability[];
   isAlwaysAvailable: boolean;
+  blockedDates: IBlockedDate[]; // Manually blocked dates (offline bookings, maintenance, etc.)
+  unblockHistory: IUnblockHistory[]; // Audit trail of unblocked dates
   
   // Reviews & Ratings
   reviews: IReview[];
@@ -211,7 +228,6 @@ const VenueSchema: Schema<IVenue> = new Schema({
   contact: {
     phone: { type: String, required: true },
     email: { type: String, required: true },
-    whatsapp: String,
     website: String
   },
   
@@ -304,6 +320,22 @@ const VenueSchema: Schema<IVenue> = new Schema({
     type: Boolean,
     default: true
   },
+  
+  // Blocked Dates (manually marked as unavailable)
+  blockedDates: [{
+    date: { type: Date, required: true },
+    reason: { type: String, trim: true },
+    blockedAt: { type: Date, default: Date.now }
+  }],
+  
+  // Unblock History (audit trail)
+  unblockHistory: [{
+    date: { type: Date, required: true },
+    reason: { type: String, required: true, trim: true },
+    originalBlockReason: { type: String, trim: true },
+    unblockedAt: { type: Date, default: Date.now },
+    unblockedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true }
+  }],
   
   // Reviews & Ratings
   reviews: [{

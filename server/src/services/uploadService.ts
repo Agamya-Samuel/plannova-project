@@ -1,7 +1,9 @@
 import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import { Upload } from '@aws-sdk/lib-storage';
-import { DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getS3Client, getS3Config, generateFileKey, getS3Url } from '../utils/s3.js';
+import { compressImageBuffer } from './imageCompressionService.js';
 
 // File type configurations
 export const ALLOWED_IMAGE_TYPES = [
@@ -168,8 +170,42 @@ export const uploadToS3 = async (
       };
     }
 
+    // Compress image if it's an image file
+    let finalBuffer = buffer;
+    let finalFileName = fileName;
+    let finalFileType = fileType;
+    
+    if (uploadCategory === 'image') {
+      console.log(`Compressing image: ${fileName} (${fileSize} bytes)`);
+      
+      try {
+        const compressionResult = await compressImageBuffer(buffer, fileType);
+        
+        if (compressionResult.success && compressionResult.buffer) {
+          finalBuffer = compressionResult.buffer;
+          const sizeReduction = ((buffer.length - finalBuffer.length) / buffer.length * 100).toFixed(2);
+          
+          console.log(`Image compression successful: ${fileName}`);
+          console.log(`  Original size: ${buffer.length} bytes`);
+          console.log(`  Compressed size: ${finalBuffer.length} bytes`);
+          console.log(`  Size reduction: ${sizeReduction}%`);
+          
+          // Update file type if converted to WebP
+          if (compressionResult.format === 'webp') {
+            finalFileType = 'image/webp';
+            // Update file extension
+            finalFileName = fileName.replace(/\.[^/.]+$/, '') + '.webp';
+          }
+        } else {
+          console.warn(`Image compression failed for ${fileName}:`, compressionResult.error);
+        }
+      } catch (compressionError) {
+        console.warn(`Image compression error for ${fileName}:`, compressionError);
+      }
+    }
+
     // Generate file key
-    const key = generateFileKey(userId, uploadType, fileName, venueId);
+    const key = generateFileKey(userId, uploadType, finalFileName, venueId);
     
     // Get S3 client and config
     const client = getS3Client();
@@ -181,8 +217,8 @@ export const uploadToS3 = async (
       params: {
         Bucket: config.bucket,
         Key: key,
-        Body: buffer,
-        ContentType: fileType,
+        Body: finalBuffer,
+        ContentType: finalFileType,
         Metadata: {
           userId,
           uploadType,
@@ -271,6 +307,36 @@ export const bulkDeleteFromS3 = async (keys: string[]): Promise<UploadResult> =>
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Bulk delete failed'
+    };
+  }
+};
+
+// Generate presigned URL for viewing images
+export const generatePresignedViewUrl = async (
+  key: string,
+  expiresIn: number = 3600 // 1 hour default
+): Promise<{ success: boolean; url?: string; error?: string }> => {
+  try {
+    const client = getS3Client();
+    const config = getS3Config();
+
+    const command = new GetObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+    });
+
+    const presignedUrl = await getSignedUrl(client, command, { expiresIn });
+
+    return {
+      success: true,
+      url: presignedUrl
+    };
+
+  } catch (error) {
+    console.error('Error generating presigned view URL:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to generate view URL'
     };
   }
 };

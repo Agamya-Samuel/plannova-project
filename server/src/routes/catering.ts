@@ -65,7 +65,22 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
 
     // Fetch the full user object to check service categories
     const fullUser = await User.findById(req.user.id);
+    console.log('🔍 User details for my-services:', {
+      userId: req.user.id,
+      userRole: req.user.role,
+      fullUser: fullUser ? {
+        id: fullUser._id,
+        role: fullUser.role,
+        serviceCategories: fullUser.serviceCategories
+      } : null
+    });
+    
     if (!fullUser || !fullUser.serviceCategories || !fullUser.serviceCategories.includes('catering')) {
+      console.log('❌ User not registered as catering provider:', {
+        hasFullUser: !!fullUser,
+        serviceCategories: fullUser?.serviceCategories,
+        includesCatering: fullUser?.serviceCategories?.includes('catering')
+      });
       return res.status(403).json({ error: 'User is not registered as a catering provider' });
     }
 
@@ -205,20 +220,32 @@ router.patch('/:id/submit-for-approval', authenticateToken, async (req: AuthRequ
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log('🔍 Fetching catering service with ID:', id);
 
     if (!Types.ObjectId.isValid(id)) {
+      console.log('❌ Invalid ObjectId format:', id);
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
     const catering = await Catering.findById(id)
       .populate('provider', 'firstName lastName email phone');
 
+    console.log('🔍 Catering service found:', {
+      found: !!catering,
+      id: catering?._id,
+      name: catering?.name,
+      status: catering?.status,
+      isActive: catering?.isActive
+    });
+
     if (!catering) {
+      console.log('❌ Catering service not found for ID:', id);
       return res.status(404).json({ error: 'Catering service not found' });
     }
 
     // Allow viewing of approved and pending edit services
     if (catering.status !== ApprovalStatus.APPROVED && catering.status !== ApprovalStatus.PENDING_EDIT) {
+      console.log('⚠️ Service status not approved:', catering.status);
       // In a real implementation, we would check if the user is the provider or staff
       // For now, we'll return it but in a real app you'd add authentication checks
     }
@@ -228,7 +255,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       data: catering
     });
   } catch (error) {
-    console.error('Error fetching catering service:', error);
+    console.error('❌ Error fetching catering service:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -749,6 +776,163 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
   } catch (error) {
     console.error('Error rejecting catering service edits:', error);
     res.status(500).json({ error: 'Failed to reject catering service edits' });
+  }
+});
+
+// ============ BLOCKED DATES MANAGEMENT ROUTES ============
+
+// GET /api/catering/:id/blocked-dates - Get blocked dates for a catering service
+router.get('/:id/blocked-dates', async (req: Request, res: Response) => {
+  try {
+    const catering = await Catering.findOne({
+      _id: req.params.id,
+      status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
+      isActive: true
+    });
+
+    if (!catering) {
+      return res.status(404).json({ error: 'Catering service not found' });
+    }
+
+    res.json({
+      blockedDates: catering.blockedDates || []
+    });
+  } catch (error) {
+    console.error('Error fetching blocked dates:', error);
+    res.status(500).json({ error: 'Failed to fetch blocked dates' });
+  }
+});
+
+// Helper middleware to check if user is the provider of the catering service
+// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+const requireProvider = async (req: AuthRequest, res: Response, next: Function) => {
+  if (!req.user || req.user.role !== UserRole.PROVIDER) {
+    return res.status(403).json({ error: 'Only providers can perform this action' });
+  }
+  next();
+};
+
+// POST /api/catering/:id/blocked-dates - Add blocked dates (Provider only)
+router.post('/:id/blocked-dates', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dates, reason } = req.body;
+
+    if (!dates || !Array.isArray(dates) || dates.length === 0) {
+      return res.status(400).json({ error: 'Dates array is required' });
+    }
+
+    const catering = await Catering.findOne({
+      _id: req.params.id,
+      provider: req.user!.id
+    });
+
+    if (!catering) {
+      return res.status(404).json({ error: 'Catering service not found or unauthorized' });
+    }
+
+    // Initialize blockedDates if it doesn't exist
+    if (!catering.blockedDates) {
+      catering.blockedDates = [];
+    }
+
+    // Add new blocked dates
+    const newBlockedDates = dates.map((dateStr: string) => ({
+      date: new Date(dateStr),
+      reason: reason || 'Offline booking',
+      blockedAt: new Date()
+    }));
+
+    // Filter out dates that are already blocked
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const existingBlockedDates = catering.blockedDates.map((bd: any) => 
+      bd.date.toISOString().split('T')[0]
+    );
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uniqueNewDates = newBlockedDates.filter((bd: any) => 
+      !existingBlockedDates.includes(bd.date.toISOString().split('T')[0])
+    );
+
+    catering.blockedDates.push(...uniqueNewDates);
+    await catering.save();
+
+    res.json({
+      message: `Successfully blocked ${uniqueNewDates.length} date(s)`,
+      blockedDates: catering.blockedDates
+    });
+  } catch (error) {
+    console.error('Error adding blocked dates:', error);
+    res.status(500).json({ error: 'Failed to add blocked dates' });
+  }
+});
+
+// DELETE /api/catering/:id/blocked-dates - Remove blocked date (Provider only)
+router.delete('/:id/blocked-dates', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const { date, reason } = req.body;
+
+    if (!date) {
+      return res.status(400).json({ error: 'Date is required' });
+    }
+
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ error: 'Unblocking reason is required' });
+    }
+
+    const catering = await Catering.findOne({
+      _id: req.params.id,
+      provider: req.user!.id
+    });
+
+    if (!catering) {
+      return res.status(404).json({ error: 'Catering service not found or unauthorized' });
+    }
+
+    if (!catering.blockedDates || catering.blockedDates.length === 0) {
+      return res.status(404).json({ error: 'No blocked dates found' });
+    }
+
+    // Find the blocked date to get its original reason
+    const dateToRemove = new Date(date).toISOString().split('T')[0];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const blockedDate = catering.blockedDates.find((bd: any) => 
+      bd.date.toISOString().split('T')[0] === dateToRemove
+    );
+
+    if (!blockedDate) {
+      return res.status(404).json({ error: 'Blocked date not found' });
+    }
+
+    // Store in unblock history before removing
+    if (!catering.unblockHistory) {
+      catering.unblockHistory = [];
+    }
+
+    catering.unblockHistory.push({
+      date: new Date(date),
+      reason: reason.trim(),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      originalBlockReason: (blockedDate as any).reason || 'Not specified',
+      unblockedAt: new Date(),
+      unblockedBy: new Types.ObjectId(req.user!.id)
+    });
+
+    // Remove the blocked date
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    catering.blockedDates = catering.blockedDates.filter((bd: any) => 
+      bd.date.toISOString().split('T')[0] !== dateToRemove
+    );
+
+    await catering.save();
+
+    res.json({
+      message: 'Blocked date removed successfully',
+      blockedDates: catering.blockedDates,
+      unblockHistory: catering.unblockHistory
+    });
+  } catch (error) {
+    console.error('Error removing blocked date:', error);
+    res.status(500).json({ error: 'Failed to remove blocked date' });
   }
 });
 

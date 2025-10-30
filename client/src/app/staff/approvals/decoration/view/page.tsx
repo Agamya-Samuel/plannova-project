@@ -18,8 +18,10 @@ import {
   User
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '@/lib/sonner-confirm';
+import { sonnerPrompt } from '@/lib/sonner-prompt';
 
 interface ApiError extends Error {
   response?: {
@@ -185,8 +187,12 @@ function StaffDecorationViewContent() {
   const handleRejectEdit = async () => {
     if (!service) return;
     
-    const confirmed = await sonnerConfirm('Are you sure you want to reject these changes?');
-    if (!confirmed) {
+    const reason = await sonnerPrompt('Please provide a reason for rejecting these edits:', {
+      placeholder: 'Enter rejection reason...'
+    });
+    
+    if (!reason || reason.trim() === '') {
+      toast.error('Rejection reason is required');
       return;
     }
     
@@ -462,6 +468,16 @@ function StaffDecorationViewContent() {
 
             {/* Sidebar */}
             <div className="space-y-6">
+              {/* Availability Calendar */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Check Availability</h2>
+                <AvailabilityCalendar
+                  serviceId={displayData._id}
+                  serviceType="decoration"
+                  onDateSelect={() => {}}
+                  selectedDate={''}
+                />
+              </div>
               {/* Provider Information */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Provider Information</h2>

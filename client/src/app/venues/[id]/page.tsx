@@ -8,10 +8,11 @@ import {
   DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
+import { BookingModal } from '@/components/booking/BookingModal';
+import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 
 interface FoodOption {
   name: string;
@@ -61,6 +62,12 @@ interface Venue {
     state: string;
     pincode: string;
   };
+  contact: {
+    phone: string;
+    email: string;
+    whatsapp?: string;
+    website?: string;
+  };
   capacity: {
     min: number;
     max: number;
@@ -104,13 +111,8 @@ export default function VenueDetailsPage() {
   const [error, setError] = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [favorite, setFavorite] = useState(false);
-  const [showBookingForm, setShowBookingForm] = useState(false);
-  const [bookingData, setBookingData] = useState({
-    eventDate: '',
-    guestCount: '',
-    eventType: '',
-    specialRequests: ''
-  });
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>('');
 
   useEffect(() => {
     const fetchVenue = async () => {
@@ -133,14 +135,22 @@ export default function VenueDetailsPage() {
       }
     };
 
-    // Check if venue is already favorited
+    // Check if venue is already favorited (only if user is authenticated)
     const checkIfFavorited = async () => {
+      // Skip if user is not authenticated
+      if (!user) {
+        setFavorite(false);
+        return;
+      }
+      
       try {
         const response = await apiClient.get('/venues/favorites');
         const favoriteIds = new Set(response.data.venues.map((venue: Venue) => venue._id));
         setFavorite(favoriteIds.has(params.id as string));
       } catch (err) {
         console.error('Error checking favorite status:', err);
+        // If there's an error, assume it's not favorited
+        setFavorite(false);
       }
     };
 
@@ -148,38 +158,16 @@ export default function VenueDetailsPage() {
       fetchVenue();
       checkIfFavorited();
     }
-  }, [params.id, user?.role]);
-
-  const handleBookingSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!venue) return;
-
-    try {
-      // For now, just show an alert. In a real app, this would create a booking
-      toast.success(`Booking request submitted for ${venue.name}!
-
-Event Date: ${bookingData.eventDate}
-Guest Count: ${bookingData.guestCount}
-Event Type: ${bookingData.eventType}
-
-We'll contact you soon to confirm the booking.`);
-      
-      // Reset form
-      setBookingData({
-        eventDate: '',
-        guestCount: '',
-        eventType: '',
-        specialRequests: ''
-      });
-      setShowBookingForm(false);
-    } catch (err: unknown) {
-      console.error('Error submitting booking:', err);
-      toast.error('Failed to submit booking request. Please try again.');
-    }
-  };
+  }, [params.id, user?.role, user]);
 
   const toggleFavorite = async () => {
+    // Check if user is authenticated
+    if (!user) {
+      toast.error('Please log in to add favorites');
+      router.push('/auth/login');
+      return;
+    }
+    
     try {
       console.log('Toggling favorite for venue:', params.id);
       if (favorite) {
@@ -187,16 +175,23 @@ We'll contact you soon to confirm the booking.`);
         console.log('Removing from favorites');
         await apiClient.delete(`/venues/${params.id}/favorite`);
         setFavorite(false);
+        toast.success('Removed from favorites');
       } else {
         // Add to favorites
         console.log('Adding to favorites');
         await apiClient.post(`/venues/${params.id}/favorite`);
         setFavorite(true);
+        toast.success('Added to favorites');
       }
     } catch (err: unknown) {
       console.error('Error toggling favorite:', err);
       toast.error('Failed to update favorite. Please try again.');
     }
+  };
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    setShowBookingModal(true);
   };
 
   if (loading) {
@@ -689,6 +684,14 @@ We'll contact you soon to confirm the booking.`);
 
           {/* Sidebar */}
           <div className="space-y-6">
+            {/* Availability Calendar */}
+            <AvailabilityCalendar
+              serviceId={venue._id}
+              serviceType="venue"
+              onDateSelect={handleDateSelect}
+              selectedDate={selectedDate}
+            />
+
             {/* Booking Card */}
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
               <div className="text-center mb-6">
@@ -701,15 +704,20 @@ We'll contact you soon to confirm the booking.`);
                 <p className="text-gray-600">per event</p>
               </div>
 
-              <Button 
-                onClick={() => setShowBookingForm(true)}
-                className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-xl py-3 text-lg font-semibold"
-              >
-                <Calendar className="h-5 w-5 mr-2" />
-                Book Now
-              </Button>
+              {/* Instruction to use calendar */}
+              <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 mb-4">
+                <div className="flex items-start">
+                  <Calendar className="h-5 w-5 text-pink-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 mb-1">How to Book</p>
+                    <p className="text-xs text-gray-600">
+                      Select an available date from the calendar above to start your booking
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-              <div className="mt-4 text-center">
+              <div className="text-center">
                 <p className="text-sm text-gray-500">
                   Contact provider for custom pricing
                 </p>
@@ -740,16 +748,27 @@ We'll contact you soon to confirm the booking.`);
                 
                 <div className="flex items-center space-x-3">
                   <Mail className="h-4 w-4 text-pink-600" />
-                  <a href={`mailto:${venue.providerId.email}`} className="text-pink-600 hover:text-pink-700">
-                    {venue.providerId.email}
+                  <a href={`mailto:${venue.contact?.email || venue.providerId.email}`} className="text-pink-600 hover:text-pink-700">
+                    {venue.contact?.email || venue.providerId.email}
                   </a>
                 </div>
                 
-                {venue.providerId.phone && (
+                {/* Show venue contact phone first, fallback to provider phone */}
+                {(venue.contact?.phone || venue.providerId.phone) && (
                   <div className="flex items-center space-x-3">
                     <Phone className="h-4 w-4 text-pink-600" />
-                    <a href={`tel:${venue.providerId.phone}`} className="text-pink-600 hover:text-pink-700">
-                      {venue.providerId.phone}
+                    <a href={`tel:${venue.contact?.phone || venue.providerId.phone}`} className="text-pink-600 hover:text-pink-700">
+                      {venue.contact?.phone || venue.providerId.phone}
+                    </a>
+                  </div>
+                )}
+                
+                {/* Show WhatsApp if available */}
+                {venue.contact?.whatsapp && (
+                  <div className="flex items-center space-x-3">
+                    <Phone className="h-4 w-4 text-green-600" />
+                    <a href={`https://wa.me/${venue.contact.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello! I'm interested in ${venue.name}`)}`} target="_blank" rel="noopener noreferrer" className="text-green-600 hover:text-green-700">
+                      WhatsApp: {venue.contact.whatsapp}
                     </a>
                   </div>
                 )}
@@ -760,105 +779,17 @@ We'll contact you soon to confirm the booking.`);
       </div>
 
       {/* Booking Modal */}
-      {showBookingForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-900">Book {venue.name}</h2>
-                <button
-                  onClick={() => setShowBookingForm(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <form onSubmit={handleBookingSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Date
-                  </label>
-                  <Input
-                    type="date"
-                    value={bookingData.eventDate}
-                    onChange={(e) => setBookingData(prev => ({ ...prev, eventDate: e.target.value }))}
-                    required
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Guest Count
-                  </label>
-                  <Input
-                    type="number"
-                    min={venue.capacity.min}
-                    max={venue.capacity.max}
-                    value={bookingData.guestCount}
-                    onChange={(e) => setBookingData(prev => ({ ...prev, guestCount: e.target.value }))}
-                    placeholder={`${venue.capacity.min} - ${venue.capacity.max} guests`}
-                    required
-                    className="w-full"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Event Type
-                  </label>
-                  <select
-                    value={bookingData.eventType}
-                    onChange={(e) => setBookingData(prev => ({ ...prev, eventType: e.target.value }))}
-                    required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                  >
-                    <option value="">Select event type</option>
-                    <option value="Wedding">Wedding</option>
-                    <option value="Birthday Party">Birthday Party</option>
-                    <option value="Corporate Event">Corporate Event</option>
-                    <option value="Anniversary">Anniversary</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Special Requests
-                  </label>
-                  <textarea
-                    value={bookingData.specialRequests}
-                    onChange={(e) => setBookingData(prev => ({ ...prev, specialRequests: e.target.value }))}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent"
-                    placeholder="Any special requirements or requests..."
-                  />
-                </div>
-
-                <div className="flex space-x-3 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setShowBookingForm(false)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    className="flex-1 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
-                  >
-                    Submit Booking
-                  </Button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
+      {venue && (
+        <BookingModal
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          serviceId={venue._id}
+          serviceName={venue.name}
+          serviceType="venue"
+          basePrice={venue.basePrice}
+          pricePerGuest={0}
+          preselectedDate={selectedDate}
+        />
       )}
     </div>
   );

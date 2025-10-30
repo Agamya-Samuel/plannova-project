@@ -1,14 +1,30 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [showMobileAlert, setShowMobileAlert] = useState(false);
+
+  // Check if user needs to provide mobile number
+  useEffect(() => {
+    console.log('Dashboard useEffect triggered', { user });
+    
+    // Only show the alert if user is authenticated and doesn't have a phone number
+    if (user && !user.phone) {
+      console.log('User does not have phone number, showing alert');
+      setShowMobileAlert(true);
+    } else if (user && user.phone) {
+      console.log('User has phone number, hiding alert if it was shown');
+      setShowMobileAlert(false);
+    }
+  }, [user]);
 
   const renderDashboardContent = () => {
     switch (user?.role) {
@@ -68,6 +84,12 @@ export default function DashboardPage() {
           
           {renderDashboardContent()}
         </div>
+        
+        <MobileNumberAlertDialog
+          isOpen={showMobileAlert}
+          onClose={() => setShowMobileAlert(false)}
+          userDisplayName={user?.firstName || 'there'}
+        />
       </div>
     </ProtectedRoute>
   );
@@ -76,9 +98,9 @@ export default function DashboardPage() {
 function getRoleMessage(role?: string) {
   switch (role) {
     case 'CUSTOMER':
-      return "Let's find the perfect venue for your dream wedding";
+      return "Let's find the perfect venue for your perfect event";
     case 'PROVIDER':
-      return "Manage your service offerings and connect with couples";
+      return "Manage your service offerings and connect with clients";
     case 'ADMIN':
       return "Oversee the platform and support our community";
     default:
@@ -91,7 +113,7 @@ function CustomerDashboard() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <DashboardCard
         title="My Bookings"
-        description="View and manage your wedding venue bookings"
+        description="View and manage your event venue bookings"
         icon={<Calendar className="h-8 w-8 text-pink-600" />}
         action="View Bookings"
         href="/bookings"
@@ -100,7 +122,7 @@ function CustomerDashboard() {
       />
       <DashboardCard
         title="Browse Venues"
-        description="Discover beautiful wedding venues for your special day"
+        description="Discover beautiful event venues for your special occasion"
         icon={<MapPin className="h-8 w-8 text-purple-600" />}
         action="Browse Venues"
         href="/venues"
@@ -242,7 +264,7 @@ function ProviderDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <DashboardCard
           title="My Venues"
-          description="Manage your wedding venues and listings"
+          description="Manage your event venues and listings"
           icon={<MapPin className="h-8 w-8 text-pink-600" />}
           action="Manage Venues"
           href="/provider/venues"
@@ -307,7 +329,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <DashboardCard
               title="My Venues"
-              description="Manage your wedding venues and listings"
+              description="Manage your event venues and listings"
               icon={<MapPin className="h-8 w-8 text-pink-600" />}
               action="Manage Venues"
               href="/provider/venues"
@@ -925,7 +947,7 @@ function AdminDashboard() {
           color="green"
         />
         <DashboardCard
-          title="Reports"
+          title="Analytics & Reports"
           description="Generate platform analytics and reports"
           icon={<BarChart3 className="h-8 w-8 text-purple-600" />}
           action="View Reports"
