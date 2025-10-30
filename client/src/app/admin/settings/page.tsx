@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner';
 
 export default function AdminSettingsPage() {
-  const { user: currentUser, isLoading } = useAuth();
+  const { user: currentUser } = useAuth();
   const [saving, setSaving] = useState(false);
   
   // Form states

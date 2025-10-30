@@ -26,7 +26,7 @@ interface ContentItem {
 }
 
 export default function AdminContentPage() {
-  const { user: currentUser, isLoading } = useAuth();
+  const { user: currentUser } = useAuth();
   const [contentItems] = useState<ContentItem[]>([
     {
       id: '1',

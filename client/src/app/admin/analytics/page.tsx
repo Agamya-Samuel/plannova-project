@@ -84,7 +84,7 @@ interface UmamiMetrics {
 }
 
 export default function AdminAnalyticsPage() {
-  const { user: currentUser, isLoading } = useAuth();
+  const { user: currentUser } = useAuth();
   const [stats, setStats] = useState<UmamiStats | null>(null);
   const [metrics, setMetrics] = useState<UmamiMetrics | null>(null);
   const [loading, setLoading] = useState(true);
