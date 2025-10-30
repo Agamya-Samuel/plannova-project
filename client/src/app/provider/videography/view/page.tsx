@@ -8,6 +8,7 @@ import { Video, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
 import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
+import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
 interface VideographyService {
   _id: string;
@@ -377,6 +378,18 @@ function ViewVideographyServiceContent() {
                   </Button>
                 </div>
               </div>
+
+              {/* Blocked Dates Management - Only for approved services */}
+              {(service.status === 'APPROVED' || service.status === 'PENDING_EDIT') && (
+                <BlockedDatesManager 
+                  serviceId={service._id}
+                  serviceType="videography"
+                  onUpdate={() => {
+                    // Optional: Refresh service data or show notification
+                    console.log('Blocked dates updated');
+                  }}
+                />
+              )}
             </div>
           </div>
         </div>

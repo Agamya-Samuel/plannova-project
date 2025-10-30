@@ -287,7 +287,7 @@ export default function ProviderVenuesPage() {
                 <div>
               <h1 className="text-3xl font-bold text-gray-900">My Venues</h1>
               <p className="mt-2 text-gray-600">
-                    Manage your wedding venues and track their performance
+                    Manage your event venues and track their performance
                   </p>
                 </div>
             <Button

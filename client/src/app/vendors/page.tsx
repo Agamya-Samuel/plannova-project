@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Video, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -140,17 +140,43 @@ interface DecorationService {
   status?: string;
 }
 
-const categories = [
-  { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
-  { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
-  { name: 'Videography', icon: <Video className="h-5 w-5" />, count: 134 },
-  { name: 'Decoration', icon: <Flower className="h-5 w-5" />, count: 156 },
-  { name: 'Music & Entertainment', icon: <Music className="h-5 w-5" />, count: 98 },
-  { name: 'Makeup & Beauty', icon: <Heart className="h-5 w-5" />, count: 167 }
-];
+// Define the EntertainmentService interface to match the backend model
+interface EntertainmentService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  entertainmentTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string;
+}
 
-export default function VendorsPage() {
+// Category chip config (icons). Counts are computed from live data below
+const categoryIconMap: Record<string, React.ReactNode> = {
+  'Photography': <Camera className="h-5 w-5" />,
+  'Catering': <Utensils className="h-5 w-5" />,
+  'Videography': <Video className="h-5 w-5" />,
+  'Decoration': <Flower className="h-5 w-5" />,
+  'Music & Entertainment': <Music className="h-5 w-5" />,
+  'Makeup & Beauty': <Heart className="h-5 w-5" />,
+};
+
+function VendorsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -159,6 +185,7 @@ export default function VendorsPage() {
   const [videographyServices, setVideographyServices] = useState<VideographyService[]>([]);
   const [bridalMakeupServices, setBridalMakeupServices] = useState<BridalMakeupService[]>([]);
   const [decorationServices, setDecorationServices] = useState<DecorationService[]>([]);
+  const [entertainmentServices, setEntertainmentServices] = useState<EntertainmentService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -186,6 +213,10 @@ export default function VendorsPage() {
         // Fetch decoration services
         const decorationResponse = await apiClient.get('/decoration');
         setDecorationServices(decorationResponse.data.data);
+        
+        // Fetch entertainment services
+        const entertainmentResponse = await apiClient.get('/entertainment');
+        setEntertainmentServices(entertainmentResponse.data.data);
       } catch (err) {
         console.error('Error fetching services:', err);
         setError('Failed to load services');
@@ -196,6 +227,16 @@ export default function VendorsPage() {
 
     fetchData();
   }, []);
+
+  // Initialize selected category from URL (?category=Photography)
+  // This enables deep linking from the home page vendor types section
+  useEffect(() => {
+    const initialCategory = searchParams?.get('category');
+    if (initialCategory) {
+      setSelectedCategory(initialCategory);
+    }
+    // We intentionally only set on mount/param changes
+  }, [searchParams]);
 
   const toggleFavorite = (vendorId: string) => {
     const newFavorites = new Set(favorites);
@@ -285,12 +326,54 @@ export default function VendorsPage() {
     isVerified: true
   }));
 
+  // Transform entertainment services to vendor format for display
+  const entertainmentVendors: Vendor[] = entertainmentServices
+    .filter(service => service.status === 'APPROVED' || service.status === 'PENDING_EDIT')
+    .map(service => ({
+      id: service._id,
+      name: service.name || 'Untitled Service',
+      category: 'Music & Entertainment',
+      location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+      rating: service.rating || 0,
+      reviews: service.reviewCount || 0,
+      startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+      image: service.images && service.images.length > 0 
+        ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+        : 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      services: service.entertainmentTypes ? service.entertainmentTypes.slice(0, 3) : [],
+      isVerified: true
+    }));
+
   // Combine all vendors
-  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors]);
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors, ...entertainmentVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors, entertainmentVendors]);
 
   const filteredVendors = selectedCategory === 'All' 
     ? allVendors 
     : allVendors.filter(vendor => vendor.category === selectedCategory);
+
+  // Compute category counts from fetched data to avoid hardcoding numbers
+  const computedCategories = useMemo(() => {
+    const counts: Record<string, number> = {
+      'Photography': photographyVendors.length,
+      'Catering': cateringVendors.length,
+      'Videography': videographyVendors.length,
+      'Decoration': decorationVendors.length,
+      'Music & Entertainment': entertainmentVendors.length,
+      'Makeup & Beauty': bridalMakeupVendors.length,
+    };
+    return Object.keys(counts).map((name) => ({
+      name,
+      icon: categoryIconMap[name],
+      count: counts[name] || 0,
+    }));
+  }, [
+    photographyVendors.length,
+    cateringVendors.length,
+    videographyVendors.length,
+    decorationVendors.length,
+    entertainmentVendors.length,
+    bridalMakeupVendors.length,
+  ]);
 
   // Debug log to check if services are being fetched
   useEffect(() => {
@@ -299,8 +382,9 @@ export default function VendorsPage() {
     console.log('Videography services count:', videographyServices.length);
     console.log('Bridal makeup services count:', bridalMakeupServices.length);
     console.log('Decoration services count:', decorationServices.length);
+    console.log('Entertainment services count:', entertainmentServices.length);
     console.log('All vendors count:', allVendors.length);
-  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, allVendors]);
+  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, entertainmentServices, allVendors]);
 
   if (loading) {
     return (
@@ -316,9 +400,9 @@ export default function VendorsPage() {
       <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">Wedding Vendors</h1>
+            <h1 className="text-4xl font-bold mb-4">Event Vendors</h1>
             <p className="text-xl text-pink-100 mb-8">
-              Connect with the best wedding professionals in your city
+              Connect with the best event professionals in your city
             </p>
             
             {/* Search Bar */}
@@ -379,7 +463,7 @@ export default function VendorsPage() {
             >
               <span>All Categories</span>
             </button>
-            {categories.map((category, index) => (
+            {computedCategories.map((category, index) => (
               <button
                 key={index}
                 onClick={() => setSelectedCategory(category.name)}
@@ -418,7 +502,7 @@ export default function VendorsPage() {
           
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Sort by:</span>
-            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:ring-2 focus:ring-pink-500 focus:border-transparent">
               <option>Popularity</option>
               <option>Price: Low to High</option>
               <option>Price: High to Low</option>
@@ -571,9 +655,15 @@ export default function VendorsPage() {
                         router.push(`/catering/${vendor.id}`);
                       } else if (vendor.category === 'Videography') {
                         router.push(`/videography/${vendor.id}`);
+                      } else if (vendor.category === 'Decoration') {
+                        router.push(`/decoration/${vendor.id}`);
+                      } else if (vendor.category === 'Makeup & Beauty') {
+                        router.push(`/bridal-makeup/${vendor.id}`);
+                      } else if (vendor.category === 'Music & Entertainment') {
+                        router.push(`/entertainment/${vendor.id}`);
                       } else {
-                        // Default to photography for now
-                        router.push(`/photography/${vendor.id}`);
+                        // Default fallback
+                        router.push(`/vendors`);
                       }
                     }}
                   >
@@ -597,5 +687,22 @@ export default function VendorsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VendorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="flex items-center space-x-2 text-pink-600">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Loading vendors...</span>
+          </div>
+        </div>
+      }
+    >
+      <VendorsPageInner />
+    </Suspense>
   );
 }

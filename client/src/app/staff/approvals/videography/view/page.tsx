@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Video, Edit3, ArrowLeft, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
 import Image from 'next/image';
+import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import apiClient from '@/lib/api';
 
 interface VideographyService {
@@ -244,8 +245,9 @@ function ViewVideographyService() {
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          {/* Main Content with sidebar calendar */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg overflow-hidden">
             {/* Service Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-start">
@@ -433,6 +435,18 @@ function ViewVideographyService() {
                     <span>{new Date(service.updatedAt).toLocaleDateString()}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+            </div>
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Check Availability</h3>
+                <AvailabilityCalendar
+                  serviceId={service._id}
+                  serviceType="videography"
+                  onDateSelect={() => {}}
+                  selectedDate={''}
+                />
               </div>
             </div>
           </div>

@@ -23,7 +23,6 @@ export interface VenueAddress {
 export interface VenueContact {
   phone: string;
   email: string;
-  whatsapp?: string;
   website?: string;
 }
 

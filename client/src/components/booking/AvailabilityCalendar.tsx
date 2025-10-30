@@ -36,13 +36,19 @@ export function AvailabilityCalendar({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth, serviceId, serviceType]);
 
-  // Helper function to convert Date to YYYY-MM-DD string without timezone issues
+  // Helper function to convert Date to YYYY-MM-DD string in UTC to avoid timezone issues
   const formatDateToString = (date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
+
+  // Helper function to parse YYYY-MM-DD string to local Date object
+  // const parseLocalDate = (dateStr: string): Date => {
+  //   const [year, month, day] = dateStr.split('-').map(Number);
+  //   return new Date(year, month - 1, day);
+  // };
 
   const fetchAvailability = async () => {
     try {

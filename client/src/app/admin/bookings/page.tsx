@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { 
   Calendar, 
   Search,
@@ -14,102 +15,35 @@ import {
   Clock,
   IndianRupee
 } from 'lucide-react';
-
-
-interface Booking {
-  id: string;
-  venueName: string;
-  venueImage: string;
-  date: string;
-  time: string;
-  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
-  totalPrice: number;
-  guestCount: number;
-  contactPerson: string;
-  contactPhone: string;
-  contactEmail: string;
-}
+import type { Booking } from '@/types/booking';
+import apiClient from '@/lib/api';
 
 export default function AdminBookingsPage() {
   const { user: currentUser } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [totalBookings, setTotalBookings] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchBookings = async (_page = 1, status = 'ALL', search = '') => {
+  // Fetch bookings from API instead of mock data
+  // Memoized to satisfy react-hooks exhaustive-deps and avoid unnecessary re-creations
+  const fetchBookings = useCallback(async (status: string = 'all', search: string = '') => {
     try {
       setLoading(true);
-      // For now, we'll simulate booking data since there isn't a direct admin bookings endpoint
-      // In a real implementation, this would call an actual admin bookings API
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock data - in a real app, this would come from an API
-      const mockBookings: Booking[] = [
-        {
-          id: '1',
-          venueName: 'Grand Palace Banquet Hall',
-          venueImage: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-          date: '2025-10-25',
-          time: '18:00',
-          status: 'CONFIRMED',
-          totalPrice: 150000,
-          guestCount: 200,
-          contactPerson: 'Rajesh Kumar',
-          contactPhone: '+91 9876543210',
-          contactEmail: 'rajesh.kumar@email.com'
-        },
-        {
-          id: '2',
-          venueName: 'Riverside Garden Resort',
-          venueImage: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-          date: '2025-11-12',
-          time: '12:00',
-          status: 'PENDING',
-          totalPrice: 85000,
-          guestCount: 150,
-          contactPerson: 'Priya Sharma',
-          contactPhone: '+91 9876543211',
-          contactEmail: 'priya.sharma@email.com'
-        },
-        {
-          id: '3',
-          venueName: 'Skyline Convention Center',
-          venueImage: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-          date: '2025-10-30',
-          time: '19:00',
-          status: 'CANCELLED',
-          totalPrice: 120000,
-          guestCount: 180,
-          contactPerson: 'Amit Patel',
-          contactPhone: '+91 9876543212',
-          contactEmail: 'amit.patel@email.com'
-        },
-        {
-          id: '4',
-          venueName: 'Heritage Manor',
-          venueImage: 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
-          date: '2025-12-05',
-          time: '11:00',
-          status: 'COMPLETED',
-          totalPrice: 200000,
-          guestCount: 250,
-          contactPerson: 'Sneha Reddy',
-          contactPhone: '+91 9876543213',
-          contactEmail: 'sneha.reddy@email.com'
-        }
-      ];
-      
+      // Use provider incoming list if provider; otherwise use user bookings
+      const isProvider = currentUser?.role === 'PROVIDER';
+      const endpoint = isProvider ? '/bookings/provider/incoming' : '/bookings';
+      const response = await apiClient.get(endpoint);
+      const apiBookings: Booking[] = response.data || [];
+
       // Apply filters
-      let filteredBookings = mockBookings;
+      let filteredBookings = apiBookings;
       
-      if (status !== 'ALL') {
-        filteredBookings = filteredBookings.filter(booking => booking.status === status);
+      if (status !== 'all') {
+        filteredBookings = filteredBookings.filter(booking => booking.status.toLowerCase() === status.toLowerCase());
       }
       
       if (search) {
@@ -130,36 +64,40 @@ export default function AdminBookingsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser?.role === 'ADMIN') {
-      fetchBookings(1, statusFilter, searchTerm);
+      fetchBookings(statusFilter, searchTerm);
     }
-  }, [statusFilter, currentUser, searchTerm]);
+  }, [statusFilter, currentUser, searchTerm, fetchBookings]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchBookings(1, statusFilter, value);
+    fetchBookings(statusFilter, value);
   };
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
-    fetchBookings(1, value, searchTerm);
+    fetchBookings(value, searchTerm);
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'PENDING':
+      case 'pending':
         return <Clock className="h-4 w-4 text-yellow-500" />;
       case 'CONFIRMED':
+      case 'confirmed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       case 'CANCELLED':
+      case 'cancelled':
         return <XCircle className="h-4 w-4 text-red-500" />;
-      case 'COMPLETED':
-        return <CheckCircle className="h-4 w-4 text-blue-500" />;
+      case 'REJECTED':
+      case 'rejected':
+        return <XCircle className="h-4 w-4 text-purple-500" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
@@ -168,13 +106,17 @@ export default function AdminBookingsPage() {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDING':
+      case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'CONFIRMED':
+      case 'confirmed':
         return 'bg-green-100 text-green-800';
       case 'CANCELLED':
+      case 'cancelled':
         return 'bg-red-100 text-red-800';
-      case 'COMPLETED':
-        return 'bg-blue-100 text-blue-800';
+      case 'REJECTED':
+      case 'rejected':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -183,13 +125,17 @@ export default function AdminBookingsPage() {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'PENDING':
+      case 'pending':
         return 'Pending';
       case 'CONFIRMED':
+      case 'confirmed':
         return 'Confirmed';
       case 'CANCELLED':
+      case 'cancelled':
         return 'Cancelled';
-      case 'COMPLETED':
-        return 'Completed';
+      case 'REJECTED':
+      case 'rejected':
+        return 'Rejected';
       default:
         return status;
     }
@@ -245,7 +191,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {bookings.filter(b => b.status === 'PENDING').length}
+                    {bookings.filter(b => b.status === 'pending').length}
                   </p>
                 </div>
               </div>
@@ -259,7 +205,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Confirmed</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {bookings.filter(b => b.status === 'CONFIRMED').length}
+                    {bookings.filter(b => b.status === 'confirmed').length}
                   </p>
                 </div>
               </div>
@@ -314,11 +260,11 @@ export default function AdminBookingsPage() {
                     onChange={(e) => handleStatusFilterChange(e.target.value)}
                     className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   >
-                    <option value="ALL">All Statuses</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="CONFIRMED">Confirmed</option>
-                    <option value="CANCELLED">Cancelled</option>
-                    <option value="COMPLETED">Completed</option>
+                    <option value="all">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="confirmed">Confirmed</option>
+                    <option value="cancelled">Cancelled</option>
+                    <option value="rejected">Rejected</option>
                   </select>
                 </div>
               </div>
@@ -326,7 +272,7 @@ export default function AdminBookingsPage() {
           </div>
 
           {/* Search Results Info */}
-          {!loading && !error && (searchTerm || statusFilter !== 'ALL') && (
+          {!loading && !error && (searchTerm || statusFilter !== 'all') && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -334,15 +280,15 @@ export default function AdminBookingsPage() {
                   <span className="text-red-800 font-medium">
                     {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
                     {searchTerm && ` for "${searchTerm}"`}
-                    {statusFilter !== 'ALL' && ` with status "${getStatusText(statusFilter)}"`}
+                    {statusFilter !== 'all' && ` with status "${getStatusText(statusFilter)}"`}
                   </span>
                 </div>
                 <button
                   onClick={() => {
                     setSearchTerm('');
-                    setStatusFilter('ALL');
+                    setStatusFilter('all');
                     setCurrentPage(1);
-                    fetchBookings(1, 'ALL', '');
+                    fetchBookings('all', '');
                   }}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                 >
@@ -399,13 +345,12 @@ export default function AdminBookingsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
-                              <img 
+                              <Image 
                                 src={booking.venueImage} 
                                 alt={booking.venueName}
-                                className="h-10 w-10 rounded-full object-cover"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
-                                }}
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover"
                               />
                             </div>
                             <div className="ml-4">

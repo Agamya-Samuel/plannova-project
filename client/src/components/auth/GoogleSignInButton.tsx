@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -21,7 +21,7 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
   className = '',
   children
 }) => {
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const { googleSignIn } = useAuth();
 
   const handleGoogleSignIn = async () => {
@@ -29,20 +29,29 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
 
     setIsLoading(true);
     try {
-      console.log('GoogleSignInButton: Starting Google authentication...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('GoogleSignInButton: Starting Google authentication...');
+      }
       
       // Use the AuthContext googleSignIn method which handles everything
       const result = await googleSignIn();
       
       if (result.needsRoleSelection) {
-        console.log('GoogleSignInButton: Role selection needed');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('GoogleSignInButton: Role selection needed');
+        }
         onRoleSelectionNeeded?.();
       } else {
-        console.log('GoogleSignInButton: Complete sign-in successful');
+        // We no longer check for mobile number during login - this is handled on the dashboard
+        if (process.env.NODE_ENV === 'development') {
+          console.log('GoogleSignInButton: Complete sign-in successful');
+        }
         onSuccess?.();
       }
     } catch (error) {
-      console.error('GoogleSignInButton: Authentication failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('GoogleSignInButton: Authentication failed:', error);
+      }
       onError?.(error);
     } finally {
       setIsLoading(false);

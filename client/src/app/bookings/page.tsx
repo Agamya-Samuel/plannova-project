@@ -142,33 +142,7 @@ export default function BookingsPage() {
     window.location.href = `tel:${phone}`;
   };
 
-  const handleWhatsApp = (phone: string) => {
-    if (!phone) {
-      console.error('Phone number not available');
-      return;
-    }
-    
-    // Remove all non-numeric characters
-    let cleanPhone = phone.replace(/\D/g, '');
-    
-    // Ensure we have a valid phone number
-    if (cleanPhone.length < 10) {
-      console.error('Invalid phone number format');
-      return;
-    }
-    
-    // If number doesn't start with country code and is 10 digits, add 91
-    if (cleanPhone.length === 10) {
-      cleanPhone = '91' + cleanPhone;
-    }
-    
-    // Pre-filled message
-    const message = encodeURIComponent(`Hello! I'm contacting you regarding my booking at ${contactBooking?.serviceName || contactBooking?.venueName}.`);
-    
-    // Open WhatsApp - works on both mobile and desktop
-    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${message}`;
-    window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
-  };
+
 
   if (loading) {
     return (
@@ -191,7 +165,7 @@ export default function BookingsPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
                   <p className="text-gray-600">
-                    View and manage your wedding service bookings
+                    View and manage your event service bookings
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0">
@@ -319,7 +293,7 @@ export default function BookingsPage() {
                       
                       {/* Action Buttons */}
                       <div className="mt-6 flex flex-wrap gap-3">
-                        {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                        {booking.status === 'pending' && (
                           <button 
                             onClick={() => handleCancelBooking(booking.id)}
                             className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
@@ -415,30 +389,6 @@ export default function BookingsPage() {
                         </div>
                       </div>
                       <div className="text-blue-600 group-hover:translate-x-1 transition-transform">
-                        →
-                      </div>
-                    </button>
-                  )}
-
-                  {/* WhatsApp */}
-                  {(contactBooking.provider?.whatsapp || contactBooking.provider?.phone) && (
-                    <button
-                      onClick={() => {
-                        handleWhatsApp(contactBooking.provider!.whatsapp || contactBooking.provider!.phone!);
-                        setShowContactModal(false);
-                      }}
-                      className="w-full flex items-center justify-between p-4 bg-green-50 hover:bg-green-100 rounded-lg transition-colors group"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="bg-green-600 p-2 rounded-full">
-                          <MessageCircle className="h-5 w-5 text-white" />
-                        </div>
-                        <div className="text-left">
-                          <p className="font-semibold text-gray-900">WhatsApp Message</p>
-                          <p className="text-sm text-gray-600">Send message via WhatsApp</p>
-                        </div>
-                      </div>
-                      <div className="text-green-600 group-hover:translate-x-1 transition-transform">
                         →
                       </div>
                     </button>

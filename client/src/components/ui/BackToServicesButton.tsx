@@ -7,7 +7,7 @@ import { Button } from './button';
 import { ArrowLeft } from 'lucide-react';
 
 interface BackToServicesButtonProps {
-  serviceType: 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration' | 'venues';
+  serviceType: 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration' | 'venues' | 'entertainment';
   className?: string;
   variant?: 'default' | 'outline' | 'ghost';
 }
@@ -39,6 +39,8 @@ export default function BackToServicesButton({
           return '/staff/approvals/decoration';
         case 'venues':
           return '/staff/approvals/venues';
+        case 'entertainment':
+          return '/staff/approvals/entertainment';
         default:
           return '/staff/approvals';
       }
@@ -57,6 +59,8 @@ export default function BackToServicesButton({
           return '/provider/decoration';
         case 'venues':
           return '/provider/venues';
+        case 'entertainment':
+          return '/provider/entertainment';
         default:
           return '/provider/dashboard';
       }

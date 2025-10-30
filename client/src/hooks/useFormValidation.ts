@@ -19,7 +19,6 @@ interface FormData {
   };
   contact?: {
     phone?: string;
-    whatsapp?: string;
     email?: string;
   };
   images?: Array<unknown>;
@@ -62,9 +61,6 @@ export function useFormValidation({ formData, activeTab }: UseFormValidationProp
         if (!formData.contact?.phone) validationErrors.push('Phone number is required');
         if (formData.contact?.phone && typeof formData.contact.phone === 'string' && !isValidPhoneNumber(formData.contact.phone)) {
           validationErrors.push('Please enter a valid phone number');
-        }
-        if (formData.contact?.whatsapp && typeof formData.contact.whatsapp === 'string' && !isValidPhoneNumber(formData.contact.whatsapp)) {
-          validationErrors.push('Please enter a valid WhatsApp number');
         }
         if (!formData.contact?.email) validationErrors.push('Email address is required');
         if (formData.contact?.email && typeof formData.contact.email === 'string' && !formData.contact.email.includes('@')) {
@@ -115,8 +111,7 @@ export function useFormValidation({ formData, activeTab }: UseFormValidationProp
           typeof formData.contact.email === 'string' &&
           formData.contact.email.includes('@') &&
           typeof formData.contact.phone === 'string' &&
-          isValidPhoneNumber(formData.contact.phone) &&
-          (!formData.contact.whatsapp || (typeof formData.contact.whatsapp === 'string' && isValidPhoneNumber(formData.contact.whatsapp)))
+          isValidPhoneNumber(formData.contact.phone)
         );
 
       case 'images':

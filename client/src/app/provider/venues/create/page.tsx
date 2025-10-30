@@ -490,7 +490,7 @@ export default function CreateVenuePage() {
                 </Button>
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900">Create New Venue</h1>
-                  <p className="text-gray-600 text-lg">Add your wedding venue to our platform</p>
+                  <p className="text-gray-600 text-lg">Add your event venue to our platform</p>
                 </div>
               </div>
             </div>

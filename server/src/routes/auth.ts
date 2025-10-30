@@ -63,12 +63,13 @@ router.post('/register', registerValidation, async (req: Request, res: Response)
       role: role as UserRole,
     });
 
-    // Convert to plain object and remove password
+    // Convert to plain object and remove password - consistent with other endpoints
     const userResponse = {
       id: (user._id as Types.ObjectId).toString(),
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone,
       role: user.role,
       serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
@@ -76,6 +77,7 @@ router.post('/register', registerValidation, async (req: Request, res: Response)
       isActive: user.isActive,
       isVerified: user.isVerified,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     // Generate token
@@ -122,12 +124,13 @@ router.post('/login', loginValidation, async (req: Request, res: Response) => {
     // Generate token
     const token = generateToken((user._id as Types.ObjectId).toString());
 
-    // Return user data (without password)
+    // Return user data (without password) - consistent with other endpoints
     const userData = {
       id: (user._id as Types.ObjectId).toString(),
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone,
       role: user.role,
       serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
@@ -169,7 +172,6 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
       firstName: user.firstName,
       lastName: user.lastName,
       phone: user.phone,
-      whatsapp: user.whatsapp,
       role: user.role,
       serviceCategories: user.serviceCategories,
       isActive: user.isActive,
@@ -194,7 +196,7 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    const { firstName, lastName, phone, whatsapp } = req.body;
+    const { firstName, lastName, phone } = req.body;
 
     const updatedUser = await User.findByIdAndUpdate(
       req.user.id,
@@ -202,7 +204,6 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
         firstName,
         lastName,
         phone,
-        whatsapp,
       },
       { new: true, select: '-password' }
     );
@@ -211,16 +212,20 @@ router.put('/profile', authenticateToken, async (req: AuthRequest, res: Response
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Convert to response format
+    // Convert to response format (consistent with get profile endpoint)
     const userResponse = {
       id: (updatedUser._id as Types.ObjectId).toString(),
       email: updatedUser.email,
       firstName: updatedUser.firstName,
       lastName: updatedUser.lastName,
       phone: updatedUser.phone,
-      whatsapp: updatedUser.whatsapp,
       role: updatedUser.role,
       serviceCategories: updatedUser.serviceCategories,
+      isActive: updatedUser.isActive,
+      isVerified: updatedUser.isVerified,
+      photoURL: updatedUser.photoURL,
+      provider: updatedUser.provider,
+      createdAt: updatedUser.createdAt,
       updatedAt: updatedUser.updatedAt,
     };
 
@@ -304,6 +309,7 @@ router.post('/google', async (req: Request, res: Response) => {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone,
       role: user.role,
       serviceCategories: user.serviceCategories,
       photoURL: user.photoURL,
@@ -315,12 +321,14 @@ router.post('/google', async (req: Request, res: Response) => {
     console.log('🚀 Google Sign-In - Sending response with user data:', userData);
     // Check if user needs to select a role
     const needsRoleSelection = user.role === null;
+    // We no longer check for mobile number during login - this is handled on the dashboard
 
     res.json({
       message: 'Google sign-in successful',
       user: userData,
       token: idToken, // Use Firebase ID token as auth token
       needsRoleSelection, // Indicates if frontend should show role selection
+      // Removed needsMobileNumber flag since we handle this on the dashboard
     });
   } catch (error) {
     console.error('Google sign-in error:', error);
@@ -357,18 +365,21 @@ router.post('/update-role', authenticateToken, async (req: AuthRequest, res: Res
     user.role = role;
     await user.save();
 
-    // Return updated user data
+    // Return updated user data (consistent with other endpoints)
     const userData = {
       id: (user._id as Types.ObjectId).toString(),
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone,
       role: user.role,
       serviceCategories: user.serviceCategories,
+      isActive: user.isActive,
+      isVerified: user.isVerified,
       photoURL: user.photoURL,
       provider: user.provider,
-      isVerified: user.isVerified,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     res.json({
@@ -424,18 +435,21 @@ router.post('/update-service-categories', authenticateToken, async (req: AuthReq
     user.serviceCategories = serviceCategories as ServiceCategory[];
     await user.save();
 
-    // Return updated user data
+    // Return updated user data (consistent with other endpoints)
     const userData = {
       id: (user._id as Types.ObjectId).toString(),
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      phone: user.phone,
       role: user.role,
       serviceCategories: user.serviceCategories,
+      isActive: user.isActive,
+      isVerified: user.isVerified,
       photoURL: user.photoURL,
       provider: user.provider,
-      isVerified: user.isVerified,
       createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
 
     res.json({

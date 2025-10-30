@@ -76,7 +76,9 @@ export default function RegisterPage() {
       toast.success(`Role successfully set to ${role.toLowerCase()}.`);
       router.push('/dashboard');
     } catch (error) {
-      console.error('Role update error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Role update error:', error);
+      }
       setError('Failed to update role. Please try again.');
       toast.error('Failed to update role. Please try again.');
     } finally {
@@ -104,7 +106,7 @@ export default function RegisterPage() {
             Join Plannova
           </h1>
           <p className="text-lg text-gray-600">
-            Start planning your dream wedding today
+            Start planning your perfect event today
           </p>
         </div>
 
@@ -218,8 +220,8 @@ export default function RegisterPage() {
                     {...register('role')}
                     className="pl-12 h-12 w-full bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-300 text-gray-700 appearance-none cursor-pointer"
                   >
-                    <option value="CUSTOMER">🤵👰 Customer - Looking for wedding venues</option>
-                    <option value="PROVIDER">🏛️ Provider - Wedding venue owner</option>
+                    <option value="CUSTOMER">🤵👰 Customer - Looking for event venues</option>
+                    <option value="PROVIDER">🏛️ Provider - Event venue owner</option>
                   </select>
                 </div>
                 {errors.role && (
@@ -297,9 +299,7 @@ export default function RegisterPage() {
               <div className="rounded-2xl bg-red-50 border-2 border-red-200 p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center">
-                      <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                    </div>
+                    <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin mr-3"></div>
                   </div>
                   <div className="ml-3">
                     <p className="text-sm text-red-700 font-medium">{error}</p>
@@ -337,15 +337,24 @@ export default function RegisterPage() {
             <div className="mt-6">
               <GoogleSignInButton
                 onSuccess={() => {
-                  console.log('Google sign-in successful');
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('Google sign-in successful');
+                  }
                   toast.success('Welcome! Your account has been successfully created with Google.');
                   router.push('/dashboard');
                 }}
                 onRoleSelectionNeeded={() => {
-                  console.log('Role selection needed for new Google user');
+                  if (process.env.NODE_ENV === 'development') {
+                    console.log('Role selection needed for new Google user');
+                  }
                   setShowRoleSelection(true);
                 }}
-                onError={() => setError('Google sign-in failed')}
+                onError={(error) => {
+                  if (process.env.NODE_ENV === 'development') {
+                    console.error('GoogleSignInButton error:', error);
+                  }
+                  setError('Google sign-in failed. Please try again.');
+                }}
                 disabled={isLoading}
                 className="w-full h-14 !bg-white !text-gray-700 border-2 border-gray-300 hover:border-pink-300 hover:!bg-pink-50 font-semibold text-lg rounded-2xl transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg"
               />

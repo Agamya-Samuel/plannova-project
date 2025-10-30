@@ -34,7 +34,9 @@ export default function ProfilePage() {
         day: 'numeric'
       });
     } catch (error) {
-      console.error('Error formatting date:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error formatting date:', error);
+      }
       return 'Unknown Date';
     }
   };
