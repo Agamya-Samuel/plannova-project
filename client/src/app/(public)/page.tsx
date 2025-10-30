@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
+import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
 
 interface VenueImage { url: string; isPrimary?: boolean; }
 interface VenueItem {
   _id: string;
-  name: string;
+  name: string;   
   type?: string;
   address?: { city?: string; state?: string };
   images?: VenueImage[];
@@ -275,6 +276,9 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {/* Popular Service Categories - looks like venue cards */}
+      <VendorCategoriesGrid />
 
       {/* Why Choose Plannova */}
       <div className="py-16 bg-white">
