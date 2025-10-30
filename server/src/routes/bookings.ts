@@ -9,6 +9,7 @@ import Photography from '../models/Photography.js';
 import Videography from '../models/Videography.js';
 import BridalMakeup from '../models/BridalMakeup.js';
 import Decoration from '../models/Decoration.js';
+import Entertainment from '../models/Entertainment.js';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let service: any = null;
         
-        switch (booking.serviceType) {
+      switch (booking.serviceType) {
           case ServiceType.VENUE:
             service = await Venue.findById(booking.serviceId);
             break;
@@ -85,6 +86,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           case ServiceType.DECORATION:
             service = await Decoration.findById(booking.serviceId);
             break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
         }
         
         if (service) {
@@ -208,6 +212,9 @@ router.get('/availability/:serviceType/:serviceId', async (req, res: Response) =
         case ServiceType.DECORATION:
           service = await Decoration.findById(serviceId);
           break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(serviceId);
+          break;
       }
 
       if (service && service.blockedDates && Array.isArray(service.blockedDates)) {
@@ -306,6 +313,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
           case ServiceType.DECORATION:
             service = await Decoration.findById(booking.serviceId);
             break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
         }
         
         if (service) {
@@ -478,6 +488,13 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
             totalPrice = service.basePrice;
           }
           break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
+          if (service) {
+            providerId = service.provider;
+            totalPrice = service.basePrice;
+          }
+          break;
       }
     } catch (error) {
       console.error('Error fetching service:', error);
@@ -560,8 +577,10 @@ router.put('/:id/cancel', authenticateToken, async (req: AuthRequest, res: Respo
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    if (booking.status === BookingStatus.CANCELLED) {
-      return res.status(400).json({ error: 'Booking is already cancelled' });
+    // Only pending bookings can be cancelled by the customer
+    // Once a provider approves (confirms) a booking, prevent customer cancellation
+    if (booking.status !== BookingStatus.PENDING) {
+      return res.status(400).json({ error: 'Only pending bookings can be cancelled' });
     }
 
     booking.status = BookingStatus.CANCELLED;
