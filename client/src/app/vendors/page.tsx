@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Video, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -174,8 +174,9 @@ const categoryIconMap: Record<string, React.ReactNode> = {
   'Makeup & Beauty': <Heart className="h-5 w-5" />,
 };
 
-export default function VendorsPage() {
+function VendorsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -226,6 +227,16 @@ export default function VendorsPage() {
 
     fetchData();
   }, []);
+
+  // Initialize selected category from URL (?category=Photography)
+  // This enables deep linking from the home page vendor types section
+  useEffect(() => {
+    const initialCategory = searchParams?.get('category');
+    if (initialCategory) {
+      setSelectedCategory(initialCategory);
+    }
+    // We intentionally only set on mount/param changes
+  }, [searchParams]);
 
   const toggleFavorite = (vendorId: string) => {
     const newFavorites = new Set(favorites);
@@ -676,5 +687,22 @@ export default function VendorsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VendorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="flex items-center space-x-2 text-pink-600">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Loading vendors...</span>
+          </div>
+        </div>
+      }
+    >
+      <VendorsPageInner />
+    </Suspense>
   );
 }
