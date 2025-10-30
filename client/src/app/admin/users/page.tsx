@@ -54,7 +54,7 @@ interface UsersResponse {
 }
 
 export default function AdminUsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -230,7 +230,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  if (currentUser?.role !== 'ADMIN') {
+  if (!isLoading && currentUser?.role !== 'ADMIN') {
     return <div>Access denied. Admin access required.</div>;
   }
 
