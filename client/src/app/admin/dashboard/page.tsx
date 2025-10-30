@@ -59,7 +59,7 @@ interface UsersResponse {
 }
 
 export default function AdminDashboardPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

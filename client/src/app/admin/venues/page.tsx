@@ -67,7 +67,7 @@ interface VenuesResponse {
 }
 
 export default function AdminVenuesPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');

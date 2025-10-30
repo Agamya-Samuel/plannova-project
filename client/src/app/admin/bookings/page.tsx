@@ -19,7 +19,7 @@ import type { Booking } from '@/types/booking';
 import apiClient from '@/lib/api';
 
 export default function AdminBookingsPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
