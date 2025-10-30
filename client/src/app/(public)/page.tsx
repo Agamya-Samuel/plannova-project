@@ -8,6 +8,8 @@ import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
+import BlogSection from '@/components/home/BlogSection';
+// Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
 interface VenueItem {
@@ -20,6 +22,7 @@ interface VenueItem {
 
 export default function Home() {
   const router = useRouter();
+  // Removed unused user from auth context to satisfy linter
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
   // Controls whether we show only a subset of category cards or all of them
@@ -395,6 +398,11 @@ export default function Home() {
 
       {/* Popular Service Categories - looks like venue cards */}
       <VendorCategoriesGrid />
+
+      {/* Create Blog CTA now lives inside BlogSection header for consistent background */}
+
+      {/* Blog Section - shows latest admin blogs */}
+      <BlogSection />
 
       {/* Why Choose Plannova */}
       <div className="py-16 bg-white">

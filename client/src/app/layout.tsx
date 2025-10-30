@@ -30,9 +30,10 @@ export default function RootLayout({
   const showUmami = UMAMI_WEBSITE_ID && UMAMI_SCRIPT_URL;
   
   return (
-    <html lang="en">
+    <html lang="en" className="bg-white" style={{ backgroundColor: '#ffffff' }}>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900`}
+        style={{ backgroundColor: '#ffffff', color: '#111827' }}
       >
         {showUmami && (
           <Script
@@ -43,7 +44,7 @@ export default function RootLayout({
         )}
         <AuthProvider>
           <Navbar />
-          <main>{children}</main>
+          <main className="bg-white min-h-screen" style={{ backgroundColor: '#ffffff' }}>{children}</main>
           <Toaster />
         </AuthProvider>
       </body>
