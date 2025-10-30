@@ -26,7 +26,7 @@ interface ContentItem {
 }
 
 export default function AdminContentPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [contentItems] = useState<ContentItem[]>([
     {
       id: '1',
@@ -134,7 +134,7 @@ export default function AdminContentPage() {
     ? contentItems 
     : contentItems.filter(item => item.type === filter);
 
-  if (currentUser?.role !== 'ADMIN') {
+  if (!isLoading && currentUser?.role !== 'ADMIN') {
     return <div>Access denied. Admin access required.</div>;
   }
 

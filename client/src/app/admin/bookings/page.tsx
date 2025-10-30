@@ -19,7 +19,7 @@ import type { Booking } from '@/types/booking';
 import apiClient from '@/lib/api';
 
 export default function AdminBookingsPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -141,7 +141,7 @@ export default function AdminBookingsPage() {
     }
   };
 
-  if (currentUser?.role !== 'ADMIN') {
+  if (!isLoading && currentUser?.role !== 'ADMIN') {
     return <div>Access denied. Admin access required.</div>;
   }
 
@@ -258,7 +258,7 @@ export default function AdminBookingsPage() {
                   <select
                     value={statusFilter}
                     onChange={(e) => handleStatusFilterChange(e.target.value)}
-                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent text-black"
                   >
                     <option value="all">All Statuses</option>
                     <option value="pending">Pending</option>
