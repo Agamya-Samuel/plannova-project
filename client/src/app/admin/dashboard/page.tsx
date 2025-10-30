@@ -235,8 +235,8 @@ export default function AdminDashboardPage() {
     }
   };
 
-  if (currentUser?.role !== 'ADMIN') {
-    return <div>Access denied. Admin access required.</div>;
+  if (!isLoading && currentUser?.role !== 'ADMIN') {
+    return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (
