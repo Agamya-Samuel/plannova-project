@@ -140,6 +140,30 @@ interface DecorationService {
   status?: string;
 }
 
+// Define the EntertainmentService interface to match the backend model
+interface EntertainmentService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  entertainmentTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string;
+}
+
 const categories = [
   { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
   { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
@@ -159,6 +183,7 @@ export default function VendorsPage() {
   const [videographyServices, setVideographyServices] = useState<VideographyService[]>([]);
   const [bridalMakeupServices, setBridalMakeupServices] = useState<BridalMakeupService[]>([]);
   const [decorationServices, setDecorationServices] = useState<DecorationService[]>([]);
+  const [entertainmentServices, setEntertainmentServices] = useState<EntertainmentService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -186,6 +211,10 @@ export default function VendorsPage() {
         // Fetch decoration services
         const decorationResponse = await apiClient.get('/decoration');
         setDecorationServices(decorationResponse.data.data);
+        
+        // Fetch entertainment services
+        const entertainmentResponse = await apiClient.get('/entertainment');
+        setEntertainmentServices(entertainmentResponse.data.data);
       } catch (err) {
         console.error('Error fetching services:', err);
         setError('Failed to load services');
@@ -285,8 +314,26 @@ export default function VendorsPage() {
     isVerified: true
   }));
 
+  // Transform entertainment services to vendor format for display
+  const entertainmentVendors: Vendor[] = entertainmentServices
+    .filter(service => service.status === 'APPROVED' || service.status === 'PENDING_EDIT')
+    .map(service => ({
+      id: service._id,
+      name: service.name || 'Untitled Service',
+      category: 'Music & Entertainment',
+      location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+      rating: service.rating || 0,
+      reviews: service.reviewCount || 0,
+      startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+      image: service.images && service.images.length > 0 
+        ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+        : 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      services: service.entertainmentTypes ? service.entertainmentTypes.slice(0, 3) : [],
+      isVerified: true
+    }));
+
   // Combine all vendors
-  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors]);
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors, ...entertainmentVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors, entertainmentVendors]);
 
   const filteredVendors = selectedCategory === 'All' 
     ? allVendors 
@@ -299,8 +346,9 @@ export default function VendorsPage() {
     console.log('Videography services count:', videographyServices.length);
     console.log('Bridal makeup services count:', bridalMakeupServices.length);
     console.log('Decoration services count:', decorationServices.length);
+    console.log('Entertainment services count:', entertainmentServices.length);
     console.log('All vendors count:', allVendors.length);
-  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, allVendors]);
+  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, entertainmentServices, allVendors]);
 
   if (loading) {
     return (
@@ -575,6 +623,8 @@ export default function VendorsPage() {
                         router.push(`/decoration/${vendor.id}`);
                       } else if (vendor.category === 'Makeup & Beauty') {
                         router.push(`/bridal-makeup/${vendor.id}`);
+                      } else if (vendor.category === 'Music & Entertainment') {
+                        router.push(`/entertainment/${vendor.id}`);
                       } else {
                         // Default fallback
                         router.push(`/vendors`);

@@ -4,13 +4,13 @@ import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Camera, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
+import { Music, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
 import BackToServicesButton from '@/components/ui/BackToServicesButton';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
 
-interface PhotographyService {
+interface EntertainmentService {
   _id: string;
   name: string;
   description: string;
@@ -29,7 +29,7 @@ interface PhotographyService {
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
-  photographyTypes: string[];
+  entertainmentTypes: string[];
   packages: Array<{
     name: string;
     description: string;
@@ -48,12 +48,12 @@ interface PhotographyService {
     alt: string;
     isPrimary: boolean;
   }>;
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PENDING_EDIT';
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'PENDING_EDIT' | 'DRAFT';
   createdAt: string;
   updatedAt: string;
 }
 
-function ViewPhotographyServiceContent() {
+function ViewEntertainmentServiceContent() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,15 +61,15 @@ function ViewPhotographyServiceContent() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [service, setService] = useState<PhotographyService | null>(null);
+  const [service, setService] = useState<EntertainmentService | null>(null);
 
-  const fetchPhotographyService = React.useCallback(async () => {
+  const fetchEntertainmentService = React.useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/photography/${serviceId}`);
+      const response = await apiClient.get(`/entertainment/${serviceId}`);
       setService(response.data.data);
     } catch (err: unknown) {
-      let errorMessage = 'Failed to fetch photography service';
+      let errorMessage = 'Failed to fetch entertainment service';
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const response = (err as { response?: { data?: { error?: string } } }).response;
         if (response?.data?.error) {
@@ -77,7 +77,7 @@ function ViewPhotographyServiceContent() {
         }
       }
       setError(errorMessage);
-      console.error('Error fetching photography service:', err);
+      console.error('Error fetching entertainment service:', err);
     } finally {
       setLoading(false);
     }
@@ -85,11 +85,11 @@ function ViewPhotographyServiceContent() {
 
   useEffect(() => {
     if (serviceId) {
-      fetchPhotographyService();
+      fetchEntertainmentService();
     } else {
-      router.push('/provider/photography');
+      router.push('/provider/entertainment');
     }
-  }, [serviceId, fetchPhotographyService, router]);
+  }, [serviceId, fetchEntertainmentService, router]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -101,6 +101,8 @@ function ViewPhotographyServiceContent() {
         return 'bg-blue-100 text-blue-800';
       case 'REJECTED':
         return 'bg-red-100 text-red-800';
+      case 'DRAFT':
+        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -116,15 +118,18 @@ function ViewPhotographyServiceContent() {
         return 'Edit Pending';
       case 'REJECTED':
         return 'Rejected';
+      case 'DRAFT':
+        return 'Draft';
       default:
         return status;
     }
   };
+
   const getDashboardUrl = () => {
     if (user?.role === 'STAFF' || user?.role === 'ADMIN') {
-      return '/staff/approvals/photography';
+      return '/staff/approvals/entertainment';
     }
-    return '/provider/photography';
+    return '/provider/entertainment';
   };
 
   if (loading) {
@@ -133,8 +138,8 @@ function ViewPhotographyServiceContent() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <BackToServicesButton serviceType="photography" />
-              <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+              <BackToServicesButton serviceType="entertainment" />
+              <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
             <div className="flex justify-center items-center h-64">
@@ -152,8 +157,8 @@ function ViewPhotographyServiceContent() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <BackToServicesButton serviceType="photography" />
-              <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+              <BackToServicesButton serviceType="entertainment" />
+              <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
@@ -171,15 +176,15 @@ function ViewPhotographyServiceContent() {
         <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <BackToServicesButton serviceType="photography" />
-              <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+              <BackToServicesButton serviceType="entertainment" />
+              <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-              <Camera className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <Music className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
               <p className="text-gray-600 mb-6">
-                The photography service you are looking for does not exist or has been removed.
+                The entertainment service you are looking for does not exist or has been removed.
               </p>
               <button
                 onClick={() => router.push(getDashboardUrl())}
@@ -200,10 +205,10 @@ function ViewPhotographyServiceContent() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <BackToServicesButton serviceType="photography" />
-            <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+            <BackToServicesButton serviceType="entertainment" />
+            <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
             <button
-              onClick={() => router.push(`/provider/photography/edit?id=${serviceId}`)}
+              onClick={() => router.push(`/provider/entertainment/edit?id=${serviceId}`)}
               className="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
             >
               <Edit3 className="h-4 w-4 mr-2" />
@@ -261,11 +266,11 @@ function ViewPhotographyServiceContent() {
 
             {/* Service Details */}
             <div className="p-6">
-              {/* Photography Types */}
+              {/* Entertainment Types */}
               <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Photography Types</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Entertainment Types</h3>
                 <div className="flex flex-wrap gap-2">
-                  {service.photographyTypes.map((type, index) => (
+                  {service.entertainmentTypes.map((type, index) => (
                     <span key={index} className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm">
                       {type}
                     </span>
@@ -414,14 +419,16 @@ function ViewPhotographyServiceContent() {
 
           {/* Blocked Dates Management - Only for approved services */}
           {(service.status === 'APPROVED' || service.status === 'PENDING_EDIT') && (
-            <BlockedDatesManager 
-              serviceId={service._id}
-              serviceType="photography"
-              onUpdate={() => {
-                // Optional: Refresh service data or show notification
-                console.log('Blocked dates updated');
-              }}
-            />
+            <div className="mt-8">
+              <BlockedDatesManager 
+                serviceId={service._id}
+                serviceType="entertainment"
+                onUpdate={() => {
+                  // Optional: Refresh service data or show notification
+                  console.log('Blocked dates updated');
+                }}
+              />
+            </div>
           )}
         </div>
       </div>
@@ -429,20 +436,18 @@ function ViewPhotographyServiceContent() {
   );
 }
 
-export default function ViewPhotographyService() {
+export default function ViewEntertainmentService() {
   return (
     <Suspense fallback={
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
-            </div>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
           </div>
         </div>
-      </ProtectedRoute>
+      </div>
     }>
-      <ViewPhotographyServiceContent />
+      <ViewEntertainmentServiceContent />
     </Suspense>
   );
 }

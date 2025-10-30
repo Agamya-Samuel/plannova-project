@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Camera, Edit3, MapPin, Phone, Mail, PlusCircle } from 'lucide-react';
-import BackToServicesButton from '@/components/ui/BackToServicesButton';
+import { Music, ArrowLeft, MapPin, Phone, Mail, PlusCircle, CheckCircle, XCircle, Trash2 } from 'lucide-react';
 import Image from 'next/image';
+import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import apiClient from '@/lib/api';
-import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
+import { toast } from 'sonner';
+import { sonnerConfirm } from '@/lib/sonner-confirm';
+import { sonnerPrompt } from '@/lib/sonner-prompt';
 
-interface PhotographyService {
+interface EntertainmentService {
   _id: string;
   name: string;
   description: string;
@@ -29,7 +31,7 @@ interface PhotographyService {
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
-  photographyTypes: string[];
+  entertainmentTypes: string[];
   packages: Array<{
     name: string;
     description: string;
@@ -53,7 +55,7 @@ interface PhotographyService {
   updatedAt: string;
 }
 
-function ViewPhotographyServiceContent() {
+function ViewEntertainmentService() {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -61,15 +63,18 @@ function ViewPhotographyServiceContent() {
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [service, setService] = useState<PhotographyService | null>(null);
+  const [service, setService] = useState<EntertainmentService | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
-  const fetchPhotographyService = React.useCallback(async () => {
+  const fetchEntertainmentService = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await apiClient.get(`/photography/${serviceId}`);
+      const response = await apiClient.get(`/entertainment/${serviceId}`);
       setService(response.data.data);
     } catch (err: unknown) {
-      let errorMessage = 'Failed to fetch photography service';
+      let errorMessage = 'Failed to fetch entertainment service';
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const response = (err as { response?: { data?: { error?: string } } }).response;
         if (response?.data?.error) {
@@ -77,7 +82,7 @@ function ViewPhotographyServiceContent() {
         }
       }
       setError(errorMessage);
-      console.error('Error fetching photography service:', err);
+      console.error('Error fetching entertainment service:', err);
     } finally {
       setLoading(false);
     }
@@ -85,11 +90,11 @@ function ViewPhotographyServiceContent() {
 
   useEffect(() => {
     if (serviceId) {
-      fetchPhotographyService();
+      fetchEntertainmentService();
     } else {
-      router.push('/provider/photography');
+      router.push('/staff/approvals/entertainment');
     }
-  }, [serviceId, fetchPhotographyService, router]);
+  }, [serviceId, fetchEntertainmentService, router]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -120,25 +125,89 @@ function ViewPhotographyServiceContent() {
         return status;
     }
   };
+
   const getDashboardUrl = () => {
     if (user?.role === 'STAFF' || user?.role === 'ADMIN') {
-      return '/staff/approvals/photography';
+      return '/staff/approvals/entertainment';
     }
-    return '/provider/photography';
+    return '/provider/entertainment';
+  };
+
+  const handleApprove = async () => {
+    const confirmed = await sonnerConfirm('Are you sure you want to approve this entertainment service?');
+    if (!confirmed) return;
+
+    try {
+      setApproving(true);
+      await apiClient.put(`/entertainment/staff/${serviceId}/approve`);
+      toast.success('Entertainment service approved successfully!');
+      fetchEntertainmentService();
+    } catch (err: unknown) {
+      console.error('Error approving service:', err);
+      toast.error('Failed to approve entertainment service');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    const reason = await sonnerPrompt('Please provide a reason for rejection:', {
+      placeholder: 'Enter rejection reason...'
+    });
+    
+    if (!reason || reason.trim() === '') {
+      toast.error('Rejection reason is required');
+      return;
+    }
+
+    try {
+      setRejecting(true);
+      await apiClient.put(`/entertainment/staff/${serviceId}/reject`, { rejectionReason: reason.trim() });
+      toast.success('Entertainment service rejected successfully!');
+      fetchEntertainmentService();
+    } catch (err: unknown) {
+      console.error('Error rejecting service:', err);
+      toast.error('Failed to reject entertainment service');
+    } finally {
+      setRejecting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this entertainment service? This action cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      await apiClient.delete(`/entertainment/staff/${serviceId}`);
+      toast.success('Entertainment service deleted successfully!');
+      router.push('/staff/approvals/entertainment');
+    } catch (err: unknown) {
+      console.error('Error deleting service:', err);
+      toast.error('Failed to delete entertainment service');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
     return (
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <BackToServicesButton serviceType="photography" />
-              <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+              <button
+                onClick={() => router.push(getDashboardUrl())}
+                className="inline-flex items-center text-yellow-600 hover:text-yellow-800"
+              >
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Back to Dashboard
+              </button>
+              <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
             <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-600"></div>
             </div>
           </div>
         </div>
@@ -148,12 +217,18 @@ function ViewPhotographyServiceContent() {
 
   if (error) {
     return (
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <BackToServicesButton serviceType="photography" />
-              <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+              <button
+                onClick={() => router.push(getDashboardUrl())}
+                className="inline-flex items-center text-yellow-600 hover:text-yellow-800"
+              >
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Back to Dashboard
+              </button>
+              <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
             <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-red-700">
@@ -167,23 +242,29 @@ function ViewPhotographyServiceContent() {
 
   if (!service) {
     return (
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+      <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 py-8">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between mb-8">
-              <BackToServicesButton serviceType="photography" />
-              <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
+              <button
+                onClick={() => router.push(getDashboardUrl())}
+                className="inline-flex items-center text-yellow-600 hover:text-yellow-800"
+              >
+                <ArrowLeft className="h-5 w-5 mr-2" />
+                Back to Dashboard
+              </button>
+              <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
               <div></div> {/* Spacer for alignment */}
             </div>
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-              <Camera className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <Music className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Service not found</h3>
               <p className="text-gray-600 mb-6">
-                The photography service you are looking for does not exist or has been removed.
+                The entertainment service you are looking for does not exist or has been removed.
               </p>
               <button
                 onClick={() => router.push(getDashboardUrl())}
-                className="inline-flex items-center px-6 py-3 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
               >
                 Back to Dashboard
               </button>
@@ -195,20 +276,49 @@ function ViewPhotographyServiceContent() {
   }
 
   return (
-    <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
+    <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-white to-orange-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
-            <BackToServicesButton serviceType="photography" />
-            <h1 className="text-3xl font-bold text-gray-900">View Photography Service</h1>
             <button
-              onClick={() => router.push(`/provider/photography/edit?id=${serviceId}`)}
-              className="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors"
+              onClick={() => router.push(getDashboardUrl())}
+              className="inline-flex items-center text-yellow-600 hover:text-yellow-800"
             >
-              <Edit3 className="h-4 w-4 mr-2" />
-              Edit
+              <ArrowLeft className="h-5 w-5 mr-2" />
+              Back to Dashboard
             </button>
+            <h1 className="text-3xl font-bold text-gray-900">View Entertainment Service</h1>
+            <div className="flex items-center gap-2">
+              {service.status === 'PENDING' && (
+                <>
+                  <button
+                    onClick={handleApprove}
+                    disabled={approving}
+                    className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    {approving ? 'Approving...' : 'Approve'}
+                  </button>
+                  <button
+                    onClick={handleReject}
+                    disabled={rejecting}
+                    className="inline-flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    {rejecting ? 'Rejecting...' : 'Reject'}
+                  </button>
+                </>
+              )}
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
           </div>
 
           {/* Service Status Banner */}
@@ -219,8 +329,9 @@ function ViewPhotographyServiceContent() {
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+          {/* Main Content with sidebar calendar like Venues */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg overflow-hidden">
             {/* Service Header */}
             <div className="p-6 border-b border-gray-200">
               <div className="flex justify-between items-start">
@@ -229,7 +340,7 @@ function ViewPhotographyServiceContent() {
                   <p className="mt-2 text-gray-600">{service.description}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-2xl font-bold text-pink-600">₹{service.basePrice.toLocaleString()}</p>
+                  <p className="text-2xl font-bold text-yellow-600">₹{service.basePrice.toLocaleString()}</p>
                   <p className="text-sm text-gray-500">Starting Price</p>
                 </div>
               </div>
@@ -261,12 +372,12 @@ function ViewPhotographyServiceContent() {
 
             {/* Service Details */}
             <div className="p-6">
-              {/* Photography Types */}
+              {/* Entertainment Types */}
               <div className="mb-8">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">Photography Types</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Entertainment Types</h3>
                 <div className="flex flex-wrap gap-2">
-                  {service.photographyTypes.map((type, index) => (
-                    <span key={index} className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-sm">
+                  {service.entertainmentTypes.map((type, index) => (
+                    <span key={index} className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">
                       {type}
                     </span>
                   ))}
@@ -328,7 +439,7 @@ function ViewPhotographyServiceContent() {
                       </div>
                       <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
                       <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-pink-600">₹{pkg.price.toLocaleString()}</span>
+                        <span className="text-lg font-semibold text-yellow-600">₹{pkg.price.toLocaleString()}</span>
                         {pkg.duration && (
                           <span className="text-sm text-gray-500">{pkg.duration}</span>
                         )}
@@ -367,7 +478,7 @@ function ViewPhotographyServiceContent() {
                         </div>
                         <p className="text-sm text-gray-600 mb-3">{addon.description}</p>
                         <div className="flex justify-between items-center">
-                          <span className="text-lg font-semibold text-pink-600">₹{addon.price.toLocaleString()}</span>
+                          <span className="text-lg font-semibold text-yellow-600">₹{addon.price.toLocaleString()}</span>
                         </div>
                       </div>
                     ))}
@@ -410,39 +521,32 @@ function ViewPhotographyServiceContent() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
 
-          {/* Blocked Dates Management - Only for approved services */}
-          {(service.status === 'APPROVED' || service.status === 'PENDING_EDIT') && (
-            <BlockedDatesManager 
-              serviceId={service._id}
-              serviceType="photography"
-              onUpdate={() => {
-                // Optional: Refresh service data or show notification
-                console.log('Blocked dates updated');
-              }}
-            />
-          )}
+            {/* Sidebar - Availability (read-only for staff) */}
+            <div className="space-y-6">
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Check Availability</h3>
+                <AvailabilityCalendar
+                  serviceId={service._id}
+                  serviceType="entertainment"
+                  onDateSelect={() => { /* read-only for staff */ }}
+                  selectedDate={''}
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </ProtectedRoute>
   );
 }
 
-export default function ViewPhotographyService() {
+export default function ViewEntertainmentServicePage() {
   return (
-    <Suspense fallback={
-      <ProtectedRoute allowedRoles={['PROVIDER', 'STAFF', 'ADMIN']}>
-        <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50 py-8">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-pink-600"></div>
-            </div>
-          </div>
-        </div>
-      </ProtectedRoute>
-    }>
-      <ViewPhotographyServiceContent />
+    <Suspense fallback={<div>Loading...</div>}>
+      <ViewEntertainmentService />
     </Suspense>
   );
 }
+

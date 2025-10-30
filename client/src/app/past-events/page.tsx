@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
-import { Search, Heart, MapPin, Calendar, Users, Clock, Eye } from 'lucide-react';
+import { Search, Heart, MapPin, Calendar, Users, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 

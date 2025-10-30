@@ -1,4 +1,4 @@
-export type ServiceType = 'venue' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration';
+export type ServiceType = 'venue' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration' | 'entertainment';
 
 export interface Booking {
   id: string;

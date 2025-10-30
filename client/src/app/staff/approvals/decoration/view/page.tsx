@@ -18,6 +18,7 @@ import {
   User
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { toast } from 'sonner';
 import { sonnerConfirm } from '@/lib/sonner-confirm';
 import { sonnerPrompt } from '@/lib/sonner-prompt';
@@ -467,6 +468,16 @@ function StaffDecorationViewContent() {
 
             {/* Sidebar */}
             <div className="space-y-6">
+              {/* Availability Calendar */}
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Check Availability</h2>
+                <AvailabilityCalendar
+                  serviceId={displayData._id}
+                  serviceType="decoration"
+                  onDateSelect={() => {}}
+                  selectedDate={''}
+                />
+              </div>
               {/* Provider Information */}
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Provider Information</h2>
