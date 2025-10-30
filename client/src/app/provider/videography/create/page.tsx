@@ -27,6 +27,7 @@ import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
+import LocationInput from '@/components/ui/LocationInput';
 import 'react-phone-number-input/style.css';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import ContactInput from '@/components/ui/ContactInput';
@@ -111,13 +112,7 @@ const videographyTypeOptions = [
   'Live Streaming'
 ];
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
+// Note: Removed unused 'states' list to satisfy linter and keep file concise
 
 export default function CreateVideographyServicePage() {
   const router = useRouter();
@@ -288,18 +283,7 @@ export default function CreateVideographyServicePage() {
     }
   };
 
-  const handleNestedInputChange = (parent: string, field: string, value: string | number) => {
-    setFormData(prev => {
-      const parentData = prev[parent as keyof VideographyFormData] as Record<string, string | number>;
-      return {
-        ...prev,
-        [parent]: {
-          ...parentData,
-          [field]: value
-        }
-      };
-    });
-  };
+  // Removed unused handleNestedInputChange to satisfy linter
 
   const handleVideographyTypeChange = (type: string, checked: boolean) => {
     setFormData(prev => ({
@@ -628,68 +612,11 @@ export default function CreateVideographyServicePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Location</h2>
                   <p className="text-gray-600 mb-6">Where do you provide your videography services?</p>
-                  
-                  <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Address *
-                  </label>
-                    <Input
-                    type="text"
-                    value={formData.serviceLocation.address}
-                    onChange={(e) => handleNestedInputChange('serviceLocation', 'address', e.target.value)}
-                    placeholder="Enter your service address"
-                      required
-                      className="text-black"
+                  <LocationInput
+                    data={formData.serviceLocation}
+                    onChange={(data) => setFormData(prev => ({ ...prev, serviceLocation: data }))}
                   />
                 </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    City *
-                  </label>
-                      <Input
-                    type="text"
-                    value={formData.serviceLocation.city}
-                    onChange={(e) => handleNestedInputChange('serviceLocation', 'city', e.target.value)}
-                    placeholder="Enter city"
-                        required
-                        className="text-black"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    State *
-                  </label>
-                      <select
-                    value={formData.serviceLocation.state}
-                    onChange={(e) => handleNestedInputChange('serviceLocation', 'state', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-gray-900"
-                        required
-                      >
-                        <option value="" className="text-gray-900">Select state</option>
-                        {states.map(state => (
-                          <option key={state} value={state} className="text-gray-900">{state}</option>
-                        ))}
-                      </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Pincode *
-                  </label>
-                      <Input
-                    type="text"
-                    value={formData.serviceLocation.pincode}
-                    onChange={(e) => handleNestedInputChange('serviceLocation', 'pincode', e.target.value)}
-                    placeholder="Enter pincode"
-                        required
-                        className="text-black"
-                  />
-                </div>
-              </div>
-            </div>
               )}
 
               {/* Contact Tab */}

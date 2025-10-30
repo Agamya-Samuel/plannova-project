@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
+import LocationInput from '@/components/ui/LocationInput';
 import 'react-phone-number-input/style.css';
 import PhoneInput from 'react-phone-number-input';
 import { isValidPhoneNumber } from 'react-phone-number-input';
@@ -68,13 +69,13 @@ interface AddonFormData {
   price: number;
 }
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
+// const states = [
+//   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
+//   'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
+//   'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
+//   'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
+//   'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
+// ];
 
 const decorationTypeOptions = [
   'Wedding Decoration',
@@ -529,32 +530,15 @@ function EditDecorationServiceContent() {
               )}
 
               {activeTab === 'location' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Location Information</h2>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Address *</label>
-                    <Input type="text" value={formData.serviceLocation.address} onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)} placeholder="Street address" required className="text-black" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
-                      <Input type="text" value={formData.serviceLocation.city} onChange={(e) => handleInputChange('serviceLocation.city', e.target.value)} placeholder="City" required className="text-black" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-                      <select value={formData.serviceLocation.state} onChange={(e) => handleInputChange('serviceLocation.state', e.target.value)} required className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black">
-                        <option value="">Select State</option>
-                        {states.map(state => (
-                          <option key={state} value={state}>{state}</option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Pincode *</label>
-                    <Input type="text" value={formData.serviceLocation.pincode} onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)} placeholder="Pincode" required className="text-black" />
-                  </div>
-                </div>
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => {
+                    setFormData(prev => ({
+                      ...prev,
+                      serviceLocation: data
+                    }));
+                  }}
+                />
               )}
 
               {activeTab === 'contact' && (

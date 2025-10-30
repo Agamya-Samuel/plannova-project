@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { ImageUpload } from '../../../../components/upload';
 import apiClient from '../../../../lib/api';
+import LocationInput from '@/components/ui/LocationInput';
 
 interface CateringService {
   _id: string;
@@ -432,64 +433,10 @@ function EditCateringServiceContent() {
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Location</h2>
                 <p className="text-gray-600 mb-6">Where do you provide your catering services?</p>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Address *
-                  </label>
-                  <Input
-                    type="text"
-                    value={formData.serviceLocation.address}
-                    onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)}
-                    placeholder="Enter your service address"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      City *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.serviceLocation.city}
-                      onChange={(e) => handleInputChange('serviceLocation.city', e.target.value)}
-                      placeholder="Enter city"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      State *
-                    </label>
-                    <select
-                      value={formData.serviceLocation.state}
-                      onChange={(e) => handleInputChange('serviceLocation.state', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900"
-                      required
-                    >
-                      <option value="" className="text-gray-900">Select state</option>
-                      {states.map(state => (
-                        <option key={state} value={state} className="text-gray-900">{state}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pincode *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.serviceLocation.pincode}
-                      onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)}
-                      placeholder="Enter pincode"
-                      required
-                    />
-                  </div>
-                </div>
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => setFormData(prev => ({ ...prev, serviceLocation: data }))}
+                />
               </div>
 
               {/* Contact */}
@@ -869,13 +816,7 @@ export default function EditCateringServicePage() {
   );
 }
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
+// Note: Removed unused 'states' list to satisfy linter and keep file concise
 
 const cuisineTypes = [
   'North Indian', 'South Indian', 'Gujarati', 'Punjabi', 'Bengali', 'Rajasthani',

@@ -41,7 +41,8 @@ export default function AdminBookingsPage() {
   const [totalBookings, setTotalBookings] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
 
-  const fetchBookings = async (_page = 1, status = 'ALL', search = '') => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const fetchBookings = async (_page: number = 1, status = 'ALL', search = '') => {
     try {
       setLoading(true);
       // For now, we'll simulate booking data since there isn't a direct admin bookings endpoint
