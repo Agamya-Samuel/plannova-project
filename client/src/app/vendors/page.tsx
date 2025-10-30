@@ -164,14 +164,15 @@ interface EntertainmentService {
   status?: string;
 }
 
-const categories = [
-  { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
-  { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
-  { name: 'Videography', icon: <Video className="h-5 w-5" />, count: 134 },
-  { name: 'Decoration', icon: <Flower className="h-5 w-5" />, count: 156 },
-  { name: 'Music & Entertainment', icon: <Music className="h-5 w-5" />, count: 98 },
-  { name: 'Makeup & Beauty', icon: <Heart className="h-5 w-5" />, count: 167 }
-];
+// Category chip config (icons). Counts are computed from live data below
+const categoryIconMap: Record<string, React.ReactNode> = {
+  'Photography': <Camera className="h-5 w-5" />,
+  'Catering': <Utensils className="h-5 w-5" />,
+  'Videography': <Video className="h-5 w-5" />,
+  'Decoration': <Flower className="h-5 w-5" />,
+  'Music & Entertainment': <Music className="h-5 w-5" />,
+  'Makeup & Beauty': <Heart className="h-5 w-5" />,
+};
 
 export default function VendorsPage() {
   const router = useRouter();
@@ -339,6 +340,30 @@ export default function VendorsPage() {
     ? allVendors 
     : allVendors.filter(vendor => vendor.category === selectedCategory);
 
+  // Compute category counts from fetched data to avoid hardcoding numbers
+  const computedCategories = useMemo(() => {
+    const counts: Record<string, number> = {
+      'Photography': photographyVendors.length,
+      'Catering': cateringVendors.length,
+      'Videography': videographyVendors.length,
+      'Decoration': decorationVendors.length,
+      'Music & Entertainment': entertainmentVendors.length,
+      'Makeup & Beauty': bridalMakeupVendors.length,
+    };
+    return Object.keys(counts).map((name) => ({
+      name,
+      icon: categoryIconMap[name],
+      count: counts[name] || 0,
+    }));
+  }, [
+    photographyVendors.length,
+    cateringVendors.length,
+    videographyVendors.length,
+    decorationVendors.length,
+    entertainmentVendors.length,
+    bridalMakeupVendors.length,
+  ]);
+
   // Debug log to check if services are being fetched
   useEffect(() => {
     console.log('Catering services count:', cateringServices.length);
@@ -427,7 +452,7 @@ export default function VendorsPage() {
             >
               <span>All Categories</span>
             </button>
-            {categories.map((category, index) => (
+            {computedCategories.map((category, index) => (
               <button
                 key={index}
                 onClick={() => setSelectedCategory(category.name)}
