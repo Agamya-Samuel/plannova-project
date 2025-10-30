@@ -135,7 +135,7 @@ export default function AdminContentPage() {
     : contentItems.filter(item => item.type === filter);
 
   if (!isLoading && currentUser?.role !== 'ADMIN') {
-    return <div>Access denied. Admin access required.</div>;
+    return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (
