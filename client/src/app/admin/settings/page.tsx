@@ -17,7 +17,7 @@ import {
 import { toast } from 'sonner';
 
 export default function AdminSettingsPage() {
-  const { user: currentUser, isLoading } = useAuth();
+  const { user: currentUser } = useAuth();
   const [saving, setSaving] = useState(false);
   
   // Form states
@@ -63,7 +63,7 @@ export default function AdminSettingsPage() {
     }
   };
 
-  if (!isLoading && currentUser?.role !== 'ADMIN') {
+  if (currentUser?.role !== 'ADMIN') {
     return <div>Access denied. Admin access required.</div>;
   }
 

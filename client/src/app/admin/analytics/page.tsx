@@ -84,7 +84,7 @@ interface UmamiMetrics {
 }
 
 export default function AdminAnalyticsPage() {
-  const { user: currentUser, isLoading } = useAuth();
+  const { user: currentUser } = useAuth();
   const [stats, setStats] = useState<UmamiStats | null>(null);
   const [metrics, setMetrics] = useState<UmamiMetrics | null>(null);
   const [loading, setLoading] = useState(true);
@@ -183,7 +183,7 @@ export default function AdminAnalyticsPage() {
     // In a real implementation, this would trigger a report generation and download
   };
 
-  if (!isLoading && currentUser?.role !== 'ADMIN') {
+  if (currentUser?.role !== 'ADMIN') {
     return <div>Access denied. Admin access required.</div>;
   }
 
