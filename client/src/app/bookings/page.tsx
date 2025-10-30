@@ -293,7 +293,7 @@ export default function BookingsPage() {
                       
                       {/* Action Buttons */}
                       <div className="mt-6 flex flex-wrap gap-3">
-                        {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                        {booking.status === 'pending' && (
                           <button 
                             onClick={() => handleCancelBooking(booking.id)}
                             className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
