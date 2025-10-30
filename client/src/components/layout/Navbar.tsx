@@ -286,6 +286,16 @@ export default function Navbar() {
                         <Settings className="h-4 w-4 mr-3" />
                         Account Settings
                       </Link>
+                      {user?.role === 'ADMIN' && (
+                        <Link
+                          href="/admin/page-settings"
+                          className="flex items-center px-4 py-3 text-sm text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors"
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          <Settings className="h-4 w-4 mr-3" />
+                          Page Settings
+                        </Link>
+                      )}
                       
                       <hr className="my-2 border-gray-100" />
                       
