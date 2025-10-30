@@ -21,6 +21,8 @@ export default function Home() {
   const router = useRouter();
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
+  // Controls whether we show only a subset of category cards or all of them
+  const [showAllCategories, setShowAllCategories] = useState(false);
 
   useEffect(() => {
     const fetchVenues = async () => {
@@ -44,7 +46,14 @@ export default function Home() {
     const venueTypeMap: { [key: string]: string } = {
       'Luxury Hotels': 'Hotel',
       'Banquet Halls': 'Banquet Hall',
-      'Garden Venues': 'Resort'
+      'Garden Venues': 'Resort',
+      'Beach Venues': 'Resort',
+      'Farmhouses': 'Farmhouse',
+      'Rooftop Venues': 'Rooftop',
+      'Destination Wedding': 'Destination',
+      'Resorts': 'Resort',
+      'Conference Centers': 'Conference Center',
+      'Heritage Venues': 'Heritage'
     };
     
     const venueType = venueTypeMap[categoryTitle];
@@ -73,6 +82,41 @@ export default function Home() {
       cities: 'Mumbai | Chennai | Delhi',
       match: (v: VenueItem) => /resort|garden|outdoor/i.test(v.type || '') || /garden|resort/i.test(v.name || ''),
     },
+    {
+      title: 'Beach Venues',
+      cities: 'Goa | Mumbai | Chennai',
+      match: (v: VenueItem) => /beach|coast|seaside/i.test(v.type || '') || /beach/i.test(v.name || ''),
+    },
+    {
+      title: 'Farmhouses',
+      cities: 'Delhi | Gurgaon | Pune',
+      match: (v: VenueItem) => /farmhouse|farm/i.test(v.type || '') || /farmhouse|farm/i.test(v.name || ''),
+    },
+    {
+      title: 'Rooftop Venues',
+      cities: 'Mumbai | Bangalore | Hyderabad',
+      match: (v: VenueItem) => /rooftop|terrace/i.test(v.type || '') || /rooftop|terrace/i.test(v.name || ''),
+    },
+    {
+      title: 'Destination Wedding',
+      cities: 'Jaipur | Udaipur | Goa',
+      match: (v: VenueItem) => /destination/i.test(v.type || '') || /destination/i.test(v.name || ''),
+    },
+    {
+      title: 'Resorts',
+      cities: 'Lonavala | Coorg | Ooty',
+      match: (v: VenueItem) => /resort/i.test(v.type || '') || /resort/i.test(v.name || ''),
+    },
+    {
+      title: 'Conference Centers',
+      cities: 'Mumbai | Delhi | Bangalore',
+      match: (v: VenueItem) => /conference|convention|expo/i.test(v.type || '') || /conference|convention/i.test(v.name || ''),
+    },
+    {
+      title: 'Heritage Venues',
+      cities: 'Jaipur | Jodhpur | Udaipur',
+      match: (v: VenueItem) => /heritage|palace|fort/i.test(v.type || '') || /palace|fort/i.test(v.name || ''),
+    }
   ]), []);
 
   const categoryCards = useMemo(() => {
@@ -84,7 +128,7 @@ export default function Home() {
       return {
         title: def.title,
         image,
-        venuesText: count > 0 ? `${count} Venues` : 'Unavailable',
+        venuesText: image ? `${count} Venues` : 'Unavailable',
         location: def.cities,
         hasImage: Boolean(image),
       } as { title: string; image?: string; venuesText: string; location: string; hasImage: boolean };
@@ -98,9 +142,6 @@ export default function Home() {
         {/* Background Image Overlay */}
         <div 
           className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100"
-          style={{
-            backgroundImage: "url('https://images.unsplash.com/photo-1519741497674-611481863552?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')"
-          }}
         />
         
         {/* Gradient Overlay */}
@@ -190,7 +231,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {(categoryCards.filter(c => c.hasImage)).map((category, index) => (
+            {(showAllCategories ? categoryCards : categoryCards.slice(0, 6)).map((category, index) => (
               <div 
                 key={index} 
                 className="group cursor-pointer"
@@ -221,6 +262,17 @@ export default function Home() {
               </div>
             ))}
           </div>
+          {/* Toggle button to reveal more/less categories */}
+          {categoryCards.length > 6 && (
+            <div className="mt-10 flex justify-center">
+              <Button
+                onClick={() => setShowAllCategories(!showAllCategories)}
+                className="px-6"
+              >
+                {showAllCategories ? 'View less' : 'View more'}
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -282,12 +334,12 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/auth/register">
-              <Button size="lg" className="bg-white text-pink-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
+              <Button size="lg" className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
                 Sign Up Today
               </Button>
             </Link>
             <Link href="/venues">
-              <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-pink-600 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300">
+              <Button size="lg" variant="outline" className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-pink-600 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300">
                 Browse Venues
               </Button>
             </Link>
