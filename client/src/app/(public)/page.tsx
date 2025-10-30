@@ -8,6 +8,8 @@ import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
+import BlogSection from '@/components/home/BlogSection';
+// Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
 interface VenueItem {
@@ -20,6 +22,7 @@ interface VenueItem {
 
 export default function Home() {
   const router = useRouter();
+  // Removed unused user from auth context to satisfy linter
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
   // Controls whether we show only a subset of category cards or all of them
@@ -31,6 +34,45 @@ export default function Home() {
   const [bgIndex, setBgIndex] = useState<number>(0);
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
+  
+  // Convert common sharing links to direct image URLs so background works from
+  // services like Google Drive or Dropbox. If parsing fails, we return the
+  // original URL.
+  function normalizeImageUrl(input?: string): string {
+    if (!input) return '';
+    try {
+      // Google Drive share link patterns
+      if (/drive\.google\.com/.test(input)) {
+        // e.g., https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+        const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match?.[1]) {
+          return `https://drive.google.com/uc?id=${match[1]}`;
+        }
+        // e.g., https://drive.google.com/open?id=FILE_ID or uc?id=FILE_ID
+        const idParam = new URL(input).searchParams.get('id');
+        if (idParam) {
+          return `https://drive.google.com/uc?id=${idParam}`;
+        }
+      }
+      // Dropbox shared links
+      if (/dropbox\.com/.test(input)) {
+        // Force direct download/raw host
+        const url = new URL(input);
+        url.hostname = 'dl.dropboxusercontent.com';
+        url.searchParams.set('raw', '1');
+        url.searchParams.delete('dl');
+        return url.toString();
+      }
+    } catch {
+      // Fall through and return original
+    }
+    return input;
+  }
+  // Typing effect state for the homepage title. We keep this local so
+  // admins can still change the title dynamically via page settings.
+  const [typedTitle, setTypedTitle] = useState<string>('');
+  const [typeIndex, setTypeIndex] = useState<number>(0);
+  const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
 
   useEffect(() => {
     const fetchVenues = async () => {
@@ -70,6 +112,45 @@ export default function Home() {
     };
     fetchPageSettings();
   }, []);
+
+  // Reset typing state when title changes
+  useEffect(() => {
+    setTypedTitle('');
+    setTypeIndex(0);
+    setTypingDirection('forward');
+  }, [pageTitle]);
+
+  // Infinite typing loop: type forward, pause, delete backward, pause, repeat
+  useEffect(() => {
+    if (!pageTitle) return;
+    const atStart = typeIndex === 0 && typingDirection === 'backward';
+    const atEnd = typeIndex === pageTitle.length && typingDirection === 'forward';
+    const edgePauseMs = 1200;
+    const stepMs = 60;
+    const delay = atStart || atEnd ? edgePauseMs : stepMs;
+
+    const timeout = setTimeout(() => {
+      if (typingDirection === 'forward') {
+        if (typeIndex < pageTitle.length) {
+          const next = typeIndex + 1;
+          setTypeIndex(next);
+          setTypedTitle(pageTitle.slice(0, next));
+        } else {
+          setTypingDirection('backward');
+        }
+      } else {
+        if (typeIndex > 0) {
+          const next = typeIndex - 1;
+          setTypeIndex(next);
+          setTypedTitle(pageTitle.slice(0, next));
+        } else {
+          setTypingDirection('forward');
+        }
+      }
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [pageTitle, typeIndex, typingDirection]);
 
   // Rotate background images randomly every 10 seconds if multiple provided
   useEffect(() => {
@@ -187,12 +268,12 @@ export default function Home() {
       <div className="relative min-h-[80vh] bg-gradient-to-r from-pink-600 to-purple-600 overflow-hidden">
         {/* Background Image Overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700"
-          style={bgImages.length > 0 ? { backgroundImage: `url(${bgImages[bgIndex]})` } : undefined}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-md transform-gpu scale-110"
+          style={bgImages.length > 0 ? { backgroundImage: `url(${normalizeImageUrl(bgImages[bgIndex])})` } : undefined}
         />
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0" />
+        {/* Gradient/Darken Overlay to improve text readability */}
+        <div className="absolute inset-0 bg-black/30" />
         
         {/* Hero Content */}
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
@@ -202,7 +283,8 @@ export default function Home() {
                 className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
                 style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
               >
-                {pageTitle}
+                {typedTitle || pageTitle}
+                <span className="ml-1 animate-pulse">|</span>
               </h1>
             ) : null}
             {pageDescription ? (
@@ -251,26 +333,7 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Popular Searches */}
-            <div className="text-left max-w-4xl mx-auto">
-              <p className="text-pink-100 mb-3 font-medium">Popular Searches:</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Event Venues in Mumbai",
-                  "Banquet Halls in Delhi",
-                  "Corporate Events",
-                  "Beach Venues",
-                  "Luxury Venues"
-                ].map((search, index) => (
-                  <span 
-                    key={index}
-                    className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm hover:bg-white/30 cursor-pointer transition-all duration-300"
-                  >
-                    {search}
-                  </span>
-                ))}
-              </div>
-            </div>
+            {/* Popular Searches removed by request */}
           </div>
         </div>
       </div>
@@ -335,6 +398,11 @@ export default function Home() {
 
       {/* Popular Service Categories - looks like venue cards */}
       <VendorCategoriesGrid />
+
+      {/* Create Blog CTA now lives inside BlogSection header for consistent background */}
+
+      {/* Blog Section - shows latest admin blogs */}
+      <BlogSection />
 
       {/* Why Choose Plannova */}
       <div className="py-16 bg-white">

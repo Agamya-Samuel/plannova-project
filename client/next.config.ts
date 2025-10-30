@@ -19,6 +19,19 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
+      // Allow images from anywhere (Pinterest, Drive proxies, Cloudinary, etc.)
+      {
+        protocol: 'https',
+        hostname: '**',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+        port: '',
+        pathname: '/**',
+      },
       {
         protocol: 'https',
         hostname: 'cdn-prod.plannova.in',
