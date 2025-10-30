@@ -2,12 +2,42 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
+import apiClient from '@/lib/api';
+
+interface VenueImage { url: string; isPrimary?: boolean; }
+interface VenueItem {
+  _id: string;
+  name: string;
+  type?: string;
+  address?: { city?: string; state?: string };
+  images?: VenueImage[];
+}
 
 export default function Home() {
   const router = useRouter();
+  const [venues, setVenues] = useState<VenueItem[]>([]);
+  const [loadingVenues, setLoadingVenues] = useState(false);
+
+  useEffect(() => {
+    const fetchVenues = async () => {
+      try {
+        setLoadingVenues(true);
+        const res = await apiClient.get('/venues');
+        const list: VenueItem[] = res?.data?.venues || res?.data?.data || res?.data || [];
+        setVenues(Array.isArray(list) ? list : []);
+      } catch (e) {
+        // silently fail; UI will fallback to placeholders below
+        console.error('Failed to fetch venues for homepage categories', e);
+      } finally {
+        setLoadingVenues(false);
+      }
+    };
+    fetchVenues();
+  }, []);
 
   const handleCategoryClick = (categoryTitle: string) => {
     // Map category titles to venue types for filtering
@@ -26,6 +56,40 @@ export default function Home() {
       router.push('/venues');
     }
   };
+
+  const categoryDefs = useMemo(() => ([
+    {
+      title: 'Luxury Hotels',
+      cities: 'Mumbai | Bangalore | Delhi',
+      match: (v: VenueItem) => /hotel/i.test(v.type || '') || /hotel/i.test(v.name || ''),
+    },
+    {
+      title: 'Banquet Halls',
+      cities: 'Mumbai | Bangalore | Pune',
+      match: (v: VenueItem) => /banquet/i.test(v.type || '') || /banquet/i.test(v.name || ''),
+    },
+    {
+      title: 'Garden Venues',
+      cities: 'Mumbai | Chennai | Delhi',
+      match: (v: VenueItem) => /resort|garden|outdoor/i.test(v.type || '') || /garden|resort/i.test(v.name || ''),
+    },
+  ]), []);
+
+  const categoryCards = useMemo(() => {
+    return categoryDefs.map(def => {
+      const items = venues.filter(def.match);
+      const count = items.length;
+      const cover = items.find(v => (v.images?.length || 0) > 0);
+      const image = cover?.images?.find(i => i.isPrimary)?.url || cover?.images?.[0]?.url || '';
+      return {
+        title: def.title,
+        image,
+        venuesText: count > 0 ? `${count} Venues` : 'Unavailable',
+        location: def.cities,
+        hasImage: Boolean(image),
+      } as { title: string; image?: string; venuesText: string; location: string; hasImage: boolean };
+    });
+  }, [venues, categoryDefs]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -126,44 +190,31 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Luxury Hotels",
-                image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                venues: "250+ Venues",
-                location: "Mumbai | Bangalore | Delhi"
-              },
-              {
-                title: "Banquet Halls",
-                image: "https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                venues: "180+ Venues",
-                location: "Mumbai | Bangalore | Pune"
-              },
-              {
-                title: "Garden Venues",
-                image: "https://images.unsplash.com/photo-1469371670807-013ccf25f16a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                venues: "120+ Venues",
-                location: "Mumbai | Chennai | Delhi"
-              }
-            ].map((category, index) => (
+            {categoryCards.map((category, index) => (
               <div 
                 key={index} 
                 className="group cursor-pointer"
                 onClick={() => handleCategoryClick(category.title)}
               >
                 <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                  <Image 
-                    src={category.image} 
-                    alt={category.title}
-                    width={800}
-                    height={256}
-                    className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
-                    priority={index === 0}
-                  />
+                  {category.hasImage ? (
+                    <Image 
+                      src={category.image as string} 
+                      alt={category.title}
+                      width={800}
+                      height={256}
+                      className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
+                      priority={index === 0}
+                    />
+                  ) : (
+                    <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-600 font-semibold">No image available</span>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   <div className="absolute bottom-6 left-6 text-white">
                     <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
-                    <p className="text-pink-200 font-medium">{category.venues}</p>
+                    <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
                     <p className="text-sm text-gray-300">{category.location}</p>
                   </div>
                 </div>
