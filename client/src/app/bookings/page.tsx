@@ -169,7 +169,7 @@ export default function BookingsPage() {
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0">
-                  <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
+                  <button onClick={() => router.push('/venues')} className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
                     <Calendar className="h-5 w-5 mr-2" />
                     New Booking
                   </button>
@@ -331,7 +331,7 @@ export default function BookingsPage() {
               <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings yet</h3>
               <p className="text-gray-600 mb-6">You haven{`'`}t made any service bookings yet.</p>
-              <button className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
+              <button onClick={() => router.push('/venues')} className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
                 <MapPin className="h-5 w-5 mr-2" />
                 Browse Services
               </button>
