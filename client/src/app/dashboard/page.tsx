@@ -7,6 +7,7 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
+import apiClient from '@/lib/api';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -848,6 +849,28 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
 }
 
 function AdminDashboard() {
+  const [stats, setStats] = useState<{ users: { total: number }; venues: { approved: number }; bookings: { total: number; successRate: number }; revenue: number } | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/admin/stats');
+        setStats(res.data);
+        setError('');
+      } catch {
+        setError('Failed to load stats');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+
   return (
     <div className="space-y-6">
       {/* Admin Stats */}
@@ -856,7 +879,7 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Users</p>
-              <p className="text-3xl font-bold text-gray-900">2,847</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : (stats?.users.total ?? 0).toLocaleString('en-IN')}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +12% this month
@@ -872,7 +895,7 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Active Venues</p>
-              <p className="text-3xl font-bold text-gray-900">456</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : (stats?.venues.approved ?? 0).toLocaleString('en-IN')}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +8% this month
@@ -888,10 +911,10 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">1,234</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : (stats?.bookings.total ?? 0).toLocaleString('en-IN')}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <CheckCircle className="h-4 w-4 mr-1" />
-                89% Success Rate
+                {loading ? '—' : `${stats?.bookings.successRate ?? 0}% Success Rate`}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -904,7 +927,7 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Platform Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">₹12.8L</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : formatCurrency(stats?.revenue ?? 0)}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +22% this month
@@ -916,6 +939,9 @@ function AdminDashboard() {
           </div>
         </div>
       </div>
+      {error && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
       
       {/* Admin Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -925,7 +951,7 @@ function AdminDashboard() {
           icon={<Users className="h-8 w-8 text-blue-600" />}
           action="Manage Users"
           href="/admin/users"
-          stats="2,847 Users"
+          stats={stats ? `${stats.users.total.toLocaleString('en-IN')} Users` : undefined}
           color="blue"
         />
         <DashboardCard
@@ -934,7 +960,7 @@ function AdminDashboard() {
           icon={<MapPin className="h-8 w-8 text-pink-600" />}
           action="Manage Venues"
           href="/admin/venues"
-          stats="12 Pending"
+          stats={stats ? `${stats.venues.approved.toLocaleString('en-IN')} Approved` : undefined}
           color="pink"
         />
         <DashboardCard
@@ -943,7 +969,7 @@ function AdminDashboard() {
           icon={<Calendar className="h-8 w-8 text-green-600" />}
           action="View Bookings"
           href="/admin/bookings"
-          stats="1,234 Total"
+          stats={stats ? `${stats.bookings.total.toLocaleString('en-IN')} Total` : undefined}
           color="green"
         />
         <DashboardCard
