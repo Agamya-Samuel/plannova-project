@@ -17,6 +17,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user;
 
+  // In-memory throttle for /auth/profile to avoid 429s when many components mount
+  const lastProfileFetchRef = React.useRef<number>(0);
+  const inflightProfileRef = React.useRef<Promise<any> | null>(null);
+
+  const fetchProfileWithRetryThrottled = async () => {
+    const now = Date.now();
+    // 20s throttle window
+    if (inflightProfileRef.current) {
+      return inflightProfileRef.current;
+    }
+    if (now - lastProfileFetchRef.current < 20_000) {
+      // Too soon; just reuse last successful value from localStorage
+      const cached = localStorage.getItem('user');
+      return cached ? JSON.parse(cached) : null;
+    }
+
+    const runner = (async () => {
+      let attempt = 0;
+      const maxAttempts = 3;
+      const baseDelay = 300; // ms
+      while (attempt < maxAttempts) {
+        try {
+          const response = await apiClient.get('/auth/profile');
+          lastProfileFetchRef.current = Date.now();
+          return response.data;
+        } catch (err: any) {
+          const status = err?.response?.status;
+          if (status === 429 || status === 503) {
+            const delay = baseDelay * Math.pow(2, attempt);
+            await new Promise(r => setTimeout(r, delay));
+            attempt += 1;
+            continue;
+          }
+          throw err;
+        }
+      }
+      return null;
+    })();
+
+    inflightProfileRef.current = runner.finally(() => {
+      inflightProfileRef.current = null;
+    });
+
+    return inflightProfileRef.current;
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('token');
@@ -27,8 +73,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const user = JSON.parse(storedUser);
           setUser(user);
           
-          // Verify token is still valid by fetching profile
-          const response = await apiClient.get('/auth/profile');
+          // Verify token is still valid by fetching profile (with retry + throttle)
+          const responseData = await fetchProfileWithRetryThrottled();
+          const response = { data: responseData } as any;
           if (process.env.NODE_ENV === 'development') {
             console.log('👤 Current user profile data:', response.data);
           }
@@ -46,9 +93,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             }
           }
           
-          setUser(response.data);
+          if (response.data) {
+            setUser(response.data);
+          }
           // Update localStorage with the latest user data including photoURL
-          localStorage.setItem('user', JSON.stringify(response.data));
+          if (response.data) {
+            localStorage.setItem('user', JSON.stringify(response.data));
+          }
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
             console.error('Auth initialization error:', error);
