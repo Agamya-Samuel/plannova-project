@@ -40,6 +40,8 @@ export default function VendorCategoriesGrid() {
   const [decoration, setDecoration] = useState<AnyService[]>([]);
   const [entertainment, setEntertainment] = useState<AnyService[]>([]);
   const [bridalMakeup, setBridalMakeup] = useState<AnyService[]>([]);
+  // Ticks to reshuffle displayed images periodically
+  const [shuffleTick, setShuffleTick] = useState(0);
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -66,13 +68,61 @@ export default function VendorCategoriesGrid() {
     fetchAll();
   }, []);
 
+  // Periodically reshuffle images so cards update automatically
+  useEffect(() => {
+    // Do nothing if nothing is loaded yet
+    const anyLoaded = [photography, catering, videography, decoration, entertainment, bridalMakeup].some(
+      arr => Array.isArray(arr) && arr.length > 0
+    );
+    if (!anyLoaded) return;
+    const INTERVAL_MS = 2000; // faster changes: every 2s
+    const id = setInterval(() => setShuffleTick(t => t + 1), INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [photography, catering, videography, decoration, entertainment, bridalMakeup]);
+
   const cards: CategoryCardItem[] = useMemo(() => {
     const build = (title: string, list: AnyService[], categoryParam: string): CategoryCardItem => {
       const count = list.length;
-      const cover = list.find(s => (s.images?.length || 0) > 0);
-      const image = cover?.images?.find(i => i.isPrimary)?.url || cover?.images?.[0]?.url || '';
-      const city = cover?.serviceLocation?.city || '';
-      const state = cover?.serviceLocation?.state || '';
+      // Extra safety: if backend returns mixed categories, narrow to matching ones when possible
+      const maybeCategoryMatches = (item: AnyService): boolean => {
+        const raw: any = (item as any);
+        const categoryLike: string = String(
+          raw?.category ||
+          raw?.serviceCategory ||
+          raw?.serviceType ||
+          raw?.type ||
+          ''
+        ).toLowerCase();
+        if (!categoryLike) return true; // if unknown, don't exclude
+        const t = title.toLowerCase();
+        const p = categoryParam.toLowerCase();
+        return categoryLike.includes(t) || categoryLike.includes(p);
+      };
+
+      const narrowed = list.filter(maybeCategoryMatches);
+      const servicesWithImages = (narrowed.length ? narrowed : list).filter(s => (s.images?.length || 0) > 0);
+
+      let chosenService: AnyService | undefined;
+      let image = '';
+
+      if (servicesWithImages.length > 0) {
+        // Pick a random service that has images
+        const randomServiceIndex = (Math.floor(Math.random() * servicesWithImages.length) + shuffleTick) % servicesWithImages.length;
+        chosenService = servicesWithImages[randomServiceIndex];
+
+        const imgs = chosenService.images || [];
+        // If multiple photos exist, pick a random one; otherwise fall back to primary/first
+        const primary = imgs.find(i => i.isPrimary)?.url;
+        if (imgs.length > 1) {
+          const randomImageIndex = (Math.floor(Math.random() * imgs.length) + shuffleTick) % imgs.length;
+          image = imgs[randomImageIndex]?.url || primary || imgs[0]?.url || '';
+        } else {
+          image = primary || imgs[0]?.url || '';
+        }
+      }
+
+      const city = chosenService?.serviceLocation?.city || '';
+      const state = chosenService?.serviceLocation?.state || '';
       const locationText = [city, state].filter(Boolean).join(', ');
       return {
         title,
@@ -91,10 +141,62 @@ export default function VendorCategoriesGrid() {
       build('Bridal Makeup', bridalMakeup, 'Makeup & Beauty'),
       build('Entertainment', entertainment, 'Music & Entertainment'),
     ];
-  }, [photography, catering, videography, decoration, bridalMakeup, entertainment]);
+  }, [photography, catering, videography, decoration, bridalMakeup, entertainment, shuffleTick]);
 
   const handleClick = (href: string) => {
     router.push(href);
+  };
+
+  // Small helper to crossfade images when src changes
+  const CrossfadeImage = ({ src, alt, priority }: { src: string; alt: string; priority?: boolean }) => {
+    const [currentSrc, setCurrentSrc] = useState(src);
+    const [nextSrc, setNextSrc] = useState<string | null>(null);
+    const [fading, setFading] = useState(false);
+
+    useEffect(() => {
+      if (src && src !== currentSrc) {
+        setNextSrc(src);
+        setFading(true);
+      }
+    }, [src, currentSrc]);
+
+    // When the overlaid image loads, complete the crossfade and commit the src
+    const handleNewImageLoaded = () => {
+      setCurrentSrc(nextSrc as string);
+      setFading(false);
+      setNextSrc(null);
+    };
+
+    return (
+      <div className="w-full h-64 relative">
+          <Image
+          src={currentSrc}
+          alt={alt}
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          className="object-cover absolute inset-0"
+          priority={priority}
+        />
+        {nextSrc ? (
+          <Image
+            src={nextSrc}
+            alt={alt}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className={`object-cover absolute inset-0 transition-opacity duration-200 ${fading ? 'opacity-0 animate-[fadeIn_200ms_ease_forwards]' : ''}`}
+            onLoadingComplete={handleNewImageLoaded}
+            priority={priority}
+          />
+        ) : null}
+        {/* Tailwind keyframes for the quick fade-in */}
+        <style jsx>{`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+        `}</style>
+      </div>
+    );
   };
 
   return (
@@ -114,14 +216,11 @@ export default function VendorCategoriesGrid() {
             >
               <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
                 {card.hasImage ? (
-                  <Image
-                    src={card.image as string}
-                    alt={card.title}
-                    width={800}
-                    height={256}
-                    className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
-                    priority={index === 0}
-                  />
+                  <div className="relative overflow-hidden">
+                    <div className="group-hover:scale-110 transition-transform duration-300">
+                      <CrossfadeImage src={card.image as string} alt={card.title} priority={index === 0} />
+                    </div>
+                  </div>
                 ) : (
                   <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
                     <span className="text-gray-600 font-semibold">No image available</span>

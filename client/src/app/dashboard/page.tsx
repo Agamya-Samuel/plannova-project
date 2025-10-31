@@ -173,6 +173,47 @@ function CustomerDashboard() {
 function ProviderDashboard() {
   const { user } = useAuth();
   const router = useRouter();
+  const [stats, setStats] = useState<{
+    totalBookings: number;
+    bookingsGrowth: number;
+    revenue: number;
+    revenueGrowth: number;
+    avgRating: number;
+    totalReviews: number;
+    responseTime: string;
+    responseTimeStatus: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch provider statistics from API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/bookings/provider/stats');
+        setStats(res.data);
+      } catch (error) {
+        console.error('Error fetching provider stats:', error);
+        // Set default stats on error
+        setStats({
+          totalBookings: 0,
+          bookingsGrowth: 0,
+          revenue: 0,
+          revenueGrowth: 0,
+          avgRating: 0,
+          totalReviews: 0,
+          responseTime: '—',
+          responseTimeStatus: 'No data'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.role === 'PROVIDER') {
+      fetchStats();
+    }
+  }, [user]);
 
   // Redirect to onboarding if provider hasn't selected service categories yet
   useEffect(() => {
@@ -192,6 +233,15 @@ function ProviderDashboard() {
     return <ServiceSpecificDashboard serviceType={selectedService} />;
   }
 
+  // Format revenue for display (convert to lakhs if needed)
+  const formatRevenue = (amount: number): string => {
+    if (amount >= 100000) {
+      const lakhs = (amount / 100000).toFixed(1);
+      return `₹${lakhs}L`;
+    }
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
@@ -200,10 +250,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">24</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.totalBookings ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +12% this month
+                {loading ? '—' : stats && stats.bookingsGrowth > 0 ? `+${stats.bookingsGrowth}%` : stats && stats.bookingsGrowth < 0 ? `${stats.bookingsGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
@@ -216,10 +268,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">₹8.4L</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : formatRevenue(stats?.revenue ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +18% this month
+                {loading ? '—' : stats && stats.revenueGrowth > 0 ? `+${stats.revenueGrowth}%` : stats && stats.revenueGrowth < 0 ? `${stats.revenueGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -232,10 +286,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
-              <p className="text-3xl font-bold text-gray-900">4.8</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.avgRating ?? 0).toFixed(1)}
+              </p>
               <p className="text-sm text-blue-600 flex items-center mt-1">
                 <Star className="h-4 w-4 mr-1" />
-                156 reviews
+                {loading ? '—' : `${stats?.totalReviews ?? 0} reviews`}
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -248,10 +304,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Response Time</p>
-              <p className="text-3xl font-bold text-gray-900">2h</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.responseTime ?? '—')}
+              </p>
               <p className="text-sm text-purple-600 flex items-center mt-1">
                 <Clock className="h-4 w-4 mr-1" />
-                Very Good
+                {loading ? '—' : (stats?.responseTimeStatus ?? 'No data')}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -323,6 +381,58 @@ function ProviderDashboard() {
 }
 
 function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
+  const [stats, setStats] = useState<{
+    totalBookings: number;
+    bookingsGrowth: number;
+    revenue: number;
+    revenueGrowth: number;
+    avgRating: number;
+    totalReviews: number;
+    responseTime: string;
+    responseTimeStatus: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Fetch provider statistics from API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/bookings/provider/stats');
+        setStats(res.data);
+      } catch (error) {
+        console.error('Error fetching provider stats:', error);
+        // Set default stats on error
+        setStats({
+          totalBookings: 0,
+          bookingsGrowth: 0,
+          revenue: 0,
+          revenueGrowth: 0,
+          avgRating: 0,
+          totalReviews: 0,
+          responseTime: '—',
+          responseTimeStatus: 'No data'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.role === 'PROVIDER') {
+      fetchStats();
+    }
+  }, [user]);
+
+  // Format revenue for display (convert to lakhs if needed)
+  const formatRevenue = (amount: number): string => {
+    if (amount >= 100000) {
+      const lakhs = (amount / 100000).toFixed(1);
+      return `₹${lakhs}L`;
+    }
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
   const getServiceDashboard = () => {
     switch (serviceType) {
       case 'venue':
@@ -781,10 +891,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">24</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.totalBookings ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +12% this month
+                {loading ? '—' : stats && stats.bookingsGrowth > 0 ? `+${stats.bookingsGrowth}%` : stats && stats.bookingsGrowth < 0 ? `${stats.bookingsGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
@@ -797,10 +909,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">₹8.4L</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : formatRevenue(stats?.revenue ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +18% this month
+                {loading ? '—' : stats && stats.revenueGrowth > 0 ? `+${stats.revenueGrowth}%` : stats && stats.revenueGrowth < 0 ? `${stats.revenueGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -813,10 +927,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
-              <p className="text-3xl font-bold text-gray-900">4.8</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.avgRating ?? 0).toFixed(1)}
+              </p>
               <p className="text-sm text-blue-600 flex items-center mt-1">
                 <Star className="h-4 w-4 mr-1" />
-                156 reviews
+                {loading ? '—' : `${stats?.totalReviews ?? 0} reviews`}
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -829,10 +945,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Response Time</p>
-              <p className="text-3xl font-bold text-gray-900">2h</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.responseTime ?? '—')}
+              </p>
               <p className="text-sm text-purple-600 flex items-center mt-1">
                 <Clock className="h-4 w-4 mr-1" />
-                Very Good
+                {loading ? '—' : (stats?.responseTimeStatus ?? 'No data')}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
