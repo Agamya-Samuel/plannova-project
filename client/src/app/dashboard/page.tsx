@@ -1067,13 +1067,22 @@ function AdminDashboard() {
       {/* Admin Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <DashboardCard
+          title="Manage Providers"
+          description="Browse all providers and view their work"
+          icon={<Users className="h-8 w-8 text-blue-600" />}
+          action="Manage Providers"
+          href="/admin/providers"
+          stats={stats ? `${stats.users.total.toLocaleString('en-IN')} Providers` : undefined}
+          color="blue"
+        />
+        <DashboardCard
           title="User Management"
           description="Manage all users, customers, and providers"
-          icon={<Users className="h-8 w-8 text-blue-600" />}
+          icon={<Users className="h-8 w-8 text-indigo-600" />}
           action="Manage Users"
           href="/admin/users"
           stats={stats ? `${stats.users.total.toLocaleString('en-IN')} Users` : undefined}
-          color="blue"
+          color="purple"
         />
         <DashboardCard
           title="Services Management"
@@ -1096,11 +1105,11 @@ function AdminDashboard() {
         <DashboardCard
           title="Analytics & Reports"
           description="Generate platform analytics and reports"
-          icon={<BarChart3 className="h-8 w-8 text-purple-600" />}
+          icon={<BarChart3 className="h-8 w-8 text-yellow-600" />}
           action="View Reports"
           href="/admin/reports"
           stats="Weekly Report"
-          color="purple"
+          color="yellow"
         />
         <DashboardCard
           title="Content Management"
@@ -1180,6 +1189,7 @@ function DashboardCard({ title, description, icon, action, href, stats, color }:
     const colors = {
       pink: 'from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700',
       purple: 'from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700',
+      indigo: 'from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700',
       blue: 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700',
       green: 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700',
       red: 'from-red-500 to-red-600 hover:from-red-600 hover:to-red-700',
