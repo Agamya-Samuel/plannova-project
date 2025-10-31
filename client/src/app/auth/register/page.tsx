@@ -220,8 +220,8 @@ export default function RegisterPage() {
                     {...register('role')}
                     className="pl-12 h-12 w-full bg-white border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-300 text-gray-700 appearance-none cursor-pointer"
                   >
-                    <option value="CUSTOMER">🤵👰 Customer - Looking for event venues</option>
-                    <option value="PROVIDER">🏛️ Provider - Event venue owner</option>
+                    <option value="CUSTOMER">Customer</option>
+                    <option value="PROVIDER">Provider</option>
                   </select>
                 </div>
                 {errors.role && (

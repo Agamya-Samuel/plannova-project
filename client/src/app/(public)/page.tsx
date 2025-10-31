@@ -75,42 +75,64 @@ export default function Home() {
   const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
 
   useEffect(() => {
+    // Prevent duplicate requests and handle rate limiting
+    let cancelled = false;
+    
     const fetchVenues = async () => {
       try {
         setLoadingVenues(true);
         const res = await apiClient.get('/venues');
-        const list: VenueItem[] = res?.data?.venues || res?.data?.data || res?.data || [];
-        setVenues(Array.isArray(list) ? list : []);
-      } catch (e) {
-        // silently fail; UI will fallback to placeholders below
-        console.error('Failed to fetch venues for homepage categories', e);
+        if (!cancelled) {
+          const list: VenueItem[] = res?.data?.venues || res?.data?.data || res?.data || [];
+          setVenues(Array.isArray(list) ? list : []);
+        }
+      } catch (e: unknown) {
+        // Handle rate limiting (429) gracefully
+        // Check if error has response property (Axios error)
+        if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response && e.response.status === 429) {
+          console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+          // Silently fail - UI will show placeholders
+        } else {
+          console.error('Failed to fetch venues for homepage categories', e);
+        }
       } finally {
-        setLoadingVenues(false);
+        if (!cancelled) {
+          setLoadingVenues(false);
+        }
       }
     };
-    fetchVenues();
+    
     // Fetch dynamic homepage settings (title + background)
     const fetchPageSettings = async () => {
       try {
         const res = await apiClient.get('/page-settings/home');
-        const data = res?.data || {};
-        setPageTitle(typeof data.title === 'string' ? data.title : '');
-        const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
-        setBgImages(imgs);
-        if (imgs.length > 0) {
-          setBgIndex(Math.floor(Math.random() * imgs.length));
+        if (!cancelled) {
+          const data = res?.data || {};
+          setPageTitle(typeof data.title === 'string' ? data.title : '');
+          const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
+          setBgImages(imgs);
+          if (imgs.length > 0) {
+            setBgIndex(Math.floor(Math.random() * imgs.length));
+          }
+          setPageDescription(typeof data.description === 'string' ? data.description : '');
+          setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
+          setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
         }
-        setPageDescription(typeof data.description === 'string' ? data.description : '');
-        setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
-        setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
       } catch {
         // If not configured yet, keep defaults (no title rendered)
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NODE_ENV === 'development' && !cancelled) {
           console.log('Homepage page-settings not found yet');
         }
       }
     };
+    
+    fetchVenues();
     fetchPageSettings();
+    
+    // Cleanup function to cancel request if component unmounts
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Reset typing state when title changes
