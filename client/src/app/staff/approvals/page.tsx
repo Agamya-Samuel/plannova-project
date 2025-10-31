@@ -92,9 +92,7 @@ export default function StaffApprovalsPage() {
     );
   };
 
-  if (user?.role !== 'STAFF' && user?.role !== 'ADMIN') {
-    return <div>Access denied. Staff access required.</div>;
-  }
+  // Access control is handled by ProtectedRoute to avoid flicker during auth load
 
   return (
     <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
