@@ -235,9 +235,9 @@ export default function VenueDetailsPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Venue Not Found</h1>
           <p className="text-gray-600 mb-6">{error || 'The venue you are looking for does not exist.'}</p>
-          <Button onClick={() => router.push('/venues')} className="bg-pink-600 hover:bg-pink-700">
+          <Button onClick={() => { if (typeof window !== 'undefined' && window.history.length > 1) { router.back(); } else { router.push('/venues'); } }} className="bg-pink-600 hover:bg-pink-700">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Venues
+            Back
           </Button>
         </div>
       </div>
@@ -252,11 +252,11 @@ export default function VenueDetailsPage() {
           <div className="flex items-center justify-between">
             <Button 
               variant="outline" 
-              onClick={() => router.push('/venues')}
+              onClick={() => { if (typeof window !== 'undefined' && window.history.length > 1) { router.back(); } else { router.push('/venues'); } }}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to Venues</span>
+              <span>Back</span>
             </Button>
             
             <div className="flex items-center space-x-4">

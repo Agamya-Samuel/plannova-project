@@ -27,6 +27,7 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+
   const renderDashboardContent = () => {
     switch (user?.role) {
       case 'CUSTOMER':
@@ -35,6 +36,8 @@ export default function DashboardPage() {
         return <ProviderDashboard />;
       case 'ADMIN':
         return <AdminDashboard />;
+      case 'STAFF':
+        return <StaffDashboard />;
       default:
         return <div>Invalid user role</div>;
     }
@@ -1073,11 +1076,11 @@ function AdminDashboard() {
           color="blue"
         />
         <DashboardCard
-          title="Venue Management"
-          description="Review and approve venue listings"
+          title="Services Management"
+          description="Review and manage all provider services"
           icon={<MapPin className="h-8 w-8 text-pink-600" />}
-          action="Manage Venues"
-          href="/admin/venues"
+          action="Manage Services"
+          href="/admin/services"
           stats={stats ? `${stats.venues.approved.toLocaleString('en-IN')} Approved` : undefined}
           color="pink"
         />
@@ -1118,6 +1121,46 @@ function AdminDashboard() {
           color="gray"
         />
       </div>
+    </div>
+  );
+}
+
+function StaffDashboard() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <DashboardCard
+        title="Providers"
+        description="Browse all providers and view their work"
+        icon={<Users className="h-8 w-8 text-blue-600" />}
+        action="Manage Providers"
+        href="/staff/providers"
+        color="blue"
+      />
+      <DashboardCard
+        title="Service Approvals"
+        description="Review and approve provider submissions across services"
+        icon={<CheckCircle className="h-8 w-8 text-green-600" />}
+        action="Manage Approvals"
+        href="/staff/approvals"
+        color="green"
+      />
+      <DashboardCard
+        title="Services Management"
+        description="Review and manage all provider services"
+        icon={<MapPin className="h-8 w-8 text-pink-600" />}
+        action="Manage Services"
+        href="/staff/services"
+        color="pink"
+      />
+      <DashboardCard
+        title="Bookings Overview"
+        description="Monitor bookings across the platform"
+        icon={<Calendar className="h-8 w-8 text-green-600" />}
+        action="View Bookings"
+        href="/admin/bookings"
+        color="green"
+      />
+      {/* Removed Analytics & Reports and Content Management for staff */}
     </div>
   );
 }
