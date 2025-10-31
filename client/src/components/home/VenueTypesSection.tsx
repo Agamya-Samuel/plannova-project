@@ -1,19 +1,29 @@
 'use client';
 
 import Link from 'next/link';
+import { VENUE_TYPES } from '@/constants/venueTypes';
 
 // VenueTypesSection: Lightweight chips linking to venue types
 // Uses URL query so the venues page can filter accordingly
+// Only shows venue types that are available in the venue creation form
 export default function VenueTypesSection() {
-  // Keep a small curated list to avoid clutter
-  const venueTypes: Array<{ label: string; type: string; cities: string }> = [
-    { label: 'Luxury Hotels', type: 'Hotel', cities: 'Mumbai | Bangalore | Delhi' },
-    { label: 'Banquet Halls', type: 'Banquet Hall', cities: 'Mumbai | Bangalore | Pune' },
-    { label: 'Resorts', type: 'Resort', cities: 'Lonavala | Coorg | Ooty' },
-    { label: 'Rooftop Venues', type: 'Rooftop', cities: 'Mumbai | Bangalore | Hyderabad' },
-    { label: 'Farmhouses', type: 'Farmhouse', cities: 'Delhi | Gurgaon | Pune' },
-    { label: 'Conference Centers', type: 'Conference Center', cities: 'Mumbai | Delhi | Bangalore' },
-  ];
+  // Map venue types to display-friendly labels and cities
+  // Only include types that exist in the venue creation form
+  const venueTypeLabels: { [key: string]: { label: string; cities: string } } = {
+    'Hotel': { label: 'Luxury Hotels', cities: 'Mumbai | Bangalore | Delhi' },
+    'Banquet Hall': { label: 'Banquet Halls', cities: 'Mumbai | Bangalore | Pune' },
+    'Resort': { label: 'Resorts', cities: 'Lonavala | Coorg | Ooty' },
+    'Outdoor': { label: 'Outdoor Venues', cities: 'Mumbai | Chennai | Delhi' },
+    'Palace': { label: 'Palaces', cities: 'Jaipur | Jodhpur | Udaipur' },
+    'Farmhouse': { label: 'Farmhouses', cities: 'Delhi | Gurgaon | Pune' }
+  };
+
+  // Create array from the shared venue types constant
+  const venueTypes = VENUE_TYPES.map(type => ({
+    label: venueTypeLabels[type]?.label || type,
+    type: type,
+    cities: venueTypeLabels[type]?.cities || 'Mumbai | Delhi | Bangalore'
+  }));
 
   return (
     <div className="py-16 bg-gray-50">
@@ -35,7 +45,7 @@ export default function VenueTypesSection() {
                   <h3 className="text-base md:text-lg font-semibold text-gray-900 group-hover:text-pink-700">{v.label}</h3>
                   <p className="text-xs md:text-sm text-gray-600">{v.cities}</p>
                 </div>
-                <span className="text-pink-600 font-semibold">View →</span>
+                <span className="text-pink-600 font-semibold">View more →</span>
               </div>
             </Link>
           ))}

@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
 import BlogSection from '@/components/home/BlogSection';
+import { VENUE_TYPES } from '@/constants/venueTypes';
 // Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
@@ -25,8 +26,7 @@ export default function Home() {
   // Removed unused user from auth context to satisfy linter
   const [venues, setVenues] = useState<VenueItem[]>([]);
   const [loadingVenues, setLoadingVenues] = useState(false);
-  // Controls whether we show only a subset of category cards or all of them
-  const [showAllCategories, setShowAllCategories] = useState(false);
+  // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
   const [pageTitle, setPageTitle] = useState<string>('');
   const [bgImages, setBgImages] = useState<string[]>([]);
@@ -192,21 +192,21 @@ export default function Home() {
 
   const handleCategoryClick = (categoryTitle: string) => {
     // Map category titles to venue types for filtering
+    // Only map to categories that exist in the venue creation form
     const venueTypeMap: { [key: string]: string } = {
       'Luxury Hotels': 'Hotel',
       'Banquet Halls': 'Banquet Hall',
-      'Garden Venues': 'Resort',
-      'Beach Venues': 'Resort',
-      'Farmhouses': 'Farmhouse',
-      'Rooftop Venues': 'Rooftop',
-      'Destination Wedding': 'Destination',
+      'Outdoor Venues': 'Outdoor',
+      'Garden Venues': 'Outdoor',
       'Resorts': 'Resort',
-      'Conference Centers': 'Conference Center',
-      'Heritage Venues': 'Heritage'
+      'Farmhouses': 'Farmhouse',
+      'Palaces': 'Palace',
+      'Heritage Venues': 'Palace'
     };
     
     const venueType = venueTypeMap[categoryTitle];
-    if (venueType) {
+    // Check if the venue type exists in our standard venue types list
+    if (venueType && (VENUE_TYPES as readonly string[]).includes(venueType)) {
       // Navigate to venues page with filter parameter
       router.push(`/venues?type=${encodeURIComponent(venueType)}`);
     } else {
@@ -215,56 +215,38 @@ export default function Home() {
     }
   };
 
+  // Only show categories that match the venue types available in the creation form
+  // Available types: Banquet Hall, Hotel, Resort, Outdoor, Palace, Farmhouse
   const categoryDefs = useMemo(() => ([
     {
       title: 'Luxury Hotels',
       cities: 'Mumbai | Bangalore | Delhi',
-      match: (v: VenueItem) => /hotel/i.test(v.type || '') || /hotel/i.test(v.name || ''),
+      match: (v: VenueItem) => v.type === 'Hotel' || /hotel/i.test(v.type || ''),
     },
     {
       title: 'Banquet Halls',
       cities: 'Mumbai | Bangalore | Pune',
-      match: (v: VenueItem) => /banquet/i.test(v.type || '') || /banquet/i.test(v.name || ''),
-    },
-    {
-      title: 'Garden Venues',
-      cities: 'Mumbai | Chennai | Delhi',
-      match: (v: VenueItem) => /resort|garden|outdoor/i.test(v.type || '') || /garden|resort/i.test(v.name || ''),
-    },
-    {
-      title: 'Beach Venues',
-      cities: 'Goa | Mumbai | Chennai',
-      match: (v: VenueItem) => /beach|coast|seaside/i.test(v.type || '') || /beach/i.test(v.name || ''),
-    },
-    {
-      title: 'Farmhouses',
-      cities: 'Delhi | Gurgaon | Pune',
-      match: (v: VenueItem) => /farmhouse|farm/i.test(v.type || '') || /farmhouse|farm/i.test(v.name || ''),
-    },
-    {
-      title: 'Rooftop Venues',
-      cities: 'Mumbai | Bangalore | Hyderabad',
-      match: (v: VenueItem) => /rooftop|terrace/i.test(v.type || '') || /rooftop|terrace/i.test(v.name || ''),
-    },
-    {
-      title: 'Destination Wedding',
-      cities: 'Jaipur | Udaipur | Goa',
-      match: (v: VenueItem) => /destination/i.test(v.type || '') || /destination/i.test(v.name || ''),
+      match: (v: VenueItem) => v.type === 'Banquet Hall' || /banquet/i.test(v.type || ''),
     },
     {
       title: 'Resorts',
       cities: 'Lonavala | Coorg | Ooty',
-      match: (v: VenueItem) => /resort/i.test(v.type || '') || /resort/i.test(v.name || ''),
+      match: (v: VenueItem) => v.type === 'Resort' || /resort/i.test(v.type || ''),
     },
     {
-      title: 'Conference Centers',
-      cities: 'Mumbai | Delhi | Bangalore',
-      match: (v: VenueItem) => /conference|convention|expo/i.test(v.type || '') || /conference|convention/i.test(v.name || ''),
+      title: 'Outdoor Venues',
+      cities: 'Mumbai | Chennai | Delhi',
+      match: (v: VenueItem) => v.type === 'Outdoor' || /outdoor/i.test(v.type || ''),
     },
     {
-      title: 'Heritage Venues',
+      title: 'Palaces',
       cities: 'Jaipur | Jodhpur | Udaipur',
-      match: (v: VenueItem) => /heritage|palace|fort/i.test(v.type || '') || /palace|fort/i.test(v.name || ''),
+      match: (v: VenueItem) => v.type === 'Palace' || /palace/i.test(v.type || ''),
+    },
+    {
+      title: 'Farmhouses',
+      cities: 'Delhi | Gurgaon | Pune',
+      match: (v: VenueItem) => v.type === 'Farmhouse' || /farmhouse|farm/i.test(v.type || ''),
     }
   ]), []);
 
@@ -337,11 +319,10 @@ export default function Home() {
                   <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <select className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-700">
                     <option>Select venue type</option>
-                    <option>Banquet Halls</option>
-                    <option>Hotels</option>
-                    <option>Resorts</option>
-                    <option>Outdoor Venues</option>
-                    <option>Destination Wedding</option>
+                    {/* Only show venue types available in the creation form */}
+                    {VENUE_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -373,7 +354,7 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {(showAllCategories ? categoryCards : categoryCards.slice(0, 6)).map((category, index) => (
+            {categoryCards.slice(0, 6).map((category, index) => (
               <div 
                 key={index} 
                 className="group cursor-pointer"
@@ -404,17 +385,12 @@ export default function Home() {
               </div>
             ))}
           </div>
-          {/* Toggle button to reveal more/less categories */}
-          {categoryCards.length > 6 && (
-            <div className="mt-10 flex justify-center">
-              <Button
-                onClick={() => setShowAllCategories(!showAllCategories)}
-                className="px-6"
-              >
-                {showAllCategories ? 'View less' : 'View more'}
-              </Button>
-            </div>
-          )}
+          {/* Browse more venues button - navigates to full venues page */}
+          <div className="mt-10 flex justify-center">
+            <Link href="/venues">
+              <Button className="px-6">Browse more venues</Button>
+            </Link>
+          </div>
         </div>
       </div>
 
