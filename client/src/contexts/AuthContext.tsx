@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '@/lib/api';
-import { signInWithGoogle, logout as firebaseLogout } from '@/lib/firebase-auth';
+import { signInWithGoogle, logout as firebaseLogout, getCurrentUser } from '@/lib/firebase-auth';
 import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,7 +32,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (process.env.NODE_ENV === 'development') {
             console.log('👤 Current user profile data:', response.data);
           }
+          
+          // If user signed in with Google, also check Firebase for the latest photoURL
+          // This ensures we have the most up-to-date profile photo
+          if (response.data.provider === 'google.com') {
+            const firebaseUser = getCurrentUser();
+            if (firebaseUser?.photoURL && !response.data.photoURL) {
+              // Use Firebase photoURL as fallback if database doesn't have it
+              response.data.photoURL = firebaseUser.photoURL;
+            } else if (firebaseUser?.photoURL && firebaseUser.photoURL !== response.data.photoURL) {
+              // Firebase photoURL is newer, use it
+              response.data.photoURL = firebaseUser.photoURL;
+            }
+          }
+          
           setUser(response.data);
+          // Update localStorage with the latest user data including photoURL
+          localStorage.setItem('user', JSON.stringify(response.data));
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
             console.error('Auth initialization error:', error);
@@ -170,6 +186,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('✅ Backend response successful:', response.data);
       }
       const { user: userData, token, needsRoleSelection } = response.data;
+      
+      // If user signed in with Google, ensure we have the photoURL from Firebase
+      // This is a fallback in case the database doesn't have it yet
+      // Firebase user from signInWithGoogle() has the latest photoURL
+      if (user.photoURL && (!userData.photoURL || user.photoURL !== userData.photoURL)) {
+        userData.photoURL = user.photoURL;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🖼️ Using Firebase photoURL as fallback/update:', user.photoURL);
+        }
+      }
       
       // Debug: Log the photoURL we received
       if (process.env.NODE_ENV === 'development') {

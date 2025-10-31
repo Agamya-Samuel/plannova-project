@@ -7,6 +7,7 @@ import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Vendor {
   id: string;
@@ -177,6 +178,7 @@ const categoryIconMap: Record<string, React.ReactNode> = {
 function VendorsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -191,41 +193,144 @@ function VendorsPageInner() {
 
   // Fetch approved services
   useEffect(() => {
+    // Prevent duplicate requests and handle rate limiting
+    let cancelled = false;
+    
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch catering services
-        const cateringResponse = await apiClient.get('/catering');
-        setCateringServices(cateringResponse.data.data);
         
-        // Fetch photography services
-        const photographyResponse = await apiClient.get('/photography');
-        setPhotographyServices(photographyResponse.data.data);
+        // Fetch all services with individual error handling to continue loading others if one fails
+        try {
+          const cateringResponse = await apiClient.get('/catering');
+          if (!cancelled) {
+            setCateringServices(cateringResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for catering services');
+          } else {
+            console.error('Error fetching catering services:', err);
+          }
+          if (!cancelled) {
+            setCateringServices([]);
+          }
+        }
         
-        // Fetch videography services
-        const videographyResponse = await apiClient.get('/videography');
-        setVideographyServices(videographyResponse.data.data);
+        try {
+          const photographyResponse = await apiClient.get('/photography');
+          if (!cancelled) {
+            setPhotographyServices(photographyResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for photography services');
+          } else {
+            console.error('Error fetching photography services:', err);
+          }
+          if (!cancelled) {
+            setPhotographyServices([]);
+          }
+        }
         
-        // Fetch bridal makeup services
-        const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
-        setBridalMakeupServices(bridalMakeupResponse.data.data);
+        try {
+          const videographyResponse = await apiClient.get('/videography');
+          if (!cancelled) {
+            setVideographyServices(videographyResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for videography services');
+          } else {
+            console.error('Error fetching videography services:', err);
+          }
+          if (!cancelled) {
+            setVideographyServices([]);
+          }
+        }
         
-        // Fetch decoration services
-        const decorationResponse = await apiClient.get('/decoration');
-        setDecorationServices(decorationResponse.data.data);
+        try {
+          const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
+          if (!cancelled) {
+            setBridalMakeupServices(bridalMakeupResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for bridal makeup services');
+          } else {
+            console.error('Error fetching bridal makeup services:', err);
+          }
+          if (!cancelled) {
+            setBridalMakeupServices([]);
+          }
+        }
         
-        // Fetch entertainment services
-        const entertainmentResponse = await apiClient.get('/entertainment');
-        setEntertainmentServices(entertainmentResponse.data.data);
-      } catch (err) {
-        console.error('Error fetching services:', err);
-        setError('Failed to load services');
+        try {
+          const decorationResponse = await apiClient.get('/decoration');
+          if (!cancelled) {
+            setDecorationServices(decorationResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for decoration services');
+          } else {
+            console.error('Error fetching decoration services:', err);
+          }
+          if (!cancelled) {
+            setDecorationServices([]);
+          }
+        }
+        
+        try {
+          const entertainmentResponse = await apiClient.get('/entertainment');
+          if (!cancelled) {
+            setEntertainmentServices(entertainmentResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for entertainment services');
+          } else {
+            console.error('Error fetching entertainment services:', err);
+          }
+          if (!cancelled) {
+            setEntertainmentServices([]);
+          }
+        }
+        
+        // Reset error - will be set if needed below
+        if (!cancelled) {
+          setError(''); // Clear error if we got here successfully
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+            setError('Too many requests. Please wait a moment and try refreshing the page.');
+          } else {
+            console.error('Error fetching vendors:', err);
+            setError('Failed to load some services. Please try again later.');
+          }
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Initialize selected category from URL (?category=Photography)
@@ -246,6 +351,34 @@ function VendorsPageInner() {
       newFavorites.add(vendorId);
     }
     setFavorites(newFavorites);
+  };
+
+  // Handle vendor card click with authentication check
+  // This function checks if user is logged in before navigating to vendor details
+  const handleVendorClick = (vendor: Vendor) => {
+    if (!isAuthenticated) {
+      // Redirect to login page if user is not authenticated
+      router.push('/auth/login');
+      return;
+    }
+    
+    // Navigate to vendor details based on category if authenticated
+    if (vendor.category === 'Photography') {
+      router.push(`/photography/${vendor.id}`);
+    } else if (vendor.category === 'Catering') {
+      router.push(`/catering/${vendor.id}`);
+    } else if (vendor.category === 'Videography') {
+      router.push(`/videography/${vendor.id}`);
+    } else if (vendor.category === 'Decoration') {
+      router.push(`/decoration/${vendor.id}`);
+    } else if (vendor.category === 'Makeup & Beauty') {
+      router.push(`/bridal-makeup/${vendor.id}`);
+    } else if (vendor.category === 'Music & Entertainment') {
+      router.push(`/entertainment/${vendor.id}`);
+    } else {
+      // Default fallback
+      router.push(`/vendors`);
+    }
   };
 
   // Transform catering services to vendor format for display
@@ -569,8 +702,30 @@ function VendorsPageInner() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <p className="text-red-800">{error}</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Service temporarily unavailable
+                </h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  {error}
+                </p>
+                {error.includes('Too many requests') && (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-3 text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                  >
+                    Refresh page
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -648,24 +803,7 @@ function VendorsPageInner() {
                   <Button 
                     size="sm" 
                     className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-xl"
-                    onClick={() => {
-                      if (vendor.category === 'Photography') {
-                        router.push(`/photography/${vendor.id}`);
-                      } else if (vendor.category === 'Catering') {
-                        router.push(`/catering/${vendor.id}`);
-                      } else if (vendor.category === 'Videography') {
-                        router.push(`/videography/${vendor.id}`);
-                      } else if (vendor.category === 'Decoration') {
-                        router.push(`/decoration/${vendor.id}`);
-                      } else if (vendor.category === 'Makeup & Beauty') {
-                        router.push(`/bridal-makeup/${vendor.id}`);
-                      } else if (vendor.category === 'Music & Entertainment') {
-                        router.push(`/entertainment/${vendor.id}`);
-                      } else {
-                        // Default fallback
-                        router.push(`/vendors`);
-                      }
-                    }}
+                    onClick={() => handleVendorClick(vendor)}
                   >
                     View Profile
                   </Button>

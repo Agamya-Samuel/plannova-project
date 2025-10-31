@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PhotographyService {
   _id: string;
@@ -61,12 +62,20 @@ interface PhotographyService {
 
 export default function PhotographyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<PhotographyService | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+
+  // Redirect to login if not authenticated (prevents direct URL access)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -103,10 +112,28 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
   }, [serviceId]);
 
   useEffect(() => {
-    if (serviceId) {
+    if (serviceId && isAuthenticated) {
       fetchPhotographyService();
     }
-  }, [serviceId, fetchPhotographyService]);
+  }, [serviceId, fetchPhotographyService, isAuthenticated]);
+
+  // Don't render content if not authenticated (while redirecting)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Will redirect via useEffect, but show loading while redirecting
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

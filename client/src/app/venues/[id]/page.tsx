@@ -105,7 +105,7 @@ interface Venue {
 export default function VenueDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [venue, setVenue] = useState<Venue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -114,6 +114,14 @@ export default function VenueDetailsPage() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
 
+  // Redirect to login if not authenticated (prevents direct URL access)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Fetch venue data - must be called before any early returns to satisfy React hooks rules
   useEffect(() => {
     const fetchVenue = async () => {
       try {
@@ -154,11 +162,30 @@ export default function VenueDetailsPage() {
       }
     };
 
-    if (params.id) {
+    // Only fetch if authenticated and params.id exists
+    if (params.id && isAuthenticated && !authLoading) {
       fetchVenue();
       checkIfFavorited();
     }
-  }, [params.id, user?.role, user]);
+  }, [params.id, user?.role, user, isAuthenticated, authLoading]);
+
+  // Don't render content if not authenticated (while redirecting)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Will redirect via useEffect, but show loading while redirecting
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
 
   const toggleFavorite = async () => {
     // Check if user is authenticated
