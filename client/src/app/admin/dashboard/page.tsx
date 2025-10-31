@@ -60,6 +60,7 @@ interface UsersResponse {
 
 export default function AdminDashboardPage() {
   const { user: currentUser, isLoading } = useAuth();
+  const [adminStats, setAdminStats] = useState<{ users: { total: number }; venues: { pending: number }; bookings: { total: number } } | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -108,6 +109,23 @@ export default function AdminDashboardPage() {
       fetchUsers(currentPage, roleFilter, searchTerm);
     }
   }, [currentPage, roleFilter, currentUser, searchTerm]);
+
+  useEffect(() => {
+    const loadAdminStats = async () => {
+      if (currentUser?.role !== 'ADMIN') return;
+      try {
+        const res = await apiClient.get('/admin/stats');
+        setAdminStats({
+          users: { total: res.data?.users?.total || 0 },
+          venues: { pending: res.data?.venues?.pending || 0 },
+          bookings: { total: res.data?.bookings?.total || 0 }
+        });
+    } catch {
+        // Non-blocking: keep cards without stats if request fails
+      }
+    };
+    loadAdminStats();
+  }, [currentUser]);
 
 
   const handleSearchTermChange = (value: string) => {
@@ -277,7 +295,7 @@ export default function AdminDashboardPage() {
               icon={<Users className="h-8 w-8 text-blue-600" />}
               action="Manage Users"
               href="/admin/users"
-              stats="2,847 Users"
+            stats={adminStats ? `${adminStats.users.total.toLocaleString('en-IN')} Users` : undefined}
               color="blue"
             />
             <DashboardCard
@@ -286,7 +304,7 @@ export default function AdminDashboardPage() {
               icon={<MapPin className="h-8 w-8 text-pink-600" />}
               action="Manage Venues"
               href="/admin/venues"
-              stats="12 Pending"
+            stats={adminStats ? `${adminStats.venues.pending.toLocaleString('en-IN')} Pending` : undefined}
               color="pink"
             />
             <DashboardCard
@@ -295,7 +313,7 @@ export default function AdminDashboardPage() {
               icon={<Calendar className="h-8 w-8 text-green-600" />}
               action="View Bookings"
               href="/admin/bookings"
-              stats="1,234 Total"
+            stats={adminStats ? `${adminStats.bookings.total.toLocaleString('en-IN')} Total` : undefined}
               color="green"
             />
             <DashboardCard

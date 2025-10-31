@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api';
 import useFavorites from '@/hooks/useFavorites';
 import { useAuth } from '@/contexts/AuthContext';
+import { VENUE_TYPES } from '@/constants/venueTypes';
 
 
 interface Venue {
@@ -238,10 +239,9 @@ function VenuesContent() {
                     onChange={(e) => setSelectedFilters(prev => ({ ...prev, venueType: e.target.value }))}
                   >
                     <option value="">Venue type</option>
-                    <option value="Banquet Hall">Banquet Hall</option>
-                    <option value="Hotel">Hotel</option>
-                    <option value="Resort">Resort</option>
-                    <option value="Outdoor">Outdoor</option>
+                    {VENUE_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -332,7 +332,7 @@ function VenuesContent() {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Venue Type</h3>
                 <div className="space-y-2">
-                  {['Banquet Hall', 'Hotel', 'Resort', 'Outdoor'].map((type) => (
+                  {VENUE_TYPES.map((type) => (
                     <label key={type} className="flex items-center">
                       <input 
                         type="checkbox" 

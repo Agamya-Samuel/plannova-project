@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { ImageUpload } from '@/components/upload';
+import { VENUE_TYPES } from '@/constants/venueTypes';
 
 interface VenueFormData {
   name: string;
@@ -56,7 +57,8 @@ interface FoodOption {
   servingSize: string;
 }
 
-const venueTypes = ['Banquet Hall', 'Hotel', 'Resort', 'Outdoor', 'Palace', 'Farmhouse'];
+// Use shared venue types constant to ensure consistency across the application
+const venueTypes = VENUE_TYPES;
 const states = ['Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'];
 
 const commonFeatures = [
