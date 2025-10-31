@@ -41,7 +41,6 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
       bgGradient: 'from-pink-50 to-rose-50',
       borderColor: 'border-pink-200',
       selectedBorder: 'border-pink-500',
-      emoji: '🤵👰',
     },
     {
       value: 'PROVIDER' as UserRole,
@@ -53,7 +52,6 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
       bgGradient: 'from-purple-50 to-indigo-50',
       borderColor: 'border-purple-200',
       selectedBorder: 'border-purple-500',
-      emoji: '🏛️',
     },
   ];
 
@@ -110,7 +108,6 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-xl">{option.emoji}</span>
                     <h3 className="text-lg font-bold text-gray-800">
                       {option.title}
                     </h3>
