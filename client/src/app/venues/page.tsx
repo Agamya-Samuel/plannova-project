@@ -65,6 +65,7 @@ function VenuesContent() {
     priceRange: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [isBrowsePop, setIsBrowsePop] = useState(false);
   
   // Use the favorites hook only if authenticated (to avoid errors when not logged in)
   // If not authenticated, use empty favorites set
@@ -538,9 +539,18 @@ function VenuesContent() {
             <Button 
               variant="outline" 
               size="lg"
-              className="border-pink-200 text-pink-600 hover:bg-pink-50 px-8 py-3 rounded-xl"
+              className={`border-pink-300 text-pink-700 hover:bg-pink-50 bg-white px-8 py-3 rounded-xl shadow-sm transition-transform duration-150 ${isBrowsePop ? 'scale-105' : ''}`}
+              onClick={() => {
+                setIsBrowsePop(true);
+                setTimeout(() => setIsBrowsePop(false), 180);
+                // Clear all filters and ensure URL does not contain type filter
+                setSelectedFilters({ location: '', venueType: '', capacity: '', priceRange: '' });
+                if (searchParams.get('type')) {
+                  router.push('/venues');
+                }
+              }}
             >
-              Load More Venues
+              Browse More Venues
             </Button>
           </div>
         )}

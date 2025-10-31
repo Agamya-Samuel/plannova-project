@@ -356,6 +356,175 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
   }
 });
 
+// GET /api/bookings/provider/stats - Get provider dashboard statistics
+router.get('/provider/stats', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const providerId = req.user!.id;
+    
+    // Get all bookings for this provider
+    const allBookings = await Booking.find({ 
+      providerId: new Types.ObjectId(providerId)
+    });
+    
+    // Calculate total bookings
+    const totalBookings = allBookings.length;
+    
+    // Calculate revenue from confirmed bookings only
+    const confirmedBookings = allBookings.filter(b => b.status === BookingStatus.CONFIRMED);
+    const revenue = confirmedBookings.reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
+    
+    // Calculate response time (average time from booking creation to status change from PENDING)
+    // Only consider bookings that are no longer pending
+    const respondedBookings = allBookings.filter(b => b.status !== BookingStatus.PENDING);
+    let totalResponseTime = 0;
+    let responseTimeCount = 0;
+    
+    respondedBookings.forEach(booking => {
+      // Calculate time difference between createdAt and updatedAt when status changed
+      // If updatedAt is close to createdAt, provider responded immediately (or status changed quickly)
+      const responseTimeMs = booking.updatedAt.getTime() - booking.createdAt.getTime();
+      const responseTimeHours = responseTimeMs / (1000 * 60 * 60); // Convert to hours
+      
+      // Only count if the booking was actually responded to (not auto-updated)
+      // Consider responses within reasonable time (less than 30 days)
+      if (responseTimeHours > 0 && responseTimeHours < 720) {
+        totalResponseTime += responseTimeHours;
+        responseTimeCount++;
+      }
+    });
+    
+    const avgResponseTimeHours = responseTimeCount > 0 ? totalResponseTime / responseTimeCount : 0;
+    
+    // Format response time for display
+    let responseTimeFormatted = '—';
+    let responseTimeStatus = 'No data';
+    
+    if (avgResponseTimeHours > 0) {
+      if (avgResponseTimeHours < 1) {
+        const minutes = Math.round(avgResponseTimeHours * 60);
+        responseTimeFormatted = `${minutes}m`;
+        responseTimeStatus = minutes <= 30 ? 'Excellent' : 'Good';
+      } else if (avgResponseTimeHours < 24) {
+        const hours = Math.round(avgResponseTimeHours);
+        responseTimeFormatted = `${hours}h`;
+        responseTimeStatus = hours <= 2 ? 'Very Good' : hours <= 6 ? 'Good' : 'Fair';
+      } else {
+        const days = Math.round(avgResponseTimeHours / 24);
+        responseTimeFormatted = `${days}d`;
+        responseTimeStatus = days <= 1 ? 'Good' : days <= 3 ? 'Fair' : 'Poor';
+      }
+    }
+    
+    // Calculate average rating from all services owned by provider
+    // We need to aggregate ratings from Venue, Catering, Photography, etc.
+    let totalRating = 0;
+    let totalReviews = 0;
+    
+    // Helper function to process service ratings
+    const processServiceRating = (service: { rating?: number; reviewCount?: number; totalReviews?: number; averageRating?: number }) => {
+      if (!service) return;
+      
+      // Services can have either reviewCount or totalReviews
+      const reviewCount = service.reviewCount || service.totalReviews || 0;
+      // Services can have either rating or averageRating
+      const rating = service.rating || service.averageRating || 0;
+      
+      if (reviewCount > 0 && rating > 0) {
+        totalRating += rating * reviewCount;
+        totalReviews += reviewCount;
+      }
+    };
+    
+    // Get all services for this provider and calculate average rating
+    try {
+      // Fetch venues
+      const venues = await Venue.find({ providerId: new Types.ObjectId(providerId) });
+      for (const venue of venues) {
+        // Venues use reviews array and store averageRating/totalReviews
+        if (venue.reviews && venue.reviews.length > 0) {
+          processServiceRating(venue);
+        }
+      }
+      
+      // Fetch catering services
+      const cateringServices = await Catering.find({ provider: new Types.ObjectId(providerId) });
+      cateringServices.forEach(service => processServiceRating(service));
+      
+      // Fetch photography services
+      const photographyServices = await Photography.find({ provider: new Types.ObjectId(providerId) });
+      photographyServices.forEach(service => processServiceRating(service));
+      
+      // Fetch videography services
+      const videographyServices = await Videography.find({ provider: new Types.ObjectId(providerId) });
+      videographyServices.forEach(service => processServiceRating(service));
+      
+      // Fetch bridal makeup services
+      const bridalMakeupServices = await BridalMakeup.find({ provider: new Types.ObjectId(providerId) });
+      bridalMakeupServices.forEach(service => processServiceRating(service));
+      
+      // Fetch decoration services
+      const decorationServices = await Decoration.find({ provider: new Types.ObjectId(providerId) });
+      decorationServices.forEach(service => processServiceRating(service));
+      
+      // Fetch entertainment services
+      const entertainmentServices = await Entertainment.find({ provider: new Types.ObjectId(providerId) });
+      entertainmentServices.forEach(service => processServiceRating(service));
+    } catch (error) {
+      console.error('Error fetching service ratings:', error);
+      // Continue with bookings stats even if service rating fetch fails
+    }
+    
+    // Calculate overall average rating
+    const avgRating = totalReviews > 0 ? totalRating / totalReviews : 0;
+    
+    // Calculate bookings trend (this month vs last month)
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    const bookingsThisMonth = allBookings.filter(b => b.createdAt >= startOfThisMonth).length;
+    const bookingsLastMonth = allBookings.filter(b => {
+      const created = b.createdAt;
+      return created >= startOfLastMonth && created <= endOfLastMonth;
+    }).length;
+    
+    const bookingsGrowth = bookingsLastMonth > 0 
+      ? Math.round(((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100)
+      : bookingsThisMonth > 0 ? 100 : 0;
+    
+    // Calculate revenue trend
+    const revenueThisMonth = confirmedBookings
+      .filter(b => b.createdAt >= startOfThisMonth)
+      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    const revenueLastMonth = confirmedBookings
+      .filter(b => {
+        const created = b.createdAt;
+        return created >= startOfLastMonth && created <= endOfLastMonth;
+      })
+      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    
+    const revenueGrowth = revenueLastMonth > 0
+      ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100)
+      : revenueThisMonth > 0 ? 100 : 0;
+    
+    res.json({
+      totalBookings,
+      bookingsGrowth,
+      revenue,
+      revenueGrowth,
+      avgRating: Math.round(avgRating * 10) / 10, // Round to 1 decimal place
+      totalReviews,
+      responseTime: responseTimeFormatted,
+      responseTimeStatus,
+      responseTimeHours: avgResponseTimeHours
+    });
+  } catch (error) {
+    console.error('Error fetching provider stats:', error);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
+  }
+});
+
 // PUT /api/bookings/:id/accept - Accept a booking (Provider only)
 router.put('/:id/accept', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {

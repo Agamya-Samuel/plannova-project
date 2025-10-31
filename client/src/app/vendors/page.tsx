@@ -182,6 +182,8 @@ function VendorsPageInner() {
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isVendorBrowsePop, setIsVendorBrowsePop] = useState(false);
+  const [showAllInAllCategory, setShowAllInAllCategory] = useState(false);
   const [cateringServices, setCateringServices] = useState<CateringService[]>([]);
   const [photographyServices, setPhotographyServices] = useState<PhotographyService[]>([]);
   const [videographyServices, setVideographyServices] = useState<VideographyService[]>([]);
@@ -339,9 +341,17 @@ function VendorsPageInner() {
     const initialCategory = searchParams?.get('category');
     if (initialCategory) {
       setSelectedCategory(initialCategory);
+      setShowAllInAllCategory(false);
     }
     // We intentionally only set on mount/param changes
   }, [searchParams]);
+
+  // Reset the show-all flag whenever category changes from outside
+  useEffect(() => {
+    if (selectedCategory !== 'All') {
+      setShowAllInAllCategory(false);
+    }
+  }, [selectedCategory]);
 
   const toggleFavorite = (vendorId: string) => {
     const newFavorites = new Set(favorites);
@@ -483,6 +493,11 @@ function VendorsPageInner() {
   const filteredVendors = selectedCategory === 'All' 
     ? allVendors 
     : allVendors.filter(vendor => vendor.category === selectedCategory);
+
+  // Limit to first 9 for All category unless expanded
+  const visibleVendors = selectedCategory === 'All' && !showAllInAllCategory
+    ? filteredVendors.slice(0, 9)
+    : filteredVendors;
 
   // Compute category counts from fetched data to avoid hardcoding numbers
   const computedCategories = useMemo(() => {
@@ -629,7 +644,7 @@ function VendorsPageInner() {
             </Button>
             
             <div className="text-sm text-gray-600">
-              Showing {filteredVendors.length} vendors
+              Showing {selectedCategory === 'All' && !showAllInAllCategory ? Math.min(9, filteredVendors.length) : filteredVendors.length} vendors
             </div>
           </div>
           
@@ -731,7 +746,7 @@ function VendorsPageInner() {
 
         {/* Vendors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredVendors.map((vendor) => (
+          {visibleVendors.map((vendor) => (
             <div key={vendor.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
                 <Image 
@@ -813,15 +828,41 @@ function VendorsPageInner() {
           ))}
         </div>
 
-        {/* Load More */}
+        {/* Load More / Browse More */}
         <div className="text-center mt-12">
-          <Button 
-            variant="outline" 
-            size="lg"
-            className="border-pink-200 text-pink-600 hover:bg-pink-50 px-8 py-3 rounded-xl"
-          >
-            Load More Vendors
-          </Button>
+          {selectedCategory === 'All' ? (
+            filteredVendors.length > 9 && !showAllInAllCategory ? (
+              <Button 
+                variant="outline" 
+                size="lg"
+                className={`border-pink-300 text-pink-700 hover:bg-pink-50 bg-white px-8 py-3 rounded-xl shadow-sm transition-transform duration-150 ${isVendorBrowsePop ? 'scale-105' : ''}`}
+                onClick={() => {
+                  setIsVendorBrowsePop(true);
+                  setTimeout(() => setIsVendorBrowsePop(false), 180);
+                  setShowAllInAllCategory(true);
+                }}
+              >
+                Browse More Services
+              </Button>
+            ) : null
+          ) : (
+            <Button 
+              variant="outline" 
+              size="lg"
+              className={`border-pink-300 text-pink-700 hover:bg-pink-50 bg-white px-8 py-3 rounded-xl shadow-sm transition-transform duration-150 ${isVendorBrowsePop ? 'scale-105' : ''}`}
+              onClick={() => {
+                setIsVendorBrowsePop(true);
+                setTimeout(() => setIsVendorBrowsePop(false), 180);
+                setSelectedCategory('All');
+                setShowAllInAllCategory(false);
+                if (searchParams?.get('category')) {
+                  router.push('/vendors');
+                }
+              }}
+            >
+              Browse More Services
+            </Button>
+          )}
         </div>
       </div>
     </div>
