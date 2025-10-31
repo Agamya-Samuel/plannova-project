@@ -120,7 +120,6 @@ export default function StaffProviderDetailPage() {
       setData(prev => {
         if (!prev) return prev;
         const updated = { ...prev, works: { ...prev.works } } as ProviderDetailResponse;
-        // @ts-expect-error dynamic index
         updated.works[sectionKey] = prev.works[sectionKey].filter((w) => w._id !== item._id);
         return updated;
       });

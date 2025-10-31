@@ -85,7 +85,7 @@ export default function VendorCategoriesGrid() {
       const count = list.length;
       // Extra safety: if backend returns mixed categories, narrow to matching ones when possible
       const maybeCategoryMatches = (item: AnyService): boolean => {
-        const raw = item as Record<string, unknown>;
+        const raw = item as unknown as Record<string, unknown>;
         const categoryLike: string = String(
           (raw as { category?: unknown }).category ??
           (raw as { serviceCategory?: unknown }).serviceCategory ??
