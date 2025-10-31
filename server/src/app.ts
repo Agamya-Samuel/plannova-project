@@ -18,6 +18,7 @@ import entertainmentRoutes from "./routes/entertainment.js";
 import bridalMakeupRoutes from "./routes/bridalMakeup.js";
 import decorationRoutes from "./routes/decoration.js";
 import blogRoutes from "./routes/blogs.js";
+import staffRoutes from "./routes/staff.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -109,6 +110,7 @@ app.use("/api/entertainment", entertainmentRoutes);
 app.use("/api/bridal-makeup", bridalMakeupRoutes);
 app.use("/api/decoration", decorationRoutes);
 app.use("/api/blogs", blogRoutes);
+app.use("/api/staff", staffRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {

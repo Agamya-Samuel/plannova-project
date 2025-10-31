@@ -19,18 +19,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // In-memory throttle for /auth/profile to avoid 429s when many components mount
   const lastProfileFetchRef = React.useRef<number>(0);
-  const inflightProfileRef = React.useRef<Promise<any> | null>(null);
+  const inflightProfileRef = React.useRef<Promise<unknown> | null>(null);
 
-  const fetchProfileWithRetryThrottled = async () => {
+  const fetchProfileWithRetryThrottled = async (): Promise<User | null> => {
     const now = Date.now();
     // 20s throttle window
     if (inflightProfileRef.current) {
-      return inflightProfileRef.current;
+      return inflightProfileRef.current as Promise<User | null>;
     }
     if (now - lastProfileFetchRef.current < 20_000) {
       // Too soon; just reuse last successful value from localStorage
       const cached = localStorage.getItem('user');
-      return cached ? JSON.parse(cached) : null;
+      return cached ? (JSON.parse(cached) as User) : null;
     }
 
     const runner = (async () => {
@@ -41,9 +41,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const response = await apiClient.get('/auth/profile');
           lastProfileFetchRef.current = Date.now();
-          return response.data;
-        } catch (err: any) {
-          const status = err?.response?.status;
+          return response.data as User;
+        } catch (err: unknown) {
+          const status = (err as { response?: { status?: number } })?.response?.status;
           if (status === 429 || status === 503) {
             const delay = baseDelay * Math.pow(2, attempt);
             await new Promise(r => setTimeout(r, delay));
@@ -60,7 +60,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       inflightProfileRef.current = null;
     });
 
-    return inflightProfileRef.current;
+    return inflightProfileRef.current as Promise<User | null>;
   };
 
   useEffect(() => {
@@ -75,30 +75,29 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Verify token is still valid by fetching profile (with retry + throttle)
           const responseData = await fetchProfileWithRetryThrottled();
-          const response = { data: responseData } as any;
           if (process.env.NODE_ENV === 'development') {
-            console.log('👤 Current user profile data:', response.data);
+            console.log('👤 Current user profile data:', responseData);
           }
           
           // If user signed in with Google, also check Firebase for the latest photoURL
           // This ensures we have the most up-to-date profile photo
-          if (response.data.provider === 'google.com') {
+          if (responseData && (responseData as { provider?: string }).provider === 'google.com') {
             const firebaseUser = getCurrentUser();
-            if (firebaseUser?.photoURL && !response.data.photoURL) {
+            if (firebaseUser?.photoURL && !(responseData as { photoURL?: string }).photoURL) {
               // Use Firebase photoURL as fallback if database doesn't have it
-              response.data.photoURL = firebaseUser.photoURL;
-            } else if (firebaseUser?.photoURL && firebaseUser.photoURL !== response.data.photoURL) {
+              (responseData as { photoURL?: string }).photoURL = firebaseUser.photoURL;
+            } else if (firebaseUser?.photoURL && firebaseUser.photoURL !== (responseData as { photoURL?: string }).photoURL) {
               // Firebase photoURL is newer, use it
-              response.data.photoURL = firebaseUser.photoURL;
+              (responseData as { photoURL?: string }).photoURL = firebaseUser.photoURL;
             }
           }
           
-          if (response.data) {
-            setUser(response.data);
+          if (responseData) {
+            setUser(responseData);
           }
           // Update localStorage with the latest user data including photoURL
-          if (response.data) {
-            localStorage.setItem('user', JSON.stringify(response.data));
+          if (responseData) {
+            localStorage.setItem('user', JSON.stringify(responseData));
           }
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {

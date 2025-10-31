@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
 import Booking, { BookingStatus, IBooking, ServiceType } from '../models/Booking.js';
-import { authenticateToken, AuthRequest, requireProvider } from '../middleware/auth.js';
+import { authenticateToken, AuthRequest, requireProvider, requireStaffOrAdmin } from '../middleware/auth.js';
 import Venue, { IVenue } from '../models/Venue.js';
 import Catering from '../models/Catering.js';
 import Photography from '../models/Photography.js';
@@ -146,6 +146,124 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     res.json(transformedBookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// GET /api/bookings/staff/all - Get all bookings (Staff/Admin)
+router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { page = '1', limit = '200', status } = req.query as { page?: string; limit?: string; status?: string };
+    const pageNum = Math.max(parseInt(page || '1', 10), 1);
+    const limitNum = Math.min(Math.max(parseInt(limit || '200', 10), 1), 1000);
+
+    const filter: Record<string, unknown> = {};
+    if (status && typeof status === 'string' && status.toLowerCase() !== 'all') {
+      filter.status = status.toUpperCase();
+    }
+
+    const bookings = await Booking.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('venueId', 'name images')
+      .populate('providerId', 'firstName lastName email')
+      .populate('customerId', 'firstName lastName email')
+      .lean();
+
+    // Build rich response including service and provider contact like customer route
+    const transformed = await Promise.all(
+      bookings.map(async (booking) => {
+        let serviceName = 'Unknown Service';
+        let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+        let providerContact = {
+          name: 'Provider',
+          email: '',
+          phone: ''
+        };
+
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let service: any = null;
+          switch (booking.serviceType) {
+            case ServiceType.VENUE:
+              service = await Venue.findById(booking.serviceId);
+              break;
+            case ServiceType.CATERING:
+              service = await Catering.findById(booking.serviceId);
+              break;
+            case ServiceType.PHOTOGRAPHY:
+              service = await Photography.findById(booking.serviceId);
+              break;
+            case ServiceType.VIDEOGRAPHY:
+              service = await Videography.findById(booking.serviceId);
+              break;
+            case ServiceType.BRIDAL_MAKEUP:
+              service = await BridalMakeup.findById(booking.serviceId);
+              break;
+            case ServiceType.DECORATION:
+              service = await Decoration.findById(booking.serviceId);
+              break;
+            case ServiceType.ENTERTAINMENT:
+              service = await Entertainment.findById(booking.serviceId);
+              break;
+          }
+
+          if (service) {
+            serviceName = service.name;
+            serviceImage = service.images?.[0]?.url || serviceImage;
+
+            if (service.contact) {
+              providerContact = {
+                name: service.contact.name || serviceName,
+                email: service.contact.email || '',
+                phone: service.contact.phone || ''
+              };
+            }
+          }
+
+          // Fallback to populated provider user if service lacks contact
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const provider = (booking as any).providerId;
+          if (provider && !providerContact.email) {
+            providerContact = {
+              name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+              email: provider.email || '',
+              phone: provider.phone || ''
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching service/provider details (staff/all):', error);
+        }
+
+        return {
+          id: (booking._id as Types.ObjectId).toString(),
+          serviceId: booking.serviceId?.toString(),
+          serviceType: booking.serviceType,
+          serviceName,
+          serviceImage,
+          // Backward compatibility with client fields
+          venueName: serviceName,
+          venueImage: serviceImage,
+          date: booking.date,
+          time: booking.time,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          totalPrice: booking.totalPrice,
+          guestCount: booking.guestCount,
+          contactPerson: booking.contactPerson,
+          contactPhone: booking.contactPhone,
+          contactEmail: booking.contactEmail,
+          specialRequests: booking.specialRequests,
+          provider: providerContact,
+          createdAt: booking.createdAt
+        };
+      })
+    );
+
+    res.json(transformed);
+  } catch (error) {
+    console.error('Error fetching all bookings for staff:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
   }
 });

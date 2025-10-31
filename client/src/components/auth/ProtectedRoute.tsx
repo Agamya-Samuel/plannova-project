@@ -44,7 +44,7 @@ export default function ProtectedRoute({
         CUSTOMER: '/dashboard',
         PROVIDER: '/provider/venues',
         STAFF: '/staff/approvals',
-        ADMIN: '/admin/dashboard',
+        ADMIN: '/dashboard',
       };
       router.push(roleRedirects[user.role] || '/dashboard');
       return;

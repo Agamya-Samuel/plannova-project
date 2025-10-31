@@ -33,9 +33,15 @@ export default function AdminBookingsPage() {
   const fetchBookings = useCallback(async (status: string = 'all', search: string = '') => {
     try {
       setLoading(true);
-      // Use provider incoming list if provider; otherwise use user bookings
-      const isProvider = currentUser?.role === 'PROVIDER';
-      const endpoint = isProvider ? '/bookings/provider/incoming' : '/bookings';
+      // Determine endpoint by role
+      const role = currentUser?.role;
+      let endpoint = '/bookings';
+      if (role === 'PROVIDER') {
+        endpoint = '/bookings/provider/incoming';
+      } else if (role === 'STAFF' || role === 'ADMIN') {
+        const params = new URLSearchParams({ page: '1', limit: '200', status });
+        endpoint = `/bookings/staff/all?${params.toString()}`;
+      }
       const response = await apiClient.get(endpoint);
       const apiBookings: Booking[] = response.data || [];
 
@@ -67,7 +73,7 @@ export default function AdminBookingsPage() {
   }, [currentUser]);
 
   useEffect(() => {
-    if (currentUser?.role === 'ADMIN') {
+    if (currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') {
       fetchBookings(statusFilter, searchTerm);
     }
   }, [statusFilter, currentUser, searchTerm, fetchBookings]);
@@ -141,12 +147,12 @@ export default function AdminBookingsPage() {
     }
   };
 
-  if (!isLoading && currentUser?.role !== 'ADMIN') {
+  if (!isLoading && !(currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF')) {
     return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (
-    <ProtectedRoute allowedRoles={['ADMIN']}>
+    <ProtectedRoute allowedRoles={['ADMIN', 'STAFF']}>
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-purple-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -332,6 +338,9 @@ export default function AdminBookingsPage() {
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Provider
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Guests
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -387,6 +396,17 @@ export default function AdminBookingsPage() {
                             {getStatusIcon(booking.status)}
                             <span className="ml-1">{getStatusText(booking.status)}</span>
                           </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {booking.provider?.name || '—'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {booking.provider?.email || ''}
+                          </div>
+                          {booking.provider?.phone && (
+                            <div className="text-sm text-gray-500">{booking.provider?.phone}</div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {booking.guestCount}
