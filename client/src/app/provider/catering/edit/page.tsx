@@ -14,10 +14,19 @@ import {
   ArrowLeft,
   AlertCircle,
   Loader2,
-  Star
+  Star,
+  MapPin,
+  Phone,
+  Upload,
+  DollarSign,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { ImageUpload } from '../../../../components/upload';
 import apiClient from '../../../../lib/api';
+import LocationInput from '@/components/ui/LocationInput';
 
 interface CateringService {
   _id: string;
@@ -55,6 +64,8 @@ function EditCateringServiceContent() {
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('basic');
+  const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
   const [formData, setFormData] = useState<Omit<CateringService, '_id'> & { _id?: string }>({
     name: '',
     description: '',
@@ -223,7 +234,22 @@ function EditCateringServiceContent() {
     e.preventDefault();
     e.stopPropagation();
     
-    if (!validateForm()) {
+    // Only allow submission if it's an explicit submit action
+    if (!isExplicitSubmit) {
+      return;
+    }
+    
+    // Reset the explicit submit flag
+    setIsExplicitSubmit(false);
+    
+    // Only allow submission from the review tab
+    if (activeTab !== 'review') {
+      setError('Please navigate to the Review & Submit tab to submit the form');
+      return;
+    }
+    
+    if (!validateCurrentTab()) {
+      setError('Please complete all required fields before submitting');
       return;
     }
     
@@ -278,23 +304,35 @@ function EditCateringServiceContent() {
     }
   };
 
-  const validateForm = () => {
+  const validateCurrentTab = () => {
     const validationErrors: string[] = [];
 
-    if (!formData.name) validationErrors.push('Service name is required');
-    if (!formData.description) validationErrors.push('Description is required');
-    if (formData.description && formData.description.length < 10) validationErrors.push('Description must be at least 10 characters');
-    if (!formData.serviceLocation.address) validationErrors.push('Address is required');
-    if (!formData.serviceLocation.city) validationErrors.push('City is required');
-    if (!formData.serviceLocation.state) validationErrors.push('State is required');
-    if (!formData.serviceLocation.pincode) validationErrors.push('Pincode is required');
-    if (!formData.contact.phone) validationErrors.push('Phone number is required');
-    if (!formData.contact.email) validationErrors.push('Email is required');
-    if (formData.contact.email && !formData.contact.email.includes('@')) validationErrors.push('Please enter a valid email address');
-    if (formData.images.length === 0) validationErrors.push('At least one image is required');
-    if (formData.cuisineTypes.length === 0) validationErrors.push('Please select at least one cuisine type');
-    if (formData.serviceTypes.length === 0) validationErrors.push('Please select at least one service type');
-    if (formData.basePrice <= 0) validationErrors.push('Base price must be greater than 0');
+    switch (activeTab) {
+      case 'basic':
+        if (!formData.name) validationErrors.push('Service name is required');
+        if (!formData.description) validationErrors.push('Description is required');
+        if (formData.description && formData.description.length < 10) validationErrors.push('Description must be at least 10 characters');
+        if (formData.basePrice <= 0) validationErrors.push('Base price must be greater than 0');
+        break;
+      case 'location':
+        if (!formData.serviceLocation.address) validationErrors.push('Address is required');
+        if (!formData.serviceLocation.city) validationErrors.push('City is required');
+        if (!formData.serviceLocation.state) validationErrors.push('State is required');
+        if (!formData.serviceLocation.pincode) validationErrors.push('Pincode is required');
+        break;
+      case 'contact':
+        if (!formData.contact.phone) validationErrors.push('Phone number is required');
+        if (!formData.contact.email) validationErrors.push('Email is required');
+        if (formData.contact.email && !formData.contact.email.includes('@')) validationErrors.push('Please enter a valid email address');
+        break;
+      case 'images':
+        if (formData.images.length === 0) validationErrors.push('At least one image is required');
+        break;
+      case 'services':
+        if (formData.cuisineTypes.length === 0) validationErrors.push('Please select at least one cuisine type');
+        if (formData.serviceTypes.length === 0) validationErrors.push('Please select at least one service type');
+        break;
+    }
 
     if (validationErrors.length > 0) {
       setError(validationErrors.join(', '));
@@ -303,6 +341,51 @@ function EditCateringServiceContent() {
     
     setError('');
     return true;
+  };
+
+  const isTabCompleted = (tabId: string) => {
+    switch (tabId) {
+      case 'basic':
+        return !!(formData.name && formData.description && formData.description.length >= 10 && formData.basePrice > 0);
+      case 'location':
+        return !!(formData.serviceLocation.address && formData.serviceLocation.city && formData.serviceLocation.state && formData.serviceLocation.pincode);
+      case 'contact':
+        return !!(formData.contact.phone && formData.contact.email && formData.contact.email.includes('@'));
+      case 'images':
+        return formData.images.length > 0;
+      case 'services':
+        return formData.cuisineTypes.length > 0 && formData.serviceTypes.length > 0;
+      case 'policies':
+        return true; // Optional section
+      case 'review':
+        return true; // Review section
+      default:
+        return false;
+    }
+  };
+
+  const goToNextTab = () => {
+    if (!validateCurrentTab()) {
+      return;
+    }
+    if (!isLastTab) {
+      setActiveTab(tabs[currentTabIndex + 1].id);
+    }
+  };
+
+  const goToPreviousTab = () => {
+    setError('');
+    if (!isFirstTab) {
+      setActiveTab(tabs[currentTabIndex - 1].id);
+    }
+  };
+
+  const handleManualSubmit = () => {
+    setIsExplicitSubmit(true);
+    const form = document.querySelector('form');
+    if (form) {
+      form.requestSubmit();
+    }
   };
 
   const handleDeleteService = async () => {
@@ -345,6 +428,20 @@ function EditCateringServiceContent() {
     );
   }
 
+  const tabs = [
+    { id: 'basic', label: 'Basic Info', icon: Info },
+    { id: 'location', label: 'Location', icon: MapPin },
+    { id: 'contact', label: 'Contact', icon: Phone },
+    { id: 'images', label: 'Images', icon: Upload },
+    { id: 'services', label: 'Services', icon: Utensils },
+    { id: 'policies', label: 'Policies', icon: DollarSign },
+    { id: 'review', label: 'Review', icon: Save }
+  ];
+
+  const currentTabIndex = tabs.findIndex(tab => tab.id === activeTab);
+  const isFirstTab = currentTabIndex === 0;
+  const isLastTab = currentTabIndex === tabs.length - 1;
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-br from-pink-50 via-white to-purple-50">
@@ -383,210 +480,253 @@ function EditCateringServiceContent() {
             </div>
           )}
 
+          {/* Progress Bar */}
+          <div className="mb-8">
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <div className="mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Progress</h3>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gradient-to-r from-pink-500 to-purple-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${((currentTabIndex + 1) / tabs.length) * 100}%` }}
+                    ></div>
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">
+                    {currentTabIndex + 1} of {tabs.length}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Step Indicators */}
+              <div className="flex justify-between">
+                {tabs.map((tab) => {
+                  const isCompleted = isTabCompleted(tab.id);
+                  const isCurrent = activeTab === tab.id;
+                  
+                  return (
+                    <div key={tab.id} className="flex flex-col items-center space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab(tab.id);
+                          setError('');
+                        }}
+                        className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
+                          isCurrent
+                            ? 'bg-pink-600 text-white shadow-lg'
+                            : isCompleted
+                            ? 'bg-green-500 text-white hover:bg-green-600 cursor-pointer'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
+                        }`}
+                      >
+                        {isCompleted && !isCurrent ? (
+                          <Check className="h-5 w-5" />
+                        ) : (
+                          <tab.icon className="h-5 w-5" />
+                        )}
+                      </button>
+                      <span className={`text-xs text-center max-w-16 leading-tight ${
+                        isCurrent ? 'text-pink-600 font-medium' : 
+                        isCompleted ? 'text-green-600 font-medium' : 'text-gray-600'
+                      }`}>
+                        {tab.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
           {/* Form */}
           <form onSubmit={handleSubmit}>
-            <div className="bg-white rounded-xl shadow-lg p-8 space-y-8">
-              {/* Basic Info */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
-                
+            <div className="bg-white rounded-xl shadow-lg p-8">
+              {/* Basic Info Tab */}
+              {activeTab === 'basic' && (
                 <div className="space-y-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Catering Service Name *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.name}
-                      onChange={(e) => handleInputChange('name', e.target.value)}
-                      placeholder="Enter your catering service name"
-                      required
-                    />
-                  </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Catering Service Name *
+                      </label>
+                      <Input
+                        type="text"
+                        value={formData.name}
+                        onChange={(e) => handleInputChange('name', e.target.value)}
+                        placeholder="Enter your catering service name"
+                        required
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description *
-                    </label>
-                    <textarea
-                      value={formData.description}
-                      onChange={(e) => handleInputChange('description', e.target.value)}
-                      placeholder="Describe your catering service..."
-                      rows={4}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                      required
-                      minLength={10}
-                      maxLength={2000}
-                    />
-                    <div className="flex justify-between text-sm text-black mt-1">
-                      <span>Minimum 10 characters required</span>
-                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
-                        {formData.description.length}/2000
-                      </span>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Description *
+                      </label>
+                      <textarea
+                        value={formData.description}
+                        onChange={(e) => handleInputChange('description', e.target.value)}
+                        placeholder="Describe your catering service..."
+                        rows={4}
+                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
+                        required
+                        minLength={10}
+                        maxLength={2000}
+                      />
+                      <div className="flex justify-between text-sm text-black mt-1">
+                        <span>Minimum 10 characters required</span>
+                        <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
+                          {formData.description.length}/2000
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Base Price per Plate (₹) *
+                        </label>
+                        <Input
+                          type="number"
+                          value={formData.basePrice || 0}
+                          onChange={(e) => handleInputChange('basePrice', parseFloat(e.target.value) || 0)}
+                          placeholder="1500"
+                          min="0"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">This is your starting price per plate</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Minimum Guests Required
+                        </label>
+                        <Input
+                          type="number"
+                          value={formData.minGuests || 20}
+                          onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 20)}
+                          placeholder="20"
+                          min="1"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Minimum number of guests for this package</p>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Location */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Location</h2>
-                <p className="text-gray-600 mb-6">Where do you provide your catering services?</p>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Address *
-                  </label>
-                  <Input
-                    type="text"
-                    value={formData.serviceLocation.address}
-                    onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)}
-                    placeholder="Enter your service address"
-                    required
+              {/* Location Tab */}
+              {activeTab === 'location' && (
+                <div className="space-y-6">
+                  <LocationInput
+                    data={formData.serviceLocation}
+                    onChange={(data) => setFormData(prev => ({ ...prev, serviceLocation: data }))}
                   />
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      City *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.serviceLocation.city}
-                      onChange={(e) => handleInputChange('serviceLocation.city', e.target.value)}
-                      placeholder="Enter city"
-                      required
-                    />
-                  </div>
+              {/* Contact Tab */}
+              {activeTab === 'contact' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      State *
-                    </label>
-                    <select
-                      value={formData.serviceLocation.state}
-                      onChange={(e) => handleInputChange('serviceLocation.state', e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900"
-                      required
-                    >
-                      <option value="" className="text-gray-900">Select state</option>
-                      {states.map(state => (
-                        <option key={state} value={state} className="text-gray-900">{state}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Pincode *
-                    </label>
-                    <Input
-                      type="text"
-                      value={formData.serviceLocation.pincode}
-                      onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)}
-                      placeholder="Enter pincode"
-                      required
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Phone Number *
+                      </label>
+                      <Input
+                        type="tel"
+                        value={formData.contact.phone}
+                        onChange={(e) => handleInputChange('contact.phone', e.target.value)}
+                        placeholder="+91 9876543210"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        WhatsApp Number
+                      </label>
+                      <Input
+                        type="tel"
+                        value={formData.contact.whatsapp}
+                        onChange={(e) => handleInputChange('contact.whatsapp', e.target.value)}
+                        placeholder="+91 9876543210"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email Address *
+                      </label>
+                      <Input
+                        type="email"
+                        value={formData.contact.email}
+                        onChange={(e) => handleInputChange('contact.email', e.target.value)}
+                        placeholder="catering@example.com"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Contact */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number *
-                    </label>
-                    <Input
-                      type="tel"
-                      value={formData.contact.phone}
-                      onChange={(e) => handleInputChange('contact.phone', e.target.value)}
-                      placeholder="+91 9876543210"
-                      required
-                    />
-                  </div>
+              {/* Images Tab */}
+              {activeTab === 'images' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Images</h2>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      WhatsApp Number
-                    </label>
-                    <Input
-                      type="tel"
-                      value={formData.contact.whatsapp}
-                      onChange={(e) => handleInputChange('contact.whatsapp', e.target.value)}
-                      placeholder="+91 9876543210"
-                    />
-                  </div>
+                  <ImageUpload
+                    uploadType="catering"
+                    maxFiles={20}
+                    images={formData.images.map(img => ({
+                      ...img,
+                      key: undefined,
+                      uploadStatus: 'success' as const,
+                      category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity'
+                    }))}
+                    onImagesChange={(images) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        images: images.map(img => ({
+                          url: img.url,
+                          alt: img.alt,
+                          category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity',
+                          isPrimary: img.isPrimary
+                        }))
+                      }));
+                    }}
+                    onUploadStart={() => {
+                      setError('');
+                    }}
+                    onUploadError={(error) => {
+                      setError(`Image upload failed: ${error}`);
+                    }}
+                    disabled={loading}
+                    className=""
+                  />
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Email Address *
-                    </label>
-                    <Input
-                      type="email"
-                      value={formData.contact.email}
-                      onChange={(e) => handleInputChange('contact.email', e.target.value)}
-                      placeholder="catering@example.com"
-                      required
-                    />
+                  {/* Image Upload Tips */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li>• Upload high-quality images of your food, service setup, and team</li>
+                      <li>• Include images of different cuisines and presentation styles</li>
+                      <li>• The first image will be used as the primary image in search results</li>
+                      <li>• Click the star icon to set a different image as primary</li>
+                      <li>• Images are automatically optimized for web display</li>
+                    </ul>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Images Section */}
-              <div className="space-y-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Images</h2>
-                
-                <ImageUpload
-                  uploadType="catering"
-                  maxFiles={20}
-                  images={formData.images.map(img => ({
-                    ...img,
-                    key: undefined,
-                    uploadStatus: 'success' as const,
-                    category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity'
-                  }))}
-                  onImagesChange={(images) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      images: images.map(img => ({
-                        url: img.url,
-                        alt: img.alt,
-                        category: img.category as 'gallery' | 'food' | 'main' | 'room' | 'decoration' | 'amenity',
-                        isPrimary: img.isPrimary
-                      }))
-                    }));
-                  }}
-                  onUploadStart={() => {
-                    setError('');
-                  }}
-                  onUploadError={(error) => {
-                    setError(`Image upload failed: ${error}`);
-                  }}
-                  disabled={loading}
-                  className=""
-                />
-                
-                {/* Image Upload Tips */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h4 className="text-sm font-medium text-blue-900 mb-2">Image Upload Tips:</h4>
-                  <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• Upload high-quality images of your food, service setup, and team</li>
-                    <li>• Include images of different cuisines and presentation styles</li>
-                    <li>• The first image will be used as the primary image in search results</li>
-                    <li>• Click the star icon to set a different image as primary</li>
-                    <li>• Images are automatically optimized for web display</li>
-                  </ul>
-                </div>
-              </div>
-
-              {/* Service Details */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Details</h2>
+              {/* Services Tab */}
+              {activeTab === 'services' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Details</h2>
                 
                 <div className="space-y-8">
                   <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
@@ -755,98 +895,123 @@ function EditCateringServiceContent() {
                     </div>
                   </div>
                 </div>
-              </div>
+                </div>
+              )}
 
-              {/* Pricing Information */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">Pricing Information</h2>
-                <p className="text-gray-600 mb-6">Set your base pricing and additional charges</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Policies Tab */}
+              {activeTab === 'policies' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
+                  <p className="text-gray-600 mb-6">Set your cancellation and payment policies</p>
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Base Price per Plate (₹) *
+                      Cancellation Policy
                     </label>
-                    <Input
-                      type="number"
-                      value={formData.basePrice || 0}
-                      onChange={(e) => handleInputChange('basePrice', parseFloat(e.target.value) || 0)}
-                      placeholder="1500"
-                      min="0"
-                      required
+                    <textarea
+                      value={formData.cancellationPolicy || ''}
+                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
+                      placeholder="Describe your cancellation policy..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                     />
-                    <p className="text-xs text-gray-500 mt-1">This is your starting price per plate</p>
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Minimum Guests Required
+                      Payment Terms
                     </label>
-                    <Input
-                      type="number"
-                      value={formData.minGuests || 20}
-                      onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 20)}
-                      placeholder="20"
-                      min="1"
+                    <textarea
+                      value={formData.paymentTerms || ''}
+                      onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
+                      placeholder="Describe your payment terms (e.g., 50% advance, balance before event)..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Minimum number of guests for this package</p>
                   </div>
                 </div>
-                
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Cancellation Policy
-                  </label>
-                  <textarea
-                    value={formData.cancellationPolicy || ''}
-                    onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
-                    placeholder="Describe your cancellation policy..."
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                  />
+              )}
+
+              {/* Review Tab */}
+              {activeTab === 'review' && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Review Your Service Details</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-black">
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
+                      <p><strong>Service Name:</strong> <span className="text-gray-600">{formData.name}</span></p>
+                      <p><strong>Description:</strong> <span className="text-gray-600">{formData.description}</span></p>
+                      <p><strong>Base Price:</strong> <span className="text-gray-600">₹{formData.basePrice} per plate</span></p>
+                      <p><strong>Min Guests:</strong> <span className="text-gray-600">{formData.minGuests}</span></p>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>
+                      <p><strong>Address:</strong> <span className="text-gray-600">{formData.serviceLocation.address}, {formData.serviceLocation.city}, {formData.serviceLocation.state} - {formData.serviceLocation.pincode}</span></p>
+                      <p><strong>Phone:</strong> <span className="text-gray-600">{formData.contact.phone}</span></p>
+                      <p><strong>Email:</strong> <span className="text-gray-600">{formData.contact.email}</span></p>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2">Images & Services</h3>
+                      <p><strong>Images:</strong> <span className="text-gray-600">{formData.images.length} image(s) uploaded</span></p>
+                      <p><strong>Cuisines:</strong> <span className="text-gray-600">{formData.cuisineTypes.join(', ')}</span></p>
+                      <p><strong>Service Types:</strong> <span className="text-gray-600">{formData.serviceTypes.join(', ')}</span></p>
+                    </div>
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <h3 className="font-semibold text-gray-900 mb-2">Additional Details</h3>
+                      <p><strong>Dietary Options:</strong> <span className="text-gray-600">{formData.dietaryOptions.join(', ') || 'None'}</span></p>
+                      <p><strong>Add-ons:</strong> <span className="text-gray-600">{formData.addons.length} addon(s) configured</span></p>
+                    </div>
+                  </div>
                 </div>
-                
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Payment Terms
-                  </label>
-                  <textarea
-                    value={formData.paymentTerms || ''}
-                    onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
-                    placeholder="Describe your payment terms (e.g., 50% advance, balance before event)..."
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
-                  />
-                </div>
-              </div>
+              )}
 
               {/* Form Actions */}
-              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push(`/provider/catering/${serviceId}`)}
-                  disabled={loading}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8"
-                >
-                  {loading ? (
-                    <div className="flex items-center space-x-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Updating...</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Save className="h-4 w-4" />
-                      <span>Update Service</span>
-                    </div>
+              <div className="mt-8 flex justify-between items-center pt-6 border-t border-gray-200">
+                <div>
+                  {!isFirstTab && (
+                    <Button type="button" variant="outline" onClick={goToPreviousTab} className="flex items-center space-x-2">
+                      <ChevronLeft className="h-4 w-4" />
+                      <span>Previous</span>
+                    </Button>
                   )}
-                </Button>
+                </div>
+                
+                <div className="flex space-x-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push('/provider/catering')}
+                    disabled={loading}
+                  >
+                    Cancel
+                  </Button>
+                  
+                  {isLastTab ? (
+                    <Button
+                      type="button"
+                      disabled={loading}
+                      onClick={handleManualSubmit}
+                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8"
+                    >
+                      {loading ? (
+                        <div className="flex items-center space-x-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Updating...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <Save className="h-4 w-4" />
+                          <span>Update Service</span>
+                        </div>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
+                      <span>Next</span>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </form>
@@ -869,13 +1034,7 @@ export default function EditCateringServicePage() {
   );
 }
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
+// Note: Removed unused 'states' list to satisfy linter and keep file concise
 
 const cuisineTypes = [
   'North Indian', 'South Indian', 'Gujarati', 'Punjabi', 'Bengali', 'Rajasthani',

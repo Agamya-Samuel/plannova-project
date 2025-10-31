@@ -34,26 +34,24 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
     {
       value: 'CUSTOMER' as UserRole,
       title: 'Customer',
-      subtitle: 'Looking for wedding venues',
+      subtitle: 'Looking for event venues',
       icon: <Heart className="h-8 w-8" />,
-      description: 'I\'m planning my wedding and looking for the perfect venue',
+      description: 'I\'m planning my event and looking for the perfect venue',
       gradient: 'from-pink-500 to-rose-500',
       bgGradient: 'from-pink-50 to-rose-50',
       borderColor: 'border-pink-200',
       selectedBorder: 'border-pink-500',
-      emoji: '🤵👰',
     },
     {
       value: 'PROVIDER' as UserRole,
       title: 'Provider',
-      subtitle: 'Wedding venue owner',
+      subtitle: 'Event venue owner',
       icon: <Building className="h-8 w-8" />,
-      description: 'I own or manage wedding venues and want to list them',
+      description: 'I own or manage event venues and want to list them',
       gradient: 'from-purple-500 to-indigo-500',
       bgGradient: 'from-purple-50 to-indigo-50',
       borderColor: 'border-purple-200',
       selectedBorder: 'border-purple-500',
-      emoji: '🏛️',
     },
   ];
 
@@ -110,7 +108,6 @@ export const RoleSelectionModal: React.FC<RoleSelectionModalProps> = ({
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-xl">{option.emoji}</span>
                     <h3 className="text-lg font-bold text-gray-800">
                       {option.title}
                     </h3>

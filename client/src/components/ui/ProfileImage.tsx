@@ -31,12 +31,13 @@ export const ProfileImage: React.FC<ProfileImageProps> = ({
 
   // Debug: Log what we received
   React.useEffect(() => {
+    const hasValidSrc = src && typeof src === 'string' && src.trim().length > 0;
     console.log('🖼️ ProfileImage component received:', {
       src,
       alt,
       firstName,
       lastName,
-      hasValidSrc: !!(src && src.trim()),
+      hasValidSrc,
     });
   }, [src, alt, firstName, lastName]);
 
@@ -51,7 +52,9 @@ export const ProfileImage: React.FC<ProfileImageProps> = ({
     setIsLoading(false);
   };
 
-  const showFallback = !src || imageError;
+  // Check if src is valid (not empty, null, or just whitespace)
+  const hasValidSrc = src && typeof src === 'string' && src.trim().length > 0;
+  const showFallback = !hasValidSrc || imageError;
   const initials = `${firstName?.charAt(0) || ''}${lastName?.charAt(0) || ''}`;
   const sizeConfig = sizeClasses[size];
 
@@ -82,7 +85,7 @@ export const ProfileImage: React.FC<ProfileImageProps> = ({
       
       {/* Actual image */}
       <Image
-        src={src}
+        src={src!} // TypeScript assertion: we know src is valid here due to showFallback check
         alt={alt}
         width={size === 'lg' ? 80 : size === 'md' ? 40 : 32}
         height={size === 'lg' ? 80 : size === 'md' ? 40 : 32}

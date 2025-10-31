@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Search, MapPin, Users, Star, Heart, SlidersHorizontal, Clock } from 'lucide-react';
@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api';
 import useFavorites from '@/hooks/useFavorites';
+import { useAuth } from '@/contexts/AuthContext';
+import { VENUE_TYPES } from '@/constants/venueTypes';
 
 
 interface Venue {
@@ -52,6 +54,7 @@ interface Venue {
 function VenuesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -62,29 +65,67 @@ function VenuesContent() {
     priceRange: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [isBrowsePop, setIsBrowsePop] = useState(false);
   
-  // Use the favorites hook
+  // Use the favorites hook only if authenticated (to avoid errors when not logged in)
+  // If not authenticated, use empty favorites set
   const { favorites, toggleFavorite, loading: favoritesLoading, error: favoritesError } = useFavorites();
 
-  // Fetch approved venues from API
-  const fetchVenues = async () => {
+  // Fetch approved venues from API - wrapped in useCallback to avoid recreating on every render
+  // Note: We use setVenues with a functional update pattern and don't include venues.length
+  // in dependencies since it's only used for error display logic, not core functionality
+  const fetchVenues = useCallback(async () => {
     try {
       setLoading(true);
+      setError(''); // Clear any previous errors
       const response = await apiClient.get('/venues');
-      setVenues(response.data.venues || []);
-      setError('');
-    } catch (err) {
-      console.error('Error fetching venues:', err);
-      setError('Failed to fetch venues');
+      const venuesData = response.data.venues || [];
+      setVenues(venuesData);
+      
+      // Only show error if we got empty data AND there was an error response
+      if (venuesData.length === 0 && response.data.error) {
+        setError('No venues found at the moment.');
+      }
+    } catch (err: unknown) {
+      // Handle rate limiting (429) gracefully - only show if request actually failed
+      // Check if error has response property (Axios error)
+      if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+        console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+        setError('Too many requests. Please wait a moment and try refreshing the page.');
+        // Don't set venues to empty, keep previous data if available
+      } else {
+        console.error('Error fetching venues:', err);
+        // Only show error if we don't have any cached venues
+        // Note: We check venues.length via closure - this is safe because we're only
+        // using it for error display logic, not for the core fetch functionality
+        if (venues.length === 0) {
+          setError('Failed to fetch venues. Please try again later.');
+        }
+      }
     } finally {
       setLoading(false);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch venues on component mount
   useEffect(() => {
-    fetchVenues();
-  }, []);
+    // Prevent duplicate requests
+    let cancelled = false;
+    
+    const loadVenues = async () => {
+      if (!cancelled) {
+        await fetchVenues();
+      }
+    };
+    
+    loadVenues();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchVenues]);
 
   // Update filters when URL parameters change
   useEffect(() => {
@@ -114,6 +155,18 @@ function VenuesContent() {
       // Clear error after 3 seconds
       setTimeout(() => setError(''), 3000);
     }
+  };
+
+  // Handle venue card click with authentication check
+  // This function checks if user is logged in before navigating to venue details
+  const handleVenueClick = (venueId: string) => {
+    if (!isAuthenticated) {
+      // Redirect to login page if user is not authenticated
+      router.push('/auth/login');
+      return;
+    }
+    // Navigate to venue details if authenticated
+    router.push(`/venues/${venueId}`);
   };
 
   // Loading component for Suspense fallback
@@ -187,10 +240,9 @@ function VenuesContent() {
                     onChange={(e) => setSelectedFilters(prev => ({ ...prev, venueType: e.target.value }))}
                   >
                     <option value="">Venue type</option>
-                    <option value="Banquet Hall">Banquet Hall</option>
-                    <option value="Hotel">Hotel</option>
-                    <option value="Resort">Resort</option>
-                    <option value="Outdoor">Outdoor</option>
+                    {VENUE_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -239,7 +291,7 @@ function VenuesContent() {
           
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Sort by:</span>
-            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:ring-2 focus:ring-pink-500 focus:border-transparent">
               <option>Popularity</option>
               <option>Price: Low to High</option>
               <option>Price: High to Low</option>
@@ -281,7 +333,7 @@ function VenuesContent() {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Venue Type</h3>
                 <div className="space-y-2">
-                  {['Banquet Hall', 'Hotel', 'Resort', 'Outdoor'].map((type) => (
+                  {VENUE_TYPES.map((type) => (
                     <label key={type} className="flex items-center">
                       <input 
                         type="checkbox" 
@@ -328,17 +380,57 @@ function VenuesContent() {
           </div>
         )}
 
-        {/* Error State */}
-        {(error || favoritesError) && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <p className="text-red-800">{error || favoritesError}</p>
+        {/* Error State - Only show if there's a real error and no venues loaded */}
+        {error && venues.length === 0 && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Service temporarily unavailable
+                </h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  {error}
+                </p>
+                {error.includes('Too many requests') && (
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setError('');
+                        fetchVenues();
+                      }}
+                      className="text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                    >
+                      Try again
+                    </button>
+                    <span className="text-yellow-600">•</span>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                    >
+                      Refresh page
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Favorites error - less prominent, only if it affects functionality */}
+        {favoritesError && isAuthenticated && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4">
+            <p className="text-sm text-blue-800">{favoritesError}</p>
           </div>
         )}
 
         {/* Venues Grid */}
-        {!error && !favoritesError && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredVenues.map((venue) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredVenues.map((venue) => (
             <div key={venue._id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
                 <Image 
@@ -414,7 +506,7 @@ function VenuesContent() {
                   </div>
                   <Button 
                     size="sm" 
-                    onClick={() => router.push(`/venues/${venue._id}`)}
+                    onClick={() => handleVenueClick(venue._id)}
                     className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-xl"
                   >
                     View Details
@@ -423,8 +515,7 @@ function VenuesContent() {
               </div>
             </div>
           ))}
-          </div>
-        )}
+        </div>
 
         {/* No Venues Message */}
         {!error && !favoritesError && filteredVenues.length === 0 && (
@@ -448,9 +539,18 @@ function VenuesContent() {
             <Button 
               variant="outline" 
               size="lg"
-              className="border-pink-200 text-pink-600 hover:bg-pink-50 px-8 py-3 rounded-xl"
+              className={`border-pink-300 text-pink-700 hover:bg-pink-50 bg-white px-8 py-3 rounded-xl shadow-sm transition-transform duration-150 ${isBrowsePop ? 'scale-105' : ''}`}
+              onClick={() => {
+                setIsBrowsePop(true);
+                setTimeout(() => setIsBrowsePop(false), 180);
+                // Clear all filters and ensure URL does not contain type filter
+                setSelectedFilters({ location: '', venueType: '', capacity: '', priceRange: '' });
+                if (searchParams.get('type')) {
+                  router.push('/venues');
+                }
+              }}
             >
-              Load More Venues
+              Browse More Venues
             </Button>
           </div>
         )}

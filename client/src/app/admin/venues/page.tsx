@@ -67,7 +67,7 @@ interface VenuesResponse {
 }
 
 export default function AdminVenuesPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -177,7 +177,8 @@ export default function AdminVenuesPage() {
     }
   };
 
-  const handleRejectVenue = async (venueId: string, venueName: string) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleRejectVenue = async (venueId: string, _venueName: string) => {
     const reason = await sonnerPrompt('Please provide a reason for rejection:');
     if (!reason) {
       return;
@@ -264,8 +265,8 @@ export default function AdminVenuesPage() {
     }
   };
 
-  if (currentUser?.role !== 'ADMIN') {
-    return <div>Access denied. Admin access required.</div>;
+  if (!isLoading && currentUser?.role !== 'ADMIN') {
+    return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (

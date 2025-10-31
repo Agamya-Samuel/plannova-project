@@ -1,14 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { favoriteService } from '../services/favoriteService';
 import { Venue } from '../types/venue';
+import { useAuth } from '../contexts/AuthContext';
 
 export const useFavorites = () => {
+  const { isAuthenticated } = useAuth();
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch user's favorite venues
-  const fetchFavorites = async () => {
+  // Fetch user's favorite venues (only if authenticated)
+  const fetchFavorites = useCallback(async () => {
+    // If user is not authenticated, just return empty favorites
+    if (!isAuthenticated) {
+      setFavorites(new Set());
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       const favoriteVenues = await favoriteService.getFavorites();
@@ -17,11 +27,13 @@ export const useFavorites = () => {
       setError(null);
     } catch (err) {
       console.error('Error fetching favorites:', err);
-      setError('Failed to fetch favorites');
+      // If error is due to authentication, just use empty set
+      setFavorites(new Set());
+      setError(null); // Don't show error if user is just not logged in
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated]);
 
   // Toggle favorite status for a venue
   const toggleFavorite = async (venueId: string) => {
@@ -66,10 +78,10 @@ export const useFavorites = () => {
     return favorites.has(venueId);
   };
 
-  // Load favorites on mount
+  // Load favorites on mount or when authentication status changes
   useEffect(() => {
     fetchFavorites();
-  }, []);
+  }, [fetchFavorites]);
 
   return {
     favorites,

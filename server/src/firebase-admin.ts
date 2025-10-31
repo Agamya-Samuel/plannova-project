@@ -21,10 +21,14 @@ if (!admin.apps.length) {
       projectId: process.env.FIREBASE_PROJECT_ID,
     });
 
-    console.log('✅ Firebase Admin SDK initialized successfully');
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Firebase Admin SDK initialized successfully');
+    }
   } catch (error) {
-    console.error('❌ Firebase Admin SDK initialization failed:', error);
-    console.warn('⚠️  Firebase Admin features will be unavailable');
+    if (process.env.NODE_ENV === 'development') {
+      console.error('❌ Firebase Admin SDK initialization failed:', error);
+      console.warn('⚠️  Firebase Admin features will be unavailable');
+    }
   }
 }
 

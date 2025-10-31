@@ -4,6 +4,7 @@ import User, { UserRole, IUser } from '../models/User.js';
 import Venue from '../models/Venue.js';
 import Catering from '../models/Catering.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
+import Booking, { BookingStatus } from '../models/Booking.js';
 
 const router = Router();
 
@@ -263,7 +264,10 @@ router.get('/stats', authenticateToken, requireAdmin, async (req: AuthRequest, r
       totalCateringServices,
       pendingCateringServices,
       approvedCateringServices,
-      rejectedCateringServices
+      rejectedCateringServices,
+      totalBookings,
+      confirmedBookings,
+      revenueAgg
     ] = await Promise.all([
       User.countDocuments(),
       User.countDocuments({ role: UserRole.CUSTOMER }),
@@ -277,8 +281,17 @@ router.get('/stats', authenticateToken, requireAdmin, async (req: AuthRequest, r
       Catering.countDocuments(),
       Catering.countDocuments({ status: 'PENDING' }),
       Catering.countDocuments({ status: 'APPROVED' }),
-      Catering.countDocuments({ status: 'REJECTED' })
+      Catering.countDocuments({ status: 'REJECTED' }),
+      Booking.countDocuments(),
+      Booking.countDocuments({ status: BookingStatus.CONFIRMED }),
+      Booking.aggregate([
+        { $match: { status: BookingStatus.CONFIRMED } },
+        { $group: { _id: null, total: { $sum: '$totalPrice' } } }
+      ])
     ]);
+
+    const revenue = Array.isArray(revenueAgg) && revenueAgg.length > 0 ? revenueAgg[0].total : 0;
+    const successRate = totalBookings > 0 ? Math.round((confirmedBookings / totalBookings) * 100) : 0;
 
     res.json({
       users: {
@@ -299,7 +312,13 @@ router.get('/stats', authenticateToken, requireAdmin, async (req: AuthRequest, r
         pending: pendingCateringServices,
         approved: approvedCateringServices,
         rejected: rejectedCateringServices
-      }
+      },
+      bookings: {
+        total: totalBookings,
+        confirmed: confirmedBookings,
+        successRate
+      },
+      revenue
     });
   } catch (error) {
     console.error('Error fetching admin stats:', error);

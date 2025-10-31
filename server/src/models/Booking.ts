@@ -23,7 +23,8 @@ export enum ServiceType {
   PHOTOGRAPHY = 'photography',
   VIDEOGRAPHY = 'videography',
   BRIDAL_MAKEUP = 'bridal-makeup',
-  DECORATION = 'decoration'
+  DECORATION = 'decoration',
+  ENTERTAINMENT = 'entertainment'
 }
 
 // Interface for Booking

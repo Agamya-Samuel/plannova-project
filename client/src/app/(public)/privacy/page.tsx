@@ -41,7 +41,7 @@ export default function PrivacyPolicy() {
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Information We Collect</h2>
                 <p className="text-gray-700">
-                  In the course of our business of helping you plan your wedding, we collect certain information from you. The types of personal information we may collect include:
+                  In the course of our business of helping you plan your events, we collect certain information from you. The types of personal information we may collect include:
                 </p>
                 <ul className="list-disc pl-6 mt-3 space-y-2 text-gray-700">
                   <li><strong>Identity Information:</strong> Name, gender, age</li>
@@ -114,7 +114,7 @@ export default function PrivacyPolicy() {
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Content on the Site</h2>
                 <p className="text-gray-700">
-                  Plannova features some of the latest trends in weddings and tries to give its users exposure to quality hand-picked content. In our endeavor, we feature pictures and stories from various real weddings and vendors. Vendors are expected to take utmost care to obtain permission/hold copyright of images given to us.
+                  Plannova features some of the latest trends in events and tries to give its users exposure to quality hand-picked content. In our endeavor, we feature pictures and stories from various real events and vendors. Vendors are expected to take utmost care to obtain permission/hold copyright of images given to us.
                 </p>
                 <p className="text-gray-700 mt-3">
                   In the unlikely event of anyone having any objection to content put up on our site, they are free to contact us immediately and we&apos;ll be happy to consider their request and take necessary action.
@@ -154,7 +154,7 @@ export default function PrivacyPolicy() {
                   <strong>Email:</strong> privacy@plannova.in
                 </p>
                 <p className="text-gray-700 mt-1">
-                  <strong>Address:</strong> Plannova Inc., 123 Wedding Plaza, San Francisco, CA 94102
+                  <strong>Address:</strong> Plannova Inc., 123 Event Plaza, San Francisco, CA 94102
                 </p>
               </section>
             </div>

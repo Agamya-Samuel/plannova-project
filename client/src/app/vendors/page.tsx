@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, Suspense } from 'react';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search, MapPin, Star, Heart, SlidersHorizontal, Camera, Music, Utensils, Flower, Video, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Vendor {
   id: string;
@@ -140,62 +141,217 @@ interface DecorationService {
   status?: string;
 }
 
-const categories = [
-  { name: 'Photography', icon: <Camera className="h-5 w-5" />, count: 245 },
-  { name: 'Catering', icon: <Utensils className="h-5 w-5" />, count: 189 },
-  { name: 'Videography', icon: <Video className="h-5 w-5" />, count: 134 },
-  { name: 'Decoration', icon: <Flower className="h-5 w-5" />, count: 156 },
-  { name: 'Music & Entertainment', icon: <Music className="h-5 w-5" />, count: 98 },
-  { name: 'Makeup & Beauty', icon: <Heart className="h-5 w-5" />, count: 167 }
-];
+// Define the EntertainmentService interface to match the backend model
+interface EntertainmentService {
+  _id: string;
+  name: string;
+  description: string;
+  serviceLocation: {
+    city: string;
+    state: string;
+  };
+  basePrice: number;
+  entertainmentTypes: string[];
+  rating: number;
+  reviewCount: number;
+  images: Array<{
+    url: string;
+    isPrimary: boolean;
+  }>;
+  provider: {
+    firstName: string;
+    lastName: string;
+  };
+  status?: string;
+}
 
-export default function VendorsPage() {
+// Category chip config (icons). Counts are computed from live data below
+const categoryIconMap: Record<string, React.ReactNode> = {
+  'Photography': <Camera className="h-5 w-5" />,
+  'Catering': <Utensils className="h-5 w-5" />,
+  'Videography': <Video className="h-5 w-5" />,
+  'Decoration': <Flower className="h-5 w-5" />,
+  'Music & Entertainment': <Music className="h-5 w-5" />,
+  'Makeup & Beauty': <Heart className="h-5 w-5" />,
+};
+
+function VendorsPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
   const [showFilters, setShowFilters] = useState(false);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [isVendorBrowsePop, setIsVendorBrowsePop] = useState(false);
+  const [showAllInAllCategory, setShowAllInAllCategory] = useState(false);
   const [cateringServices, setCateringServices] = useState<CateringService[]>([]);
   const [photographyServices, setPhotographyServices] = useState<PhotographyService[]>([]);
   const [videographyServices, setVideographyServices] = useState<VideographyService[]>([]);
   const [bridalMakeupServices, setBridalMakeupServices] = useState<BridalMakeupService[]>([]);
   const [decorationServices, setDecorationServices] = useState<DecorationService[]>([]);
+  const [entertainmentServices, setEntertainmentServices] = useState<EntertainmentService[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Fetch approved services
   useEffect(() => {
+    // Prevent duplicate requests and handle rate limiting
+    let cancelled = false;
+    
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Fetch catering services
-        const cateringResponse = await apiClient.get('/catering');
-        setCateringServices(cateringResponse.data.data);
         
-        // Fetch photography services
-        const photographyResponse = await apiClient.get('/photography');
-        setPhotographyServices(photographyResponse.data.data);
+        // Fetch all services with individual error handling to continue loading others if one fails
+        try {
+          const cateringResponse = await apiClient.get('/catering');
+          if (!cancelled) {
+            setCateringServices(cateringResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for catering services');
+          } else {
+            console.error('Error fetching catering services:', err);
+          }
+          if (!cancelled) {
+            setCateringServices([]);
+          }
+        }
         
-        // Fetch videography services
-        const videographyResponse = await apiClient.get('/videography');
-        setVideographyServices(videographyResponse.data.data);
+        try {
+          const photographyResponse = await apiClient.get('/photography');
+          if (!cancelled) {
+            setPhotographyServices(photographyResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for photography services');
+          } else {
+            console.error('Error fetching photography services:', err);
+          }
+          if (!cancelled) {
+            setPhotographyServices([]);
+          }
+        }
         
-        // Fetch bridal makeup services
-        const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
-        setBridalMakeupServices(bridalMakeupResponse.data.data);
+        try {
+          const videographyResponse = await apiClient.get('/videography');
+          if (!cancelled) {
+            setVideographyServices(videographyResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for videography services');
+          } else {
+            console.error('Error fetching videography services:', err);
+          }
+          if (!cancelled) {
+            setVideographyServices([]);
+          }
+        }
         
-        // Fetch decoration services
-        const decorationResponse = await apiClient.get('/decoration');
-        setDecorationServices(decorationResponse.data.data);
-      } catch (err) {
-        console.error('Error fetching services:', err);
-        setError('Failed to load services');
+        try {
+          const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
+          if (!cancelled) {
+            setBridalMakeupServices(bridalMakeupResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for bridal makeup services');
+          } else {
+            console.error('Error fetching bridal makeup services:', err);
+          }
+          if (!cancelled) {
+            setBridalMakeupServices([]);
+          }
+        }
+        
+        try {
+          const decorationResponse = await apiClient.get('/decoration');
+          if (!cancelled) {
+            setDecorationServices(decorationResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for decoration services');
+          } else {
+            console.error('Error fetching decoration services:', err);
+          }
+          if (!cancelled) {
+            setDecorationServices([]);
+          }
+        }
+        
+        try {
+          const entertainmentResponse = await apiClient.get('/entertainment');
+          if (!cancelled) {
+            setEntertainmentServices(entertainmentResponse.data.data || []);
+          }
+        } catch (err: unknown) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded for entertainment services');
+          } else {
+            console.error('Error fetching entertainment services:', err);
+          }
+          if (!cancelled) {
+            setEntertainmentServices([]);
+          }
+        }
+        
+        // Reset error - will be set if needed below
+        if (!cancelled) {
+          setError(''); // Clear error if we got here successfully
+        }
+      } catch (err: unknown) {
+        if (!cancelled) {
+          // Check if error has response property (Axios error)
+          if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'status' in err.response && err.response.status === 429) {
+            console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+            setError('Too many requests. Please wait a moment and try refreshing the page.');
+          } else {
+            console.error('Error fetching vendors:', err);
+            setError('Failed to load some services. Please try again later.');
+          }
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+    
+    // Cleanup function to prevent state updates after unmount
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  // Initialize selected category from URL (?category=Photography)
+  // This enables deep linking from the home page vendor types section
+  useEffect(() => {
+    const initialCategory = searchParams?.get('category');
+    if (initialCategory) {
+      setSelectedCategory(initialCategory);
+      setShowAllInAllCategory(false);
+    }
+    // We intentionally only set on mount/param changes
+  }, [searchParams]);
+
+  // Reset the show-all flag whenever category changes from outside
+  useEffect(() => {
+    if (selectedCategory !== 'All') {
+      setShowAllInAllCategory(false);
+    }
+  }, [selectedCategory]);
 
   const toggleFavorite = (vendorId: string) => {
     const newFavorites = new Set(favorites);
@@ -205,6 +361,34 @@ export default function VendorsPage() {
       newFavorites.add(vendorId);
     }
     setFavorites(newFavorites);
+  };
+
+  // Handle vendor card click with authentication check
+  // This function checks if user is logged in before navigating to vendor details
+  const handleVendorClick = (vendor: Vendor) => {
+    if (!isAuthenticated) {
+      // Redirect to login page if user is not authenticated
+      router.push('/auth/login');
+      return;
+    }
+    
+    // Navigate to vendor details based on category if authenticated
+    if (vendor.category === 'Photography') {
+      router.push(`/photography/${vendor.id}`);
+    } else if (vendor.category === 'Catering') {
+      router.push(`/catering/${vendor.id}`);
+    } else if (vendor.category === 'Videography') {
+      router.push(`/videography/${vendor.id}`);
+    } else if (vendor.category === 'Decoration') {
+      router.push(`/decoration/${vendor.id}`);
+    } else if (vendor.category === 'Makeup & Beauty') {
+      router.push(`/bridal-makeup/${vendor.id}`);
+    } else if (vendor.category === 'Music & Entertainment') {
+      router.push(`/entertainment/${vendor.id}`);
+    } else {
+      // Default fallback
+      router.push(`/vendors`);
+    }
   };
 
   // Transform catering services to vendor format for display
@@ -285,12 +469,59 @@ export default function VendorsPage() {
     isVerified: true
   }));
 
+  // Transform entertainment services to vendor format for display
+  const entertainmentVendors: Vendor[] = entertainmentServices
+    .filter(service => service.status === 'APPROVED' || service.status === 'PENDING_EDIT')
+    .map(service => ({
+      id: service._id,
+      name: service.name || 'Untitled Service',
+      category: 'Music & Entertainment',
+      location: `${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`,
+      rating: service.rating || 0,
+      reviews: service.reviewCount || 0,
+      startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
+      image: service.images && service.images.length > 0 
+        ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
+        : 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      services: service.entertainmentTypes ? service.entertainmentTypes.slice(0, 3) : [],
+      isVerified: true
+    }));
+
   // Combine all vendors
-  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors]);
+  const allVendors: Vendor[] = useMemo(() => [...cateringVendors, ...photographyVendors, ...videographyVendors, ...bridalMakeupVendors, ...decorationVendors, ...entertainmentVendors], [cateringVendors, photographyVendors, videographyVendors, bridalMakeupVendors, decorationVendors, entertainmentVendors]);
 
   const filteredVendors = selectedCategory === 'All' 
     ? allVendors 
     : allVendors.filter(vendor => vendor.category === selectedCategory);
+
+  // Limit to first 9 for All category unless expanded
+  const visibleVendors = selectedCategory === 'All' && !showAllInAllCategory
+    ? filteredVendors.slice(0, 9)
+    : filteredVendors;
+
+  // Compute category counts from fetched data to avoid hardcoding numbers
+  const computedCategories = useMemo(() => {
+    const counts: Record<string, number> = {
+      'Photography': photographyVendors.length,
+      'Catering': cateringVendors.length,
+      'Videography': videographyVendors.length,
+      'Decoration': decorationVendors.length,
+      'Music & Entertainment': entertainmentVendors.length,
+      'Makeup & Beauty': bridalMakeupVendors.length,
+    };
+    return Object.keys(counts).map((name) => ({
+      name,
+      icon: categoryIconMap[name],
+      count: counts[name] || 0,
+    }));
+  }, [
+    photographyVendors.length,
+    cateringVendors.length,
+    videographyVendors.length,
+    decorationVendors.length,
+    entertainmentVendors.length,
+    bridalMakeupVendors.length,
+  ]);
 
   // Debug log to check if services are being fetched
   useEffect(() => {
@@ -299,8 +530,9 @@ export default function VendorsPage() {
     console.log('Videography services count:', videographyServices.length);
     console.log('Bridal makeup services count:', bridalMakeupServices.length);
     console.log('Decoration services count:', decorationServices.length);
+    console.log('Entertainment services count:', entertainmentServices.length);
     console.log('All vendors count:', allVendors.length);
-  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, allVendors]);
+  }, [cateringServices, photographyServices, videographyServices, bridalMakeupServices, decorationServices, entertainmentServices, allVendors]);
 
   if (loading) {
     return (
@@ -316,9 +548,9 @@ export default function VendorsPage() {
       <div className="bg-gradient-to-r from-pink-600 to-purple-600 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center">
-            <h1 className="text-4xl font-bold mb-4">Wedding Vendors</h1>
+            <h1 className="text-4xl font-bold mb-4">Event Vendors</h1>
             <p className="text-xl text-pink-100 mb-8">
-              Connect with the best wedding professionals in your city
+              Connect with the best event professionals in your city
             </p>
             
             {/* Search Bar */}
@@ -379,7 +611,7 @@ export default function VendorsPage() {
             >
               <span>All Categories</span>
             </button>
-            {categories.map((category, index) => (
+            {computedCategories.map((category, index) => (
               <button
                 key={index}
                 onClick={() => setSelectedCategory(category.name)}
@@ -412,13 +644,13 @@ export default function VendorsPage() {
             </Button>
             
             <div className="text-sm text-gray-600">
-              Showing {filteredVendors.length} vendors
+              Showing {selectedCategory === 'All' && !showAllInAllCategory ? Math.min(9, filteredVendors.length) : filteredVendors.length} vendors
             </div>
           </div>
           
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-600">Sort by:</span>
-            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-pink-500 focus:border-transparent">
+            <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:ring-2 focus:ring-pink-500 focus:border-transparent">
               <option>Popularity</option>
               <option>Price: Low to High</option>
               <option>Price: High to Low</option>
@@ -485,14 +717,36 @@ export default function VendorsPage() {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
-            <p className="text-red-800">{error}</p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-600" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Service temporarily unavailable
+                </h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  {error}
+                </p>
+                {error.includes('Too many requests') && (
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="mt-3 text-sm font-medium text-yellow-800 hover:text-yellow-900 underline"
+                  >
+                    Refresh page
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
         {/* Vendors Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredVendors.map((vendor) => (
+          {visibleVendors.map((vendor) => (
             <div key={vendor.id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
                 <Image 
@@ -564,22 +818,7 @@ export default function VendorsPage() {
                   <Button 
                     size="sm" 
                     className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 rounded-xl"
-                    onClick={() => {
-                      if (vendor.category === 'Photography') {
-                        router.push(`/photography/${vendor.id}`);
-                      } else if (vendor.category === 'Catering') {
-                        router.push(`/catering/${vendor.id}`);
-                      } else if (vendor.category === 'Videography') {
-                        router.push(`/videography/${vendor.id}`);
-                      } else if (vendor.category === 'Decoration') {
-                        router.push(`/decoration/${vendor.id}`);
-                      } else if (vendor.category === 'Makeup & Beauty') {
-                        router.push(`/bridal-makeup/${vendor.id}`);
-                      } else {
-                        // Default fallback
-                        router.push(`/vendors`);
-                      }
-                    }}
+                    onClick={() => handleVendorClick(vendor)}
                   >
                     View Profile
                   </Button>
@@ -589,17 +828,60 @@ export default function VendorsPage() {
           ))}
         </div>
 
-        {/* Load More */}
+        {/* Load More / Browse More */}
         <div className="text-center mt-12">
-          <Button 
-            variant="outline" 
-            size="lg"
-            className="border-pink-200 text-pink-600 hover:bg-pink-50 px-8 py-3 rounded-xl"
-          >
-            Load More Vendors
-          </Button>
+          {selectedCategory === 'All' ? (
+            filteredVendors.length > 9 && !showAllInAllCategory ? (
+              <Button 
+                variant="outline" 
+                size="lg"
+                className={`border-pink-300 text-pink-700 hover:bg-pink-50 bg-white px-8 py-3 rounded-xl shadow-sm transition-transform duration-150 ${isVendorBrowsePop ? 'scale-105' : ''}`}
+                onClick={() => {
+                  setIsVendorBrowsePop(true);
+                  setTimeout(() => setIsVendorBrowsePop(false), 180);
+                  setShowAllInAllCategory(true);
+                }}
+              >
+                Browse More Services
+              </Button>
+            ) : null
+          ) : (
+            <Button 
+              variant="outline" 
+              size="lg"
+              className={`border-pink-300 text-pink-700 hover:bg-pink-50 bg-white px-8 py-3 rounded-xl shadow-sm transition-transform duration-150 ${isVendorBrowsePop ? 'scale-105' : ''}`}
+              onClick={() => {
+                setIsVendorBrowsePop(true);
+                setTimeout(() => setIsVendorBrowsePop(false), 180);
+                setSelectedCategory('All');
+                setShowAllInAllCategory(false);
+                if (searchParams?.get('category')) {
+                  router.push('/vendors');
+                }
+              }}
+            >
+              Browse More Services
+            </Button>
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+export default function VendorsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="flex items-center space-x-2 text-pink-600">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span>Loading vendors...</span>
+          </div>
+        </div>
+      }
+    >
+      <VendorsPageInner />
+    </Suspense>
   );
 }

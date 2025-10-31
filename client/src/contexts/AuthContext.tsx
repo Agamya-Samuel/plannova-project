@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '@/lib/api';
-import { signInWithGoogle, logout as firebaseLogout } from '@/lib/firebase-auth';
+import { signInWithGoogle, logout as firebaseLogout, getCurrentUser } from '@/lib/firebase-auth';
 import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,6 +17,52 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user;
 
+  // In-memory throttle for /auth/profile to avoid 429s when many components mount
+  const lastProfileFetchRef = React.useRef<number>(0);
+  const inflightProfileRef = React.useRef<Promise<unknown> | null>(null);
+
+  const fetchProfileWithRetryThrottled = async (): Promise<User | null> => {
+    const now = Date.now();
+    // 20s throttle window
+    if (inflightProfileRef.current) {
+      return inflightProfileRef.current as Promise<User | null>;
+    }
+    if (now - lastProfileFetchRef.current < 20_000) {
+      // Too soon; just reuse last successful value from localStorage
+      const cached = localStorage.getItem('user');
+      return cached ? (JSON.parse(cached) as User) : null;
+    }
+
+    const runner = (async () => {
+      let attempt = 0;
+      const maxAttempts = 3;
+      const baseDelay = 300; // ms
+      while (attempt < maxAttempts) {
+        try {
+          const response = await apiClient.get('/auth/profile');
+          lastProfileFetchRef.current = Date.now();
+          return response.data as User;
+        } catch (err: unknown) {
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          if (status === 429 || status === 503) {
+            const delay = baseDelay * Math.pow(2, attempt);
+            await new Promise(r => setTimeout(r, delay));
+            attempt += 1;
+            continue;
+          }
+          throw err;
+        }
+      }
+      return null;
+    })();
+
+    inflightProfileRef.current = runner.finally(() => {
+      inflightProfileRef.current = null;
+    });
+
+    return inflightProfileRef.current as Promise<User | null>;
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('token');
@@ -27,11 +73,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const user = JSON.parse(storedUser);
           setUser(user);
           
-          // Verify token is still valid by fetching profile
-          const response = await apiClient.get('/auth/profile');
-          console.log('👤 Current user profile data:', response.data);
-          setUser(response.data);
-        } catch {
+          // Verify token is still valid by fetching profile (with retry + throttle)
+          const responseData = await fetchProfileWithRetryThrottled();
+          if (process.env.NODE_ENV === 'development') {
+            console.log('👤 Current user profile data:', responseData);
+          }
+          
+          // If user signed in with Google, also check Firebase for the latest photoURL
+          // This ensures we have the most up-to-date profile photo
+          if (responseData && (responseData as { provider?: string }).provider === 'google.com') {
+            const firebaseUser = getCurrentUser();
+            if (firebaseUser?.photoURL && !(responseData as { photoURL?: string }).photoURL) {
+              // Use Firebase photoURL as fallback if database doesn't have it
+              (responseData as { photoURL?: string }).photoURL = firebaseUser.photoURL;
+            } else if (firebaseUser?.photoURL && firebaseUser.photoURL !== (responseData as { photoURL?: string }).photoURL) {
+              // Firebase photoURL is newer, use it
+              (responseData as { photoURL?: string }).photoURL = firebaseUser.photoURL;
+            }
+          }
+          
+          if (responseData) {
+            setUser(responseData);
+          }
+          // Update localStorage with the latest user data including photoURL
+          if (responseData) {
+            localStorage.setItem('user', JSON.stringify(responseData));
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Auth initialization error:', error);
+          }
           // Token is invalid, clear storage
           localStorage.removeItem('token');
           localStorage.removeItem('user');
@@ -81,7 +152,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Sign out from Firebase
       await firebaseLogout();
     } catch (error) {
-      console.error('Firebase logout error:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Firebase logout error:', error);
+      }
     }
     
     // Clear local storage
@@ -92,36 +165,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const googleSignIn = async (): Promise<{ needsRoleSelection?: boolean }> => {
     try {
-      console.log('🚀 Starting Google sign-in process...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 Starting Google sign-in process...');
+      }
       const result = await signInWithGoogle();
       const user = result.user;
       
-      console.log('✅ Firebase Google sign-in successful:', {
-        uid: user.uid,
-        email: user.email,
-        displayName: user.displayName
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Firebase Google sign-in successful:', {
+          uid: user.uid,
+          email: user.email,
+          displayName: user.displayName
+        });
+      }
       
       // Get the ID token and send to backend
       const idToken = await user.getIdToken();
-      console.log('🔑 Got Firebase ID token, sending to backend...');
-      console.log('🌐 API URL:', apiClient.defaults.baseURL);
-      console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔑 Got Firebase ID token, sending to backend...');
+        console.log('🌐 API URL:', apiClient.defaults.baseURL);
+        console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+      }
       
       // Test API connectivity first
       try {
-        console.log('🔍 Testing API connectivity...');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 Testing API connectivity...');
+        }
         const healthCheck = await apiClient.get('/health/db');
-        console.log('✅ API connectivity test passed:', healthCheck.data);
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ API connectivity test passed:', healthCheck.data);
+        }
       } catch (connectivityError: unknown) {
         if (connectivityError instanceof Error && 'response' in connectivityError) {
           const response = (connectivityError as { response?: { status?: number; statusText?: string; data?: unknown } }).response;
-          console.error('❌ API connectivity test failed:', {
-            message: connectivityError.message,
-            status: response?.status,
-            statusText: response?.statusText,
-            data: response?.data
-          });
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ API connectivity test failed:', {
+              message: connectivityError.message,
+              status: response?.status,
+              statusText: response?.statusText,
+              data: response?.data
+            });
+          }
 
           // More specific error messages based on the type of error
           if (response?.status === 429) {
@@ -132,36 +217,58 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             throw new Error(`Server error (${response?.status}). Please try again later.`);
           }
         } else {
-          console.error('❌ API connectivity test failed:', connectivityError);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ API connectivity test failed:', connectivityError);
+          }
           throw new Error('An unknown error occurred during the connectivity test.');
         }
       }
       
       // Send to backend for user creation/verification
-      console.log('📡 Sending request to backend /auth/google endpoint...');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📡 Sending request to backend /auth/google endpoint...');
+      }
       const response = await apiClient.post<LoginResponse>('/auth/google', {
         idToken,
       });
 
-      console.log('✅ Backend response successful:', response.data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Backend response successful:', response.data);
+      }
       const { user: userData, token, needsRoleSelection } = response.data;
       
+      // If user signed in with Google, ensure we have the photoURL from Firebase
+      // This is a fallback in case the database doesn't have it yet
+      // Firebase user from signInWithGoogle() has the latest photoURL
+      if (user.photoURL && (!userData.photoURL || user.photoURL !== userData.photoURL)) {
+        userData.photoURL = user.photoURL;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🖼️ Using Firebase photoURL as fallback/update:', user.photoURL);
+        }
+      }
+      
       // Debug: Log the photoURL we received
-      console.log('🖼️ User photoURL received:', userData.photoURL);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🖼️ User photoURL received:', userData.photoURL);
+      }
       
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
-      console.log('✅ Google sign-in completed successfully');
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Google sign-in completed successfully');
+      }
       return { needsRoleSelection };
     } catch (error: unknown) {
-      console.error('❌ Google sign-in error details:', {
-        error,
-        message: (error as Error)?.message,
-        response: (error as { response?: { data?: unknown } })?.response?.data,
-        status: (error as { response?: { status?: number } })?.response?.status,
-        code: (error as { code?: string })?.code
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.error('❌ Google sign-in error details:', {
+          error,
+          message: (error as Error)?.message,
+          response: (error as { response?: { data?: unknown } })?.response?.data,
+          status: (error as { response?: { status?: number } })?.response?.status,
+          code: (error as { code?: string })?.code
+        });
+      }
       
       let errorMessage = 'Google sign-in failed';
       
@@ -260,6 +367,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateMobileNumber = async (mobile: string): Promise<void> => {
+    try {
+      const response = await apiClient.put('/auth/profile', { phone: mobile });
+      const updatedUser = response.data.user;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Mobile number updated, new user data:', updatedUser);
+      }
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    } catch (error: unknown) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Mobile number update failed:', error);
+      }
+      throw new Error((error as { response?: { data?: { error?: string } } })?.response?.data?.error || 'Mobile number update failed');
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -271,6 +396,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     updateRole,
     updateServiceCategories,
     updateProfile,
+    updateMobileNumber,
   };
 
   return (

@@ -2,13 +2,14 @@ import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
 import Booking, { BookingStatus, IBooking, ServiceType } from '../models/Booking.js';
-import { authenticateToken, AuthRequest, requireProvider } from '../middleware/auth.js';
+import { authenticateToken, AuthRequest, requireProvider, requireStaffOrAdmin } from '../middleware/auth.js';
 import Venue, { IVenue } from '../models/Venue.js';
 import Catering from '../models/Catering.js';
 import Photography from '../models/Photography.js';
 import Videography from '../models/Videography.js';
 import BridalMakeup from '../models/BridalMakeup.js';
 import Decoration from '../models/Decoration.js';
+import Entertainment from '../models/Entertainment.js';
 
 const router = Router();
 
@@ -66,7 +67,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let service: any = null;
         
-        switch (booking.serviceType) {
+      switch (booking.serviceType) {
           case ServiceType.VENUE:
             service = await Venue.findById(booking.serviceId);
             break;
@@ -85,6 +86,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           case ServiceType.DECORATION:
             service = await Decoration.findById(booking.serviceId);
             break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
         }
         
         if (service) {
@@ -142,6 +146,124 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     res.json(transformedBookings);
   } catch (error) {
     console.error('Error fetching bookings:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// GET /api/bookings/staff/all - Get all bookings (Staff/Admin)
+router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { page = '1', limit = '200', status } = req.query as { page?: string; limit?: string; status?: string };
+    const pageNum = Math.max(parseInt(page || '1', 10), 1);
+    const limitNum = Math.min(Math.max(parseInt(limit || '200', 10), 1), 1000);
+
+    const filter: Record<string, unknown> = {};
+    if (status && typeof status === 'string' && status.toLowerCase() !== 'all') {
+      filter.status = status.toUpperCase();
+    }
+
+    const bookings = await Booking.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('venueId', 'name images')
+      .populate('providerId', 'firstName lastName email')
+      .populate('customerId', 'firstName lastName email')
+      .lean();
+
+    // Build rich response including service and provider contact like customer route
+    const transformed = await Promise.all(
+      bookings.map(async (booking) => {
+        let serviceName = 'Unknown Service';
+        let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+        let providerContact = {
+          name: 'Provider',
+          email: '',
+          phone: ''
+        };
+
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let service: any = null;
+          switch (booking.serviceType) {
+            case ServiceType.VENUE:
+              service = await Venue.findById(booking.serviceId);
+              break;
+            case ServiceType.CATERING:
+              service = await Catering.findById(booking.serviceId);
+              break;
+            case ServiceType.PHOTOGRAPHY:
+              service = await Photography.findById(booking.serviceId);
+              break;
+            case ServiceType.VIDEOGRAPHY:
+              service = await Videography.findById(booking.serviceId);
+              break;
+            case ServiceType.BRIDAL_MAKEUP:
+              service = await BridalMakeup.findById(booking.serviceId);
+              break;
+            case ServiceType.DECORATION:
+              service = await Decoration.findById(booking.serviceId);
+              break;
+            case ServiceType.ENTERTAINMENT:
+              service = await Entertainment.findById(booking.serviceId);
+              break;
+          }
+
+          if (service) {
+            serviceName = service.name;
+            serviceImage = service.images?.[0]?.url || serviceImage;
+
+            if (service.contact) {
+              providerContact = {
+                name: service.contact.name || serviceName,
+                email: service.contact.email || '',
+                phone: service.contact.phone || ''
+              };
+            }
+          }
+
+          // Fallback to populated provider user if service lacks contact
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const provider = (booking as any).providerId;
+          if (provider && !providerContact.email) {
+            providerContact = {
+              name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+              email: provider.email || '',
+              phone: provider.phone || ''
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching service/provider details (staff/all):', error);
+        }
+
+        return {
+          id: (booking._id as Types.ObjectId).toString(),
+          serviceId: booking.serviceId?.toString(),
+          serviceType: booking.serviceType,
+          serviceName,
+          serviceImage,
+          // Backward compatibility with client fields
+          venueName: serviceName,
+          venueImage: serviceImage,
+          date: booking.date,
+          time: booking.time,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          totalPrice: booking.totalPrice,
+          guestCount: booking.guestCount,
+          contactPerson: booking.contactPerson,
+          contactPhone: booking.contactPhone,
+          contactEmail: booking.contactEmail,
+          specialRequests: booking.specialRequests,
+          provider: providerContact,
+          createdAt: booking.createdAt
+        };
+      })
+    );
+
+    res.json(transformed);
+  } catch (error) {
+    console.error('Error fetching all bookings for staff:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
   }
 });
@@ -207,6 +329,9 @@ router.get('/availability/:serviceType/:serviceId', async (req, res: Response) =
           break;
         case ServiceType.DECORATION:
           service = await Decoration.findById(serviceId);
+          break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(serviceId);
           break;
       }
 
@@ -306,6 +431,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
           case ServiceType.DECORATION:
             service = await Decoration.findById(booking.serviceId);
             break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
         }
         
         if (service) {
@@ -343,6 +471,175 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
   } catch (error) {
     console.error('Error fetching provider bookings:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// GET /api/bookings/provider/stats - Get provider dashboard statistics
+router.get('/provider/stats', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const providerId = req.user!.id;
+    
+    // Get all bookings for this provider
+    const allBookings = await Booking.find({ 
+      providerId: new Types.ObjectId(providerId)
+    });
+    
+    // Calculate total bookings
+    const totalBookings = allBookings.length;
+    
+    // Calculate revenue from confirmed bookings only
+    const confirmedBookings = allBookings.filter(b => b.status === BookingStatus.CONFIRMED);
+    const revenue = confirmedBookings.reduce((sum, booking) => sum + (booking.totalPrice || 0), 0);
+    
+    // Calculate response time (average time from booking creation to status change from PENDING)
+    // Only consider bookings that are no longer pending
+    const respondedBookings = allBookings.filter(b => b.status !== BookingStatus.PENDING);
+    let totalResponseTime = 0;
+    let responseTimeCount = 0;
+    
+    respondedBookings.forEach(booking => {
+      // Calculate time difference between createdAt and updatedAt when status changed
+      // If updatedAt is close to createdAt, provider responded immediately (or status changed quickly)
+      const responseTimeMs = booking.updatedAt.getTime() - booking.createdAt.getTime();
+      const responseTimeHours = responseTimeMs / (1000 * 60 * 60); // Convert to hours
+      
+      // Only count if the booking was actually responded to (not auto-updated)
+      // Consider responses within reasonable time (less than 30 days)
+      if (responseTimeHours > 0 && responseTimeHours < 720) {
+        totalResponseTime += responseTimeHours;
+        responseTimeCount++;
+      }
+    });
+    
+    const avgResponseTimeHours = responseTimeCount > 0 ? totalResponseTime / responseTimeCount : 0;
+    
+    // Format response time for display
+    let responseTimeFormatted = '—';
+    let responseTimeStatus = 'No data';
+    
+    if (avgResponseTimeHours > 0) {
+      if (avgResponseTimeHours < 1) {
+        const minutes = Math.round(avgResponseTimeHours * 60);
+        responseTimeFormatted = `${minutes}m`;
+        responseTimeStatus = minutes <= 30 ? 'Excellent' : 'Good';
+      } else if (avgResponseTimeHours < 24) {
+        const hours = Math.round(avgResponseTimeHours);
+        responseTimeFormatted = `${hours}h`;
+        responseTimeStatus = hours <= 2 ? 'Very Good' : hours <= 6 ? 'Good' : 'Fair';
+      } else {
+        const days = Math.round(avgResponseTimeHours / 24);
+        responseTimeFormatted = `${days}d`;
+        responseTimeStatus = days <= 1 ? 'Good' : days <= 3 ? 'Fair' : 'Poor';
+      }
+    }
+    
+    // Calculate average rating from all services owned by provider
+    // We need to aggregate ratings from Venue, Catering, Photography, etc.
+    let totalRating = 0;
+    let totalReviews = 0;
+    
+    // Helper function to process service ratings
+    const processServiceRating = (service: { rating?: number; reviewCount?: number; totalReviews?: number; averageRating?: number }) => {
+      if (!service) return;
+      
+      // Services can have either reviewCount or totalReviews
+      const reviewCount = service.reviewCount || service.totalReviews || 0;
+      // Services can have either rating or averageRating
+      const rating = service.rating || service.averageRating || 0;
+      
+      if (reviewCount > 0 && rating > 0) {
+        totalRating += rating * reviewCount;
+        totalReviews += reviewCount;
+      }
+    };
+    
+    // Get all services for this provider and calculate average rating
+    try {
+      // Fetch venues
+      const venues = await Venue.find({ providerId: new Types.ObjectId(providerId) });
+      for (const venue of venues) {
+        // Venues use reviews array and store averageRating/totalReviews
+        if (venue.reviews && venue.reviews.length > 0) {
+          processServiceRating(venue);
+        }
+      }
+      
+      // Fetch catering services
+      const cateringServices = await Catering.find({ provider: new Types.ObjectId(providerId) });
+      cateringServices.forEach(service => processServiceRating(service));
+      
+      // Fetch photography services
+      const photographyServices = await Photography.find({ provider: new Types.ObjectId(providerId) });
+      photographyServices.forEach(service => processServiceRating(service));
+      
+      // Fetch videography services
+      const videographyServices = await Videography.find({ provider: new Types.ObjectId(providerId) });
+      videographyServices.forEach(service => processServiceRating(service));
+      
+      // Fetch bridal makeup services
+      const bridalMakeupServices = await BridalMakeup.find({ provider: new Types.ObjectId(providerId) });
+      bridalMakeupServices.forEach(service => processServiceRating(service));
+      
+      // Fetch decoration services
+      const decorationServices = await Decoration.find({ provider: new Types.ObjectId(providerId) });
+      decorationServices.forEach(service => processServiceRating(service));
+      
+      // Fetch entertainment services
+      const entertainmentServices = await Entertainment.find({ provider: new Types.ObjectId(providerId) });
+      entertainmentServices.forEach(service => processServiceRating(service));
+    } catch (error) {
+      console.error('Error fetching service ratings:', error);
+      // Continue with bookings stats even if service rating fetch fails
+    }
+    
+    // Calculate overall average rating
+    const avgRating = totalReviews > 0 ? totalRating / totalReviews : 0;
+    
+    // Calculate bookings trend (this month vs last month)
+    const now = new Date();
+    const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    
+    const bookingsThisMonth = allBookings.filter(b => b.createdAt >= startOfThisMonth).length;
+    const bookingsLastMonth = allBookings.filter(b => {
+      const created = b.createdAt;
+      return created >= startOfLastMonth && created <= endOfLastMonth;
+    }).length;
+    
+    const bookingsGrowth = bookingsLastMonth > 0 
+      ? Math.round(((bookingsThisMonth - bookingsLastMonth) / bookingsLastMonth) * 100)
+      : bookingsThisMonth > 0 ? 100 : 0;
+    
+    // Calculate revenue trend
+    const revenueThisMonth = confirmedBookings
+      .filter(b => b.createdAt >= startOfThisMonth)
+      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    const revenueLastMonth = confirmedBookings
+      .filter(b => {
+        const created = b.createdAt;
+        return created >= startOfLastMonth && created <= endOfLastMonth;
+      })
+      .reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+    
+    const revenueGrowth = revenueLastMonth > 0
+      ? Math.round(((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100)
+      : revenueThisMonth > 0 ? 100 : 0;
+    
+    res.json({
+      totalBookings,
+      bookingsGrowth,
+      revenue,
+      revenueGrowth,
+      avgRating: Math.round(avgRating * 10) / 10, // Round to 1 decimal place
+      totalReviews,
+      responseTime: responseTimeFormatted,
+      responseTimeStatus,
+      responseTimeHours: avgResponseTimeHours
+    });
+  } catch (error) {
+    console.error('Error fetching provider stats:', error);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
@@ -478,6 +775,13 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
             totalPrice = service.basePrice;
           }
           break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
+          if (service) {
+            providerId = service.provider;
+            totalPrice = service.basePrice;
+          }
+          break;
       }
     } catch (error) {
       console.error('Error fetching service:', error);
@@ -560,8 +864,10 @@ router.put('/:id/cancel', authenticateToken, async (req: AuthRequest, res: Respo
       return res.status(404).json({ error: 'Booking not found' });
     }
 
-    if (booking.status === BookingStatus.CANCELLED) {
-      return res.status(400).json({ error: 'Booking is already cancelled' });
+    // Only pending bookings can be cancelled by the customer
+    // Once a provider approves (confirms) a booking, prevent customer cancellation
+    if (booking.status !== BookingStatus.PENDING) {
+      return res.status(400).json({ error: 'Only pending bookings can be cancelled' });
     }
 
     booking.status = BookingStatus.CANCELLED;

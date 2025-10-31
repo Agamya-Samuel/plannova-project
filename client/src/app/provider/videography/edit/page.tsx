@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
+import LocationInput from '@/components/ui/LocationInput';
 import 'react-phone-number-input/style.css';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
@@ -70,8 +71,8 @@ interface AddonFormData {
 
 const videographyTypeOptions = [
   'Wedding Videography',
-  'Pre-wedding Videography',
-  'Post-wedding Videography',
+  'Pre-event Videography',
+  'Post-event Videography',
   'Corporate Videography',
   'Event Videography',
   'Documentary Videography',
@@ -81,13 +82,7 @@ const videographyTypeOptions = [
   'Live Streaming'
 ];
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
+// Note: Removed unused 'states' list to satisfy linter and keep file concise
 
 function EditVideographyServiceContent() {
   const { user } = useAuth();
@@ -281,7 +276,7 @@ function EditVideographyServiceContent() {
             } else if (!isValidPhoneNumber(formData.contact.phone)) {
                 validationErrors.push('Please enter a valid phone number');
             }
-            if (formData.contact.whatsapp.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
+            if (formData.contact.whatsapp?.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
                 validationErrors.push('Please enter a valid WhatsApp number');
             }
             if (!formData.contact.email.trim()) validationErrors.push('Email is required');
@@ -442,32 +437,26 @@ function EditVideographyServiceContent() {
                 {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
-                  const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (canAccess) {
-                            setActiveTab(tab.id);
-                            setError('');
-                          }
+                          setActiveTab(tab.id);
+                          setError('');
                         }}
-                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-purple-600 text-white shadow-lg'
                             : isCompleted
                             ? 'bg-green-500 text-white'
-                            : canAccess
-                            ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
                         }`}
                       >
                         {isCompleted && !isCurrent ? <Check className="h-5 w-5" /> : <tab.icon className="h-5 w-5" />}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-purple-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : canAccess ? 'text-gray-600' : 'text-gray-400'
+                        isCurrent ? 'text-purple-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : 'text-gray-600'
                       }`}>
                         {tab.label}
                       </span>
@@ -503,30 +492,10 @@ function EditVideographyServiceContent() {
               )}
 
               {activeTab === 'location' && (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Location Information</h2>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Address *</label>
-                    <Input type="text" value={formData.serviceLocation.address} onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)} placeholder="Street address" required className="text-black" />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">City *</label>
-                      <Input type="text" value={formData.serviceLocation.city} onChange={(e) => handleInputChange('serviceLocation.city', e.target.value)} placeholder="City" required className="text-black" />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">State *</label>
-                      <select value={formData.serviceLocation.state} onChange={(e) => handleInputChange('serviceLocation.state', e.target.value)} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" required>
-                        <option value="">Select state</option>
-                        {states.map(state => <option key={state} value={state}>{state}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode *</label>
-                      <Input type="text" value={formData.serviceLocation.pincode} onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)} placeholder="Pincode" required className="text-black" />
-                    </div>
-                  </div>
-                </div>
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => setFormData(prev => ({ ...prev, serviceLocation: data }))}
+                />
               )}
 
               {activeTab === 'contact' && (

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { AvailabilityCalendar } from '../../../../../components/booking/AvailabilityCalendar';
 import { useAuth } from '../../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../../components/auth/ProtectedRoute';
 import { Button } from '../../../../../components/ui/button';
@@ -448,6 +449,18 @@ function StaffBridalMakeupViewContent() {
 
             {/* Sidebar */}
             <div className="space-y-8">
+              {/* Availability */}
+              {service && (
+                <div className="bg-white rounded-xl shadow-lg p-6">
+                  <h2 className="text-xl font-bold text-gray-900 mb-4">Check Availability</h2>
+                  <AvailabilityCalendar
+                    serviceId={service._id}
+                    serviceType="bridal-makeup"
+                    onDateSelect={() => {}}
+                    selectedDate={''}
+                  />
+                </div>
+              )}
               {/* Provider Info */}
               <div className="bg-white rounded-xl shadow-lg p-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-4">Provider Information</h2>

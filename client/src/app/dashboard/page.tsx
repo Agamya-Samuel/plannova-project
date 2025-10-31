@@ -1,14 +1,32 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
+import apiClient from '@/lib/api';
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const [showMobileAlert, setShowMobileAlert] = useState(false);
+
+  // Check if user needs to provide mobile number
+  useEffect(() => {
+    console.log('Dashboard useEffect triggered', { user });
+    
+    // Only show the alert if user is authenticated and doesn't have a phone number
+    if (user && !user.phone) {
+      console.log('User does not have phone number, showing alert');
+      setShowMobileAlert(true);
+    } else if (user && user.phone) {
+      console.log('User has phone number, hiding alert if it was shown');
+      setShowMobileAlert(false);
+    }
+  }, [user]);
+
 
   const renderDashboardContent = () => {
     switch (user?.role) {
@@ -18,6 +36,8 @@ export default function DashboardPage() {
         return <ProviderDashboard />;
       case 'ADMIN':
         return <AdminDashboard />;
+      case 'STAFF':
+        return <StaffDashboard />;
       default:
         return <div>Invalid user role</div>;
     }
@@ -68,6 +88,12 @@ export default function DashboardPage() {
           
           {renderDashboardContent()}
         </div>
+        
+        <MobileNumberAlertDialog
+          isOpen={showMobileAlert}
+          onClose={() => setShowMobileAlert(false)}
+          userDisplayName={user?.firstName || 'there'}
+        />
       </div>
     </ProtectedRoute>
   );
@@ -76,9 +102,9 @@ export default function DashboardPage() {
 function getRoleMessage(role?: string) {
   switch (role) {
     case 'CUSTOMER':
-      return "Let's find the perfect venue for your dream wedding";
+      return "Let's find the perfect venue for your perfect event";
     case 'PROVIDER':
-      return "Manage your service offerings and connect with couples";
+      return "Manage your service offerings and connect with clients";
     case 'ADMIN':
       return "Oversee the platform and support our community";
     default:
@@ -91,7 +117,7 @@ function CustomerDashboard() {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <DashboardCard
         title="My Bookings"
-        description="View and manage your wedding venue bookings"
+        description="View and manage your event venue bookings"
         icon={<Calendar className="h-8 w-8 text-pink-600" />}
         action="View Bookings"
         href="/bookings"
@@ -100,7 +126,7 @@ function CustomerDashboard() {
       />
       <DashboardCard
         title="Browse Venues"
-        description="Discover beautiful wedding venues for your special day"
+        description="Discover beautiful event venues for your special occasion"
         icon={<MapPin className="h-8 w-8 text-purple-600" />}
         action="Browse Venues"
         href="/venues"
@@ -150,6 +176,47 @@ function CustomerDashboard() {
 function ProviderDashboard() {
   const { user } = useAuth();
   const router = useRouter();
+  const [stats, setStats] = useState<{
+    totalBookings: number;
+    bookingsGrowth: number;
+    revenue: number;
+    revenueGrowth: number;
+    avgRating: number;
+    totalReviews: number;
+    responseTime: string;
+    responseTimeStatus: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch provider statistics from API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/bookings/provider/stats');
+        setStats(res.data);
+      } catch (error) {
+        console.error('Error fetching provider stats:', error);
+        // Set default stats on error
+        setStats({
+          totalBookings: 0,
+          bookingsGrowth: 0,
+          revenue: 0,
+          revenueGrowth: 0,
+          avgRating: 0,
+          totalReviews: 0,
+          responseTime: '—',
+          responseTimeStatus: 'No data'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.role === 'PROVIDER') {
+      fetchStats();
+    }
+  }, [user]);
 
   // Redirect to onboarding if provider hasn't selected service categories yet
   useEffect(() => {
@@ -169,6 +236,15 @@ function ProviderDashboard() {
     return <ServiceSpecificDashboard serviceType={selectedService} />;
   }
 
+  // Format revenue for display (convert to lakhs if needed)
+  const formatRevenue = (amount: number): string => {
+    if (amount >= 100000) {
+      const lakhs = (amount / 100000).toFixed(1);
+      return `₹${lakhs}L`;
+    }
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Stats Overview */}
@@ -177,10 +253,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">24</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.totalBookings ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +12% this month
+                {loading ? '—' : stats && stats.bookingsGrowth > 0 ? `+${stats.bookingsGrowth}%` : stats && stats.bookingsGrowth < 0 ? `${stats.bookingsGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
@@ -193,10 +271,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">₹8.4L</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : formatRevenue(stats?.revenue ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +18% this month
+                {loading ? '—' : stats && stats.revenueGrowth > 0 ? `+${stats.revenueGrowth}%` : stats && stats.revenueGrowth < 0 ? `${stats.revenueGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -209,10 +289,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
-              <p className="text-3xl font-bold text-gray-900">4.8</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.avgRating ?? 0).toFixed(1)}
+              </p>
               <p className="text-sm text-blue-600 flex items-center mt-1">
                 <Star className="h-4 w-4 mr-1" />
-                156 reviews
+                {loading ? '—' : `${stats?.totalReviews ?? 0} reviews`}
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -225,10 +307,12 @@ function ProviderDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Response Time</p>
-              <p className="text-3xl font-bold text-gray-900">2h</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.responseTime ?? '—')}
+              </p>
               <p className="text-sm text-purple-600 flex items-center mt-1">
                 <Clock className="h-4 w-4 mr-1" />
-                Very Good
+                {loading ? '—' : (stats?.responseTimeStatus ?? 'No data')}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -242,7 +326,7 @@ function ProviderDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <DashboardCard
           title="My Venues"
-          description="Manage your wedding venues and listings"
+          description="Manage your event venues and listings"
           icon={<MapPin className="h-8 w-8 text-pink-600" />}
           action="Manage Venues"
           href="/provider/venues"
@@ -300,6 +384,58 @@ function ProviderDashboard() {
 }
 
 function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
+  const [stats, setStats] = useState<{
+    totalBookings: number;
+    bookingsGrowth: number;
+    revenue: number;
+    revenueGrowth: number;
+    avgRating: number;
+    totalReviews: number;
+    responseTime: string;
+    responseTimeStatus: string;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+
+  // Fetch provider statistics from API
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/bookings/provider/stats');
+        setStats(res.data);
+      } catch (error) {
+        console.error('Error fetching provider stats:', error);
+        // Set default stats on error
+        setStats({
+          totalBookings: 0,
+          bookingsGrowth: 0,
+          revenue: 0,
+          revenueGrowth: 0,
+          avgRating: 0,
+          totalReviews: 0,
+          responseTime: '—',
+          responseTimeStatus: 'No data'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.role === 'PROVIDER') {
+      fetchStats();
+    }
+  }, [user]);
+
+  // Format revenue for display (convert to lakhs if needed)
+  const formatRevenue = (amount: number): string => {
+    if (amount >= 100000) {
+      const lakhs = (amount / 100000).toFixed(1);
+      return `₹${lakhs}L`;
+    }
+    return `₹${amount.toLocaleString('en-IN')}`;
+  };
+
   const getServiceDashboard = () => {
     switch (serviceType) {
       case 'venue':
@@ -307,7 +443,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <DashboardCard
               title="My Venues"
-              description="Manage your wedding venues and listings"
+              description="Manage your event venues and listings"
               icon={<MapPin className="h-8 w-8 text-pink-600" />}
               action="Manage Venues"
               href="/provider/venues"
@@ -758,10 +894,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">24</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.totalBookings ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +12% this month
+                {loading ? '—' : stats && stats.bookingsGrowth > 0 ? `+${stats.bookingsGrowth}%` : stats && stats.bookingsGrowth < 0 ? `${stats.bookingsGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
@@ -774,10 +912,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">₹8.4L</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : formatRevenue(stats?.revenue ?? 0)}
+              </p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
-                +18% this month
+                {loading ? '—' : stats && stats.revenueGrowth > 0 ? `+${stats.revenueGrowth}%` : stats && stats.revenueGrowth < 0 ? `${stats.revenueGrowth}%` : '0%'} this month
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -790,10 +930,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
-              <p className="text-3xl font-bold text-gray-900">4.8</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.avgRating ?? 0).toFixed(1)}
+              </p>
               <p className="text-sm text-blue-600 flex items-center mt-1">
                 <Star className="h-4 w-4 mr-1" />
-                156 reviews
+                {loading ? '—' : `${stats?.totalReviews ?? 0} reviews`}
               </p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
@@ -806,10 +948,12 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Response Time</p>
-              <p className="text-3xl font-bold text-gray-900">2h</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {loading ? '—' : (stats?.responseTime ?? '—')}
+              </p>
               <p className="text-sm text-purple-600 flex items-center mt-1">
                 <Clock className="h-4 w-4 mr-1" />
-                Very Good
+                {loading ? '—' : (stats?.responseTimeStatus ?? 'No data')}
               </p>
             </div>
             <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
@@ -826,6 +970,28 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
 }
 
 function AdminDashboard() {
+  const [stats, setStats] = useState<{ users: { total: number }; venues: { approved: number }; bookings: { total: number; successRate: number }; revenue: number } | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+        const res = await apiClient.get('/admin/stats');
+        setStats(res.data);
+        setError('');
+      } catch {
+        setError('Failed to load stats');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+
   return (
     <div className="space-y-6">
       {/* Admin Stats */}
@@ -834,7 +1000,7 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Users</p>
-              <p className="text-3xl font-bold text-gray-900">2,847</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : (stats?.users.total ?? 0).toLocaleString('en-IN')}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +12% this month
@@ -850,7 +1016,7 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Active Venues</p>
-              <p className="text-3xl font-bold text-gray-900">456</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : (stats?.venues.approved ?? 0).toLocaleString('en-IN')}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +8% this month
@@ -866,10 +1032,10 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">1,234</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : (stats?.bookings.total ?? 0).toLocaleString('en-IN')}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <CheckCircle className="h-4 w-4 mr-1" />
-                89% Success Rate
+                {loading ? '—' : `${stats?.bookings.successRate ?? 0}% Success Rate`}
               </p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
@@ -882,7 +1048,7 @@ function AdminDashboard() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 mb-1">Platform Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">₹12.8L</p>
+              <p className="text-3xl font-bold text-gray-900">{loading ? '—' : formatCurrency(stats?.revenue ?? 0)}</p>
               <p className="text-sm text-green-600 flex items-center mt-1">
                 <TrendingUp className="h-4 w-4 mr-1" />
                 +22% this month
@@ -894,6 +1060,9 @@ function AdminDashboard() {
           </div>
         </div>
       </div>
+      {error && (
+        <div className="text-sm text-red-600">{error}</div>
+      )}
       
       {/* Admin Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -903,16 +1072,16 @@ function AdminDashboard() {
           icon={<Users className="h-8 w-8 text-blue-600" />}
           action="Manage Users"
           href="/admin/users"
-          stats="2,847 Users"
+          stats={stats ? `${stats.users.total.toLocaleString('en-IN')} Users` : undefined}
           color="blue"
         />
         <DashboardCard
-          title="Venue Management"
-          description="Review and approve venue listings"
+          title="Services Management"
+          description="Review and manage all provider services"
           icon={<MapPin className="h-8 w-8 text-pink-600" />}
-          action="Manage Venues"
-          href="/admin/venues"
-          stats="12 Pending"
+          action="Manage Services"
+          href="/admin/services"
+          stats={stats ? `${stats.venues.approved.toLocaleString('en-IN')} Approved` : undefined}
           color="pink"
         />
         <DashboardCard
@@ -921,7 +1090,7 @@ function AdminDashboard() {
           icon={<Calendar className="h-8 w-8 text-green-600" />}
           action="View Bookings"
           href="/admin/bookings"
-          stats="1,234 Total"
+          stats={stats ? `${stats.bookings.total.toLocaleString('en-IN')} Total` : undefined}
           color="green"
         />
         <DashboardCard
@@ -952,6 +1121,46 @@ function AdminDashboard() {
           color="gray"
         />
       </div>
+    </div>
+  );
+}
+
+function StaffDashboard() {
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <DashboardCard
+        title="Providers"
+        description="Browse all providers and view their work"
+        icon={<Users className="h-8 w-8 text-blue-600" />}
+        action="Manage Providers"
+        href="/staff/providers"
+        color="blue"
+      />
+      <DashboardCard
+        title="Service Approvals"
+        description="Review and approve provider submissions across services"
+        icon={<CheckCircle className="h-8 w-8 text-green-600" />}
+        action="Manage Approvals"
+        href="/staff/approvals"
+        color="green"
+      />
+      <DashboardCard
+        title="Services Management"
+        description="Review and manage all provider services"
+        icon={<MapPin className="h-8 w-8 text-pink-600" />}
+        action="Manage Services"
+        href="/staff/services"
+        color="pink"
+      />
+      <DashboardCard
+        title="Bookings Overview"
+        description="Monitor bookings across the platform"
+        icon={<Calendar className="h-8 w-8 text-green-600" />}
+        action="View Bookings"
+        href="/admin/bookings"
+        color="green"
+      />
+      {/* Removed Analytics & Reports and Content Management for staff */}
     </div>
   );
 }

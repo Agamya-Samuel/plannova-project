@@ -2,23 +2,211 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import React, { useEffect, useMemo, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
+import apiClient from '@/lib/api';
+import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
+import BlogSection from '@/components/home/BlogSection';
+import { VENUE_TYPES } from '@/constants/venueTypes';
+// Removed unused auth import to satisfy linter
+
+interface VenueImage { url: string; isPrimary?: boolean; }
+interface VenueItem {
+  _id: string;
+  name: string;   
+  type?: string;
+  address?: { city?: string; state?: string };
+  images?: VenueImage[];
+}
 
 export default function Home() {
   const router = useRouter();
+  // Removed unused user from auth context to satisfy linter
+  const [venues, setVenues] = useState<VenueItem[]>([]);
+  const [loadingVenues, setLoadingVenues] = useState(false);
+  // Removed unused category visibility state to satisfy linter
+  // Dynamic homepage settings (admin managed)
+  const [pageTitle, setPageTitle] = useState<string>('');
+  const [bgImages, setBgImages] = useState<string[]>([]);
+  const [pageDescription, setPageDescription] = useState<string>('');
+  const [bgIndex, setBgIndex] = useState<number>(0);
+  const [textFrom, setTextFrom] = useState<string>('');
+  const [textTo, setTextTo] = useState<string>('');
+  
+  // Convert common sharing links to direct image URLs so background works from
+  // services like Google Drive or Dropbox. If parsing fails, we return the
+  // original URL.
+  function normalizeImageUrl(input?: string): string {
+    if (!input) return '';
+    try {
+      // Google Drive share link patterns
+      if (/drive\.google\.com/.test(input)) {
+        // e.g., https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+        const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/);
+        if (match?.[1]) {
+          return `https://drive.google.com/uc?id=${match[1]}`;
+        }
+        // e.g., https://drive.google.com/open?id=FILE_ID or uc?id=FILE_ID
+        const idParam = new URL(input).searchParams.get('id');
+        if (idParam) {
+          return `https://drive.google.com/uc?id=${idParam}`;
+        }
+      }
+      // Dropbox shared links
+      if (/dropbox\.com/.test(input)) {
+        // Force direct download/raw host
+        const url = new URL(input);
+        url.hostname = 'dl.dropboxusercontent.com';
+        url.searchParams.set('raw', '1');
+        url.searchParams.delete('dl');
+        return url.toString();
+      }
+    } catch {
+      // Fall through and return original
+    }
+    return input;
+  }
+  // Typing effect state for the homepage title. We keep this local so
+  // admins can still change the title dynamically via page settings.
+  const [typedTitle, setTypedTitle] = useState<string>('');
+  const [typeIndex, setTypeIndex] = useState<number>(0);
+  const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
+
+  useEffect(() => {
+    // Prevent duplicate requests and handle rate limiting
+    let cancelled = false;
+    
+    const fetchVenues = async () => {
+      try {
+        setLoadingVenues(true);
+        const res = await apiClient.get('/venues');
+        if (!cancelled) {
+          const list: VenueItem[] = res?.data?.venues || res?.data?.data || res?.data || [];
+          setVenues(Array.isArray(list) ? list : []);
+        }
+      } catch (e: unknown) {
+        // Handle rate limiting (429) gracefully
+        // Check if error has response property (Axios error)
+        if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response && e.response.status === 429) {
+          console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+          // Silently fail - UI will show placeholders
+        } else {
+          console.error('Failed to fetch venues for homepage categories', e);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingVenues(false);
+        }
+      }
+    };
+    
+    // Fetch dynamic homepage settings (title + background)
+    const fetchPageSettings = async () => {
+      try {
+        const res = await apiClient.get('/page-settings/home');
+        if (!cancelled) {
+          const data = res?.data || {};
+          setPageTitle(typeof data.title === 'string' ? data.title : '');
+          const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
+          setBgImages(imgs);
+          if (imgs.length > 0) {
+            setBgIndex(Math.floor(Math.random() * imgs.length));
+          }
+          setPageDescription(typeof data.description === 'string' ? data.description : '');
+          setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
+          setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
+        }
+      } catch {
+        // If not configured yet, keep defaults (no title rendered)
+        if (process.env.NODE_ENV === 'development' && !cancelled) {
+          console.log('Homepage page-settings not found yet');
+        }
+      }
+    };
+    
+    fetchVenues();
+    fetchPageSettings();
+    
+    // Cleanup function to cancel request if component unmounts
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Reset typing state when title changes
+  useEffect(() => {
+    setTypedTitle('');
+    setTypeIndex(0);
+    setTypingDirection('forward');
+  }, [pageTitle]);
+
+  // Infinite typing loop: type forward, pause, delete backward, pause, repeat
+  useEffect(() => {
+    if (!pageTitle) return;
+    const atStart = typeIndex === 0 && typingDirection === 'backward';
+    const atEnd = typeIndex === pageTitle.length && typingDirection === 'forward';
+    const edgePauseMs = 1200;
+    const stepMs = 60;
+    const delay = atStart || atEnd ? edgePauseMs : stepMs;
+
+    const timeout = setTimeout(() => {
+      if (typingDirection === 'forward') {
+        if (typeIndex < pageTitle.length) {
+          const next = typeIndex + 1;
+          setTypeIndex(next);
+          setTypedTitle(pageTitle.slice(0, next));
+        } else {
+          setTypingDirection('backward');
+        }
+      } else {
+        if (typeIndex > 0) {
+          const next = typeIndex - 1;
+          setTypeIndex(next);
+          setTypedTitle(pageTitle.slice(0, next));
+        } else {
+          setTypingDirection('forward');
+        }
+      }
+    }, delay);
+
+    return () => clearTimeout(timeout);
+  }, [pageTitle, typeIndex, typingDirection]);
+
+  // Rotate background images randomly every 10 seconds if multiple provided
+  useEffect(() => {
+    if (bgImages.length <= 1) return;
+    const interval = setInterval(() => {
+      setBgIndex((current) => {
+        if (bgImages.length <= 1) return 0;
+        let next = Math.floor(Math.random() * bgImages.length);
+        if (next === current) {
+          next = (current + 1) % bgImages.length; // ensure change
+        }
+        return next;
+      });
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [bgImages]);
 
   const handleCategoryClick = (categoryTitle: string) => {
     // Map category titles to venue types for filtering
+    // Only map to categories that exist in the venue creation form
     const venueTypeMap: { [key: string]: string } = {
       'Luxury Hotels': 'Hotel',
       'Banquet Halls': 'Banquet Hall',
-      'Garden Venues': 'Resort'
+      'Outdoor Venues': 'Outdoor',
+      'Garden Venues': 'Outdoor',
+      'Resorts': 'Resort',
+      'Farmhouses': 'Farmhouse',
+      'Palaces': 'Palace',
+      'Heritage Venues': 'Palace'
     };
     
     const venueType = venueTypeMap[categoryTitle];
-    if (venueType) {
+    // Check if the venue type exists in our standard venue types list
+    if (venueType && (VENUE_TYPES as readonly string[]).includes(venueType)) {
       // Navigate to venues page with filter parameter
       router.push(`/venues?type=${encodeURIComponent(venueType)}`);
     } else {
@@ -27,30 +215,90 @@ export default function Home() {
     }
   };
 
+  // Only show categories that match the venue types available in the creation form
+  // Available types: Banquet Hall, Hotel, Resort, Outdoor, Palace, Farmhouse
+  const categoryDefs = useMemo(() => ([
+    {
+      title: 'Luxury Hotels',
+      cities: 'Mumbai | Bangalore | Delhi',
+      match: (v: VenueItem) => v.type === 'Hotel' || /hotel/i.test(v.type || ''),
+    },
+    {
+      title: 'Banquet Halls',
+      cities: 'Mumbai | Bangalore | Pune',
+      match: (v: VenueItem) => v.type === 'Banquet Hall' || /banquet/i.test(v.type || ''),
+    },
+    {
+      title: 'Resorts',
+      cities: 'Lonavala | Coorg | Ooty',
+      match: (v: VenueItem) => v.type === 'Resort' || /resort/i.test(v.type || ''),
+    },
+    {
+      title: 'Outdoor Venues',
+      cities: 'Mumbai | Chennai | Delhi',
+      match: (v: VenueItem) => v.type === 'Outdoor' || /outdoor/i.test(v.type || ''),
+    },
+    {
+      title: 'Palaces',
+      cities: 'Jaipur | Jodhpur | Udaipur',
+      match: (v: VenueItem) => v.type === 'Palace' || /palace/i.test(v.type || ''),
+    },
+    {
+      title: 'Farmhouses',
+      cities: 'Delhi | Gurgaon | Pune',
+      match: (v: VenueItem) => v.type === 'Farmhouse' || /farmhouse|farm/i.test(v.type || ''),
+    }
+  ]), []);
+
+  const categoryCards = useMemo(() => {
+    return categoryDefs.map(def => {
+      const items = venues.filter(def.match);
+      const count = items.length;
+      const cover = items.find(v => (v.images?.length || 0) > 0);
+      const image = cover?.images?.find(i => i.isPrimary)?.url || cover?.images?.[0]?.url || '';
+      return {
+        title: def.title,
+        image,
+        venuesText: image ? `${count} Venues` : 'Unavailable',
+        location: def.cities,
+        hasImage: Boolean(image),
+      } as { title: string; image?: string; venuesText: string; location: string; hasImage: boolean };
+    });
+  }, [venues, categoryDefs]);
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Background Image */}
       <div className="relative min-h-[80vh] bg-gradient-to-r from-pink-600 to-purple-600 overflow-hidden">
         {/* Background Image Overlay */}
         <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100"
-          style={{
-            backgroundImage: "url('https://images.unsplash.com/photo-1519741497674-611481863552?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80')"
-          }}
+          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-md transform-gpu scale-110"
+          style={bgImages.length > 0 ? { backgroundImage: `url(${normalizeImageUrl(bgImages[bgIndex])})` } : undefined}
         />
         
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0" />
+        {/* Gradient/Darken Overlay to improve text readability */}
+        <div className="absolute inset-0 bg-black/30" />
         
         {/* Hero Content */}
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
           <div className="text-center text-white max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Your Wedding, <span className="text-pink-200">Your Way</span>
-            </h1>
-            <p className="text-xl md:text-2xl mb-8 text-pink-100 max-w-2xl mx-auto">
-              Find the best wedding venues with thousands of trusted reviews
-            </p>
+            {pageTitle ? (
+              <h1
+                className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
+                style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+              >
+                {typedTitle || pageTitle}
+                <span className="ml-1 animate-pulse">|</span>
+              </h1>
+            ) : null}
+            {pageDescription ? (
+              <p
+                className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto ${textFrom && textTo ? 'bg-clip-text text-transparent' : 'text-pink-100'}`}
+                style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+              >
+                {pageDescription}
+              </p>
+            ) : null}
             
             {/* Search Bar */}
             <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8">
@@ -71,11 +319,10 @@ export default function Home() {
                   <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                   <select className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-700">
                     <option>Select venue type</option>
-                    <option>Banquet Halls</option>
-                    <option>Hotels</option>
-                    <option>Resorts</option>
-                    <option>Outdoor Venues</option>
-                    <option>Destination Wedding</option>
+                    {/* Only show venue types available in the creation form */}
+                    {VENUE_TYPES.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
                   </select>
                 </div>
                 
@@ -89,26 +336,7 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Popular Searches */}
-            <div className="text-left max-w-4xl mx-auto">
-              <p className="text-pink-100 mb-3 font-medium">Popular Searches:</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "Wedding Venues in Mumbai",
-                  "Banquet Halls in Delhi",
-                  "Destination Weddings",
-                  "Beach Resorts",
-                  "Palace Weddings"
-                ].map((search, index) => (
-                  <span 
-                    key={index}
-                    className="bg-white/20 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm hover:bg-white/30 cursor-pointer transition-all duration-300"
-                  >
-                    {search}
-                  </span>
-                ))}
-              </div>
-            </div>
+            {/* Popular Searches removed by request */}
           </div>
         </div>
       </div>
@@ -121,57 +349,58 @@ export default function Home() {
               Popular Venue Categories
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Discover the perfect venue for your special day
+              Discover the perfect venue for your special event
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                title: "Luxury Hotels",
-                image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                venues: "250+ Venues",
-                location: "Mumbai | Bangalore | Delhi"
-              },
-              {
-                title: "Banquet Halls",
-                image: "https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-                venues: "180+ Venues",
-                location: "Mumbai | Bangalore | Pune"
-              },
-              {
-                title: "Garden Venues",
-                image: "https://images.unsplash.com/photo-1469371670807-013ccf25f16a?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-                venues: "120+ Venues",
-                location: "Mumbai | Chennai | Delhi"
-              }
-            ].map((category, index) => (
+            {categoryCards.slice(0, 6).map((category, index) => (
               <div 
                 key={index} 
                 className="group cursor-pointer"
                 onClick={() => handleCategoryClick(category.title)}
               >
                 <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                  <Image 
-                    src={category.image} 
-                    alt={category.title}
-                    width={800}
-                    height={256}
-                    className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
-                    priority={index === 0}
-                  />
+                  {category.hasImage ? (
+                    <Image 
+                      src={category.image as string} 
+                      alt={category.title}
+                      width={800}
+                      height={256}
+                      className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
+                      priority={index === 0}
+                    />
+                  ) : (
+                    <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-600 font-semibold">No image available</span>
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
                   <div className="absolute bottom-6 left-6 text-white">
                     <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
-                    <p className="text-pink-200 font-medium">{category.venues}</p>
+                    <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
                     <p className="text-sm text-gray-300">{category.location}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+          {/* Browse more venues button - navigates to full venues page */}
+          <div className="mt-10 flex justify-center">
+            <Link href="/venues">
+              <Button className="px-6">Browse more venues</Button>
+            </Link>
+          </div>
         </div>
       </div>
+
+      {/* Popular Service Categories - looks like venue cards */}
+      <VendorCategoriesGrid />
+
+      {/* Create Blog CTA now lives inside BlogSection header for consistent background */}
+
+      {/* Blog Section - shows latest admin blogs */}
+      <BlogSection />
 
       {/* Why Choose Plannova */}
       <div className="py-16 bg-white">
@@ -181,7 +410,7 @@ export default function Home() {
               Why Choose Plannova?
             </h2>
             <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              We make your wedding planning journey seamless and memorable
+              We make your event planning journey seamless and memorable
             </p>
           </div>
 
@@ -190,12 +419,12 @@ export default function Home() {
               {
                 icon: <Star className="h-12 w-12 text-pink-600" />,
                 title: "Verified Reviews",
-                description: "Read authentic reviews from real couples"
+                description: "Read authentic reviews from real clients"
               },
               {
                 icon: <Heart className="h-12 w-12 text-pink-600" />,
                 title: "Curated Selection",
-                description: "Hand-picked venues for your perfect day"
+                description: "Hand-picked venues for your perfect event"
               },
               {
                 icon: <Calendar className="h-12 w-12 text-pink-600" />,
@@ -205,7 +434,7 @@ export default function Home() {
               {
                 icon: <Users className="h-12 w-12 text-pink-600" />,
                 title: "Expert Support",
-                description: "Dedicated support throughout your journey"
+                description: "Dedicated support throughout your planning"
               }
             ].map((feature, index) => (
               <div key={index} className="text-center p-6 rounded-xl hover:shadow-lg transition-shadow duration-300">
@@ -224,19 +453,19 @@ export default function Home() {
       <div className="bg-gradient-to-r from-pink-600 to-purple-600 py-16">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">
-            Ready to Plan Your Dream Wedding?
+            Ready to Plan Your Perfect Event?
           </h2>
           <p className="text-xl text-pink-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of couples who found their perfect wedding venue through Plannova
+            Join thousands of people who found their perfect venue through Plannova
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link href="/auth/register">
-              <Button size="lg" className="bg-white text-pink-600 hover:bg-gray-100 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
+              <Button size="lg" className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
                 Sign Up Today
               </Button>
             </Link>
             <Link href="/venues">
-              <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white hover:text-pink-600 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300">
+              <Button size="lg" variant="outline" className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-pink-600 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300">
                 Browse Venues
               </Button>
             </Link>

@@ -221,8 +221,8 @@ export default function VideographyPage() {
               >
                 <option value="">All Types</option>
                 <option value="wedding">Wedding</option>
-                <option value="pre-wedding">Pre-wedding</option>
-                <option value="post-wedding">Post-wedding</option>
+                <option value="pre-event">Pre-event</option>
+                <option value="post-event">Post-event</option>
                 <option value="corporate">Corporate</option>
                 <option value="event">Event</option>
                 <option value="documentary">Documentary</option>

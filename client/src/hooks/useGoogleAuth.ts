@@ -1,5 +1,4 @@
 'use client';
-'use client';
 
 import { useState, useEffect } from 'react';
 import { User } from 'firebase/auth';
@@ -53,10 +52,14 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       }
 
       const data = await response.json();
-      console.log('Google sign-in successful:', data);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Google sign-in successful:', data);
+      }
       
     } catch (err) {
-      console.error('Google sign-in error:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Google sign-in error:', err);
+      }
       setError(err instanceof Error ? err.message : 'Google sign-in failed');
     } finally {
       setLoading(false);
@@ -69,7 +72,9 @@ export const useGoogleAuth = (): UseGoogleAuthReturn => {
       await logout();
       setUser(null);
     } catch (err) {
-      console.error('Sign out error:', err);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Sign out error:', err);
+      }
       setError(err instanceof Error ? err.message : 'Sign out failed');
     } finally {
       setLoading(false);

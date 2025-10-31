@@ -62,7 +62,7 @@ interface AdminStats {
 }
 
 export default function AdminReportsPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isLoading } = useAuth();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -183,8 +183,8 @@ export default function AdminReportsPage() {
     // In a real implementation, this would trigger a report generation and download
   };
 
-  if (currentUser?.role !== 'ADMIN') {
-    return <div>Access denied. Admin access required.</div>;
+  if (!isLoading && currentUser?.role !== 'ADMIN') {
+    return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (

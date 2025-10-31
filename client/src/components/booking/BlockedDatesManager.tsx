@@ -20,7 +20,7 @@ interface BlockedDate {
 
 interface BlockedDatesManagerProps {
   serviceId: string; // Changed from venueId to serviceId for generic support
-  serviceType?: 'venue' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration'; // Service type
+  serviceType?: 'venue' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration' | 'entertainment'; // Service type
   onUpdate?: () => void;
 }
 
@@ -57,6 +57,8 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
         return `/bridal-makeup/${serviceId}/blocked-dates`;
       case 'decoration':
         return `/decoration/${serviceId}/blocked-dates`;
+      case 'entertainment':
+        return `/entertainment/${serviceId}/blocked-dates`;
       default:
         return `/venues/${serviceId}/blocked-dates`;
     }
@@ -225,14 +227,14 @@ export function BlockedDatesManager({ serviceId, serviceType = 'venue', onUpdate
     return { daysInMonth, startingDayOfWeek };
   };
 
-  const isDateBlocked = (date: Date): boolean => {
-    const dateStr = formatDateToString(date);
-    return blockedDates.some(bd => {
-      const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
-      const blockedDateObj = parseLocalDate(formatDateToString(bdDate));
-      return formatDateToString(blockedDateObj) === dateStr;
-    });
-  };
+  // const isDateBlocked = (date: Date): boolean => {
+  //   const dateStr = formatDateToString(date);
+  //   return blockedDates.some(bd => {
+  //     const bdDate = bd.date instanceof Date ? bd.date : new Date(bd.date);
+  //     const blockedDateObj = parseLocalDate(formatDateToString(bdDate));
+  //     return formatDateToString(blockedDateObj) === dateStr;
+  //   });
+  // };
 
   const isDatePast = (date: Date): boolean => {
     const today = new Date();

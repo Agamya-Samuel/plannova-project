@@ -3,9 +3,12 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   // Explicitly set the root directory for Turbopack to avoid conflicts with multiple lockfiles
-  turbopack: {
-    root: path.resolve('.')
-  },
+  // Only set turbopack.root when not in Vercel environment
+  ...(process.env.VERCEL ? {} : {
+    turbopack: {
+      root: path.resolve('.')
+    }
+  }),
   eslint: {
     // Allow production builds to complete even with ESLint errors
     ignoreDuringBuilds: true,
@@ -16,6 +19,19 @@ const nextConfig: NextConfig = {
   },
   images: {
     remotePatterns: [
+      // Allow images from anywhere (Pinterest, Drive proxies, Cloudinary, etc.)
+      {
+        protocol: 'https',
+        hostname: '**',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: '**',
+        port: '',
+        pathname: '/**',
+      },
       {
         protocol: 'https',
         hostname: 'cdn-prod.plannova.in',

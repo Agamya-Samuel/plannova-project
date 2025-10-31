@@ -105,7 +105,7 @@ interface Venue {
 export default function VenueDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [venue, setVenue] = useState<Venue | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -114,6 +114,14 @@ export default function VenueDetailsPage() {
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
 
+  // Redirect to login if not authenticated (prevents direct URL access)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
+
+  // Fetch venue data - must be called before any early returns to satisfy React hooks rules
   useEffect(() => {
     const fetchVenue = async () => {
       try {
@@ -154,11 +162,30 @@ export default function VenueDetailsPage() {
       }
     };
 
-    if (params.id) {
+    // Only fetch if authenticated and params.id exists
+    if (params.id && isAuthenticated && !authLoading) {
       fetchVenue();
       checkIfFavorited();
     }
-  }, [params.id, user?.role, user]);
+  }, [params.id, user?.role, user, isAuthenticated, authLoading]);
+
+  // Don't render content if not authenticated (while redirecting)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Will redirect via useEffect, but show loading while redirecting
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
 
   const toggleFavorite = async () => {
     // Check if user is authenticated
@@ -208,9 +235,9 @@ export default function VenueDetailsPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Venue Not Found</h1>
           <p className="text-gray-600 mb-6">{error || 'The venue you are looking for does not exist.'}</p>
-          <Button onClick={() => router.push('/venues')} className="bg-pink-600 hover:bg-pink-700">
+          <Button onClick={() => { if (typeof window !== 'undefined' && window.history.length > 1) { router.back(); } else { router.push('/venues'); } }} className="bg-pink-600 hover:bg-pink-700">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Venues
+            Back
           </Button>
         </div>
       </div>
@@ -225,11 +252,11 @@ export default function VenueDetailsPage() {
           <div className="flex items-center justify-between">
             <Button 
               variant="outline" 
-              onClick={() => router.push('/venues')}
+              onClick={() => { if (typeof window !== 'undefined' && window.history.length > 1) { router.back(); } else { router.push('/venues'); } }}
               className="flex items-center space-x-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to Venues</span>
+              <span>Back</span>
             </Button>
             
             <div className="flex items-center space-x-4">

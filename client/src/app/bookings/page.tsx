@@ -165,7 +165,7 @@ export default function BookingsPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900 mb-2">My Bookings</h1>
                   <p className="text-gray-600">
-                    View and manage your wedding service bookings
+                    View and manage your event service bookings
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0">
@@ -293,7 +293,7 @@ export default function BookingsPage() {
                       
                       {/* Action Buttons */}
                       <div className="mt-6 flex flex-wrap gap-3">
-                        {(booking.status === 'pending' || booking.status === 'confirmed') && (
+                        {booking.status === 'pending' && (
                           <button 
                             onClick={() => handleCancelBooking(booking.id)}
                             className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"

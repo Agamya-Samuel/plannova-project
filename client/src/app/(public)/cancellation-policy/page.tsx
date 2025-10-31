@@ -31,7 +31,7 @@ export default function CancellationPolicy() {
               <section>
                 <h2 className="text-xl font-semibold text-gray-900 mb-3">Cancellation Policy</h2>
                 <p className="text-gray-700">
-                  Unless explicitly specified otherwise, all purchases done on Plannova are non-refundable. This includes purchases by end-customers of products like &apos;E-invites, Makeup services etc&apos; as well as purchases by wedding businesses, and vendors.
+                  Unless explicitly specified otherwise, all purchases done on Plannova are non-refundable. This includes purchases by end-customers of products like &apos;E-invites, Makeup services etc&apos; as well as purchases by event businesses, and vendors.
                 </p>
                 <p className="text-gray-700 mt-3">
                   However, when a vendor is booked by a user, after discovering them on Plannova, the vendor&apos;s &apos;Refund &amp; cancellation&apos; policy will be applicable on those bookings. In case the same isn&apos;t explicitly shared, we recommend for the same to be checked before booking.
@@ -81,7 +81,7 @@ export default function CancellationPolicy() {
                   <strong>Phone:</strong> +1 (555) 123-4567
                 </p>
                 <p className="text-gray-700 mt-1">
-                  <strong>Address:</strong> Plannova Inc., 123 Wedding Plaza, San Francisco, CA 94102
+                  <strong>Address:</strong> Plannova Inc., 123 Event Plaza, San Francisco, CA 94102
                 </p>
               </section>
             </div>

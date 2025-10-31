@@ -29,7 +29,8 @@ export default function StaffApprovalsPage() {
     photography: { pending: 0, approved: 0, rejected: 0 },
     videography: { pending: 0, approved: 0, rejected: 0 },
     bridalMakeup: { pending: 0, approved: 0, rejected: 0 },
-    decoration: { pending: 0, approved: 0, rejected: 0 }
+    decoration: { pending: 0, approved: 0, rejected: 0 },
+    entertainment: { pending: 0, approved: 0, rejected: 0 }
   });
 
   useEffect(() => {
@@ -47,6 +48,8 @@ export default function StaffApprovalsPage() {
         const bridalMakeupResponse = await apiClient.get('/bridal-makeup/staff/stats');
         // Fetch decoration stats
         const decorationResponse = await apiClient.get('/decoration/staff/stats');
+        // Fetch entertainment stats
+        const entertainmentResponse = await apiClient.get('/entertainment/staff/stats');
         
         setStats({
           venues: venueResponse.data.data,
@@ -54,7 +57,8 @@ export default function StaffApprovalsPage() {
           photography: photographyResponse.data.data,
           videography: videographyResponse.data.data,
           bridalMakeup: bridalMakeupResponse.data.data,
-          decoration: decorationResponse.data.data
+          decoration: decorationResponse.data.data,
+          entertainment: entertainmentResponse.data.data
         });
       } catch (error) {
         console.error('Error fetching stats:', error);
@@ -68,7 +72,7 @@ export default function StaffApprovalsPage() {
     }
   }, [user]);
 
-  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography' | 'videography' | 'bridalMakeup' | 'decoration') => {
+  const getServiceStats = (serviceType: 'venues' | 'catering' | 'photography' | 'videography' | 'bridalMakeup' | 'decoration' | 'entertainment') => {
     const serviceStats = stats[serviceType];
     return (
       <div className="grid grid-cols-3 gap-2 text-center">
@@ -88,9 +92,7 @@ export default function StaffApprovalsPage() {
     );
   };
 
-  if (user?.role !== 'STAFF' && user?.role !== 'ADMIN') {
-    return <div>Access denied. Staff access required.</div>;
-  }
+  // Access control is handled by ProtectedRoute to avoid flicker during auth load
 
   return (
     <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
@@ -279,25 +281,33 @@ export default function StaffApprovalsPage() {
                 </Button>
               </div>
             </div>
-          </div>
 
-          {/* Additional Service Types (Coming Soon) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { name: 'Entertainment', icon: Music, color: 'bg-yellow-100', iconColor: 'text-yellow-600' }
-            ].map((service, index) => (
-              <div key={index} className="bg-white rounded-xl shadow-lg p-6 opacity-60">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className={`p-3 ${service.color} rounded-lg`}>
-                    <service.icon className={`h-6 w-6 ${service.iconColor}`} />
+            {/* Entertainment Services */}
+            <div className={`bg-white rounded-xl shadow-lg p-6 border-2 ${pathname.includes('entertainment') ? 'border-yellow-500' : 'border-transparent'} hover:shadow-xl transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="p-3 bg-yellow-100 rounded-lg">
+                    <Music className="h-6 w-6 text-yellow-600" />
                   </div>
-                  <h2 className="text-xl font-bold text-gray-900">{service.name}</h2>
+                  <h2 className="text-xl font-bold text-gray-900">Entertainment Services</h2>
                 </div>
-                <div className="text-center py-4">
-                  <p className="text-gray-500 text-sm">Coming Soon</p>
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium text-yellow-700">{stats.entertainment.pending} pending</span>
                 </div>
               </div>
-            ))}
+              
+              {getServiceStats('entertainment')}
+              
+              <div className="mt-6">
+                <Button 
+                  onClick={() => router.push('/staff/approvals/entertainment')}
+                  className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white"
+                >
+                  Manage Entertainment Approvals
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>

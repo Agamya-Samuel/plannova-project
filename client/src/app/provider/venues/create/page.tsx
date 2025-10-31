@@ -25,6 +25,7 @@ import { ImageUpload } from '@/components/upload';
 import VenueContactInput from '@/components/ui/VenueContactInput';
 import VenuePolicyInput from '@/components/ui/VenuePolicyInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import { VENUE_TYPES } from '@/constants/venueTypes';
 
 interface VenueFormData {
   name: string;
@@ -60,14 +61,8 @@ interface VenueFormData {
   addonServices: Array<{ name: string; description: string; price: number; category: string; includes: string[]; duration: string }>;
 }
 
-const venueTypes = [
-  'Banquet Hall',
-  'Hotel',
-  'Resort',
-  'Outdoor',
-  'Palace',
-  'Farmhouse'
-];
+// Use shared venue types constant to ensure consistency across the application
+const venueTypes = VENUE_TYPES;
 
 const states = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
@@ -490,7 +485,7 @@ export default function CreateVenuePage() {
                 </Button>
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900">Create New Venue</h1>
-                  <p className="text-gray-600 text-lg">Add your wedding venue to our platform</p>
+                  <p className="text-gray-600 text-lg">Add your event venue to our platform</p>
                 </div>
               </div>
             </div>
