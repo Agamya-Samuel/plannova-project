@@ -7,6 +7,7 @@ import type {
   UploadComponentProps,
   UploadResult,
   UploadStatus,
+  UploadType,
   FileValidationResult
 } from '@/types/upload';
 import { Button } from '@/components/ui/button';
