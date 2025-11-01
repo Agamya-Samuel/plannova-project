@@ -10,7 +10,7 @@ export interface Booking {
   venueImage: string;
   date: string;
   time: string;
-  status: 'confirmed' | 'pending' | 'cancelled' | 'rejected';
+  status: 'confirmed' | 'pending' | 'cancelled' | 'rejected' | 'completed';
   totalPrice: number;
   guestCount: number;
   contactPerson: string;
