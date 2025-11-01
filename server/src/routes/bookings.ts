@@ -707,6 +707,47 @@ router.put('/:id/reject', authenticateToken, requireProvider, async (req: AuthRe
   }
 });
 
+// PUT /api/bookings/:id/complete - Mark a booking as completed (Provider only)
+router.put('/:id/complete', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
+  try {
+    const booking = await Booking.findOne({
+      _id: req.params.id,
+      providerId: req.user!.id
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found or unauthorized' });
+    }
+
+    if (booking.status !== BookingStatus.CONFIRMED) {
+      return res.status(400).json({ error: 'Only confirmed bookings can be marked as completed' });
+    }
+
+    // Verify the event date has passed
+    const eventDate = new Date(booking.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (eventDate > today) {
+      return res.status(400).json({ error: 'Cannot mark future bookings as completed. The event must have occurred.' });
+    }
+
+    booking.status = BookingStatus.COMPLETED;
+    await booking.save();
+
+    res.json({
+      message: 'Booking marked as completed successfully',
+      booking: {
+        id: (booking._id as Types.ObjectId).toString(),
+        status: booking.status
+      }
+    });
+  } catch (error) {
+    console.error('Error completing booking:', error);
+    res.status(500).json({ error: 'Failed to mark booking as completed' });
+  }
+});
+
 // POST /api/bookings - Create a new booking
 router.post('/', authenticateToken, createBookingValidation, async (req: AuthRequest, res: Response) => {
   try {

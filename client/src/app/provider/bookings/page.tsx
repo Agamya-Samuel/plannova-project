@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X } from 'lucide-react';
+import { Calendar, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X, Check } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { Booking } from '@/types/booking';
@@ -15,7 +15,7 @@ export default function ProviderBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'completed'>('all');
   const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
 
   const [showContactModal, setShowContactModal] = useState(false);
@@ -102,6 +102,35 @@ export default function ProviderBookingsPage() {
     }
   };
 
+  const handleCompleteBooking = async (bookingId: string) => {
+    if (processingBookingId) return; // Prevent concurrent requests
+    
+    // Confirm the action
+    if (!confirm('Are you sure you want to mark this booking as completed? This confirms that the event was successfully held.')) {
+      return;
+    }
+    
+    try {
+      setProcessingBookingId(bookingId);
+      setError(null);
+      console.log('🔄 Attempting to complete booking:', bookingId);
+      const response = await apiClient.put(`/bookings/${bookingId}/complete`);
+      console.log('✅ Booking completed successfully:', response.data);
+      // Refresh bookings
+      const bookingsResponse = await apiClient.get<Booking[]>('/bookings/provider/incoming');
+      setBookings(bookingsResponse.data);
+    } catch (err: unknown) {
+      console.error('❌ Error completing booking:', err);
+      const apiError = err as { response?: { data?: { error?: string; status?: number } } };
+      console.error('❌ Error response:', apiError.response?.data);
+      console.error('❌ Error status:', apiError.response?.data?.status);
+      const errorMessage = apiError.response?.data?.error || 'Failed to mark booking as completed. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
   const handleViewDetails = (booking: Booking) => {
     // Navigate to the service details page based on service type
     if (booking.serviceId && booking.serviceType) {
@@ -136,6 +165,8 @@ export default function ProviderBookingsPage() {
     switch (status) {
       case 'confirmed':
         return <CheckCircle className="h-5 w-5 text-white" />;
+      case 'completed':
+        return <Check className="h-5 w-5 text-white" />;
       case 'pending':
         return <AlertCircle className="h-5 w-5 text-white" />;
       case 'cancelled':
@@ -150,6 +181,8 @@ export default function ProviderBookingsPage() {
     switch (status) {
       case 'confirmed':
         return 'Confirmed';
+      case 'completed':
+        return 'Completed';
       case 'pending':
         return 'Pending';
       case 'cancelled':
@@ -165,6 +198,8 @@ export default function ProviderBookingsPage() {
     switch (status) {
       case 'confirmed':
         return 'bg-green-600 text-white';
+      case 'completed':
+        return 'bg-blue-600 text-white';
       case 'pending':
         return 'bg-yellow-600 text-white';
       case 'cancelled':
@@ -202,6 +237,7 @@ export default function ProviderBookingsPage() {
     total: bookings.length,
     pending: bookings.filter(b => b.status === 'pending').length,
     confirmed: bookings.filter(b => b.status === 'confirmed').length,
+    completed: bookings.filter(b => b.status === 'completed').length,
     rejected: bookings.filter(b => b.status === 'rejected' || b.status === 'cancelled').length,
   };
 
@@ -268,7 +304,7 @@ export default function ProviderBookingsPage() {
               </div>
 
               {/* Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-6">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
                   <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
                   <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
@@ -280,6 +316,10 @@ export default function ProviderBookingsPage() {
                 <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
                   <p className="text-sm text-gray-600 mb-1">Confirmed</p>
                   <p className="text-2xl font-bold text-green-900">{stats.confirmed}</p>
+                </div>
+                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4">
+                  <p className="text-sm text-gray-600 mb-1">Completed</p>
+                  <p className="text-2xl font-bold text-indigo-900">{stats.completed}</p>
                 </div>
                 <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4">
                   <p className="text-sm text-gray-600 mb-1">Rejected</p>
@@ -318,6 +358,16 @@ export default function ProviderBookingsPage() {
                   }`}
                 >
                   Confirmed ({stats.confirmed})
+                </button>
+                <button
+                  onClick={() => setFilter('completed')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    filter === 'completed'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  Completed ({stats.completed})
                 </button>
                 <button
                   onClick={() => setFilter('rejected')}
@@ -479,6 +529,46 @@ export default function ProviderBookingsPage() {
 
                       {booking.status === 'confirmed' && (
                         <div className="mt-6 flex flex-wrap gap-3">
+                          <button 
+                            onClick={() => handleCompleteBooking(booking.id)}
+                            disabled={processingBookingId !== null}
+                            className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          >
+                            {processingBookingId === booking.id ? (
+                              <>
+                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                Processing...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-4 w-4" />
+                                Mark as Completed
+                              </>
+                            )}
+                          </button>
+                          <button 
+                            onClick={() => handleContactCustomer(booking)}
+                            className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                            Contact Customer
+                          </button>
+                          <button 
+                            onClick={() => handleViewDetails(booking)}
+                            className="px-6 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
+                          >
+                            <Eye className="h-4 w-4" />
+                            View Details
+                          </button>
+                        </div>
+                      )}
+
+                      {booking.status === 'completed' && (
+                        <div className="mt-6 flex flex-wrap gap-3">
+                          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg">
+                            <CheckCircle className="h-5 w-5" />
+                            <span className="font-medium">Event Successfully Completed</span>
+                          </div>
                           <button 
                             onClick={() => handleContactCustomer(booking)}
                             className="px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
