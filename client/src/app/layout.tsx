@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Navbar from "@/components/layout/Navbar";
+import FloatingNavDock from "@/components/layout/FloatingNavDock";
 import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
 import { UMAMI_WEBSITE_ID, UMAMI_SCRIPT_URL } from "@/constants/umami";
@@ -45,6 +46,7 @@ export default function RootLayout({
         <AuthProvider>
           <Navbar />
           <main className="bg-white min-h-screen" style={{ backgroundColor: '#ffffff' }}>{children}</main>
+          <FloatingNavDock />
           <Toaster />
         </AuthProvider>
       </body>
