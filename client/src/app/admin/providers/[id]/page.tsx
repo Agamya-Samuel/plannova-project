@@ -29,7 +29,7 @@ interface ProviderDetailResponse {
   };
 }
 
-export default function StaffProviderDetailPage() {
+export default function AdminProviderDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [data, setData] = useState<ProviderDetailResponse | null>(null);
@@ -71,17 +71,17 @@ export default function StaffProviderDetailPage() {
       case 'venues':
         return `/venues/${item._id}`;
       case 'catering':
-        return `/staff/approvals/catering?search=${encodeURIComponent(item.name)}`;
+        return `/admin/services?type=catering&search=${encodeURIComponent(item.name)}`;
       case 'photography':
-        return `/staff/approvals/photography?search=${encodeURIComponent(item.name)}`;
+        return `/admin/services?type=photography&search=${encodeURIComponent(item.name)}`;
       case 'videography':
-        return `/staff/approvals/videography?search=${encodeURIComponent(item.name)}`;
+        return `/admin/services?type=videography&search=${encodeURIComponent(item.name)}`;
       case 'decoration':
-        return `/staff/approvals/decoration?search=${encodeURIComponent(item.name)}`;
+        return `/admin/services?type=decoration&search=${encodeURIComponent(item.name)}`;
       case 'entertainment':
-        return `/staff/approvals/entertainment?search=${encodeURIComponent(item.name)}`;
+        return `/admin/services?type=entertainment&search=${encodeURIComponent(item.name)}`;
       case 'bridalMakeup':
-        return `/staff/approvals/bridal-makeup?search=${encodeURIComponent(item.name)}`;
+        return `/admin/services?type=bridal-makeup&search=${encodeURIComponent(item.name)}`;
       default:
         return '#';
     }
@@ -131,7 +131,7 @@ export default function StaffProviderDetailPage() {
   };
 
   return (
-    <ProtectedRoute allowedRoles={['STAFF', 'ADMIN']}>
+    <ProtectedRoute allowedRoles={['ADMIN']}>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           <button onClick={() => router.back()} className="mb-4 inline-flex items-center text-sm text-gray-600 hover:text-gray-800">
@@ -231,5 +231,3 @@ export default function StaffProviderDetailPage() {
     </ProtectedRoute>
   );
 }
-
-

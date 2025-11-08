@@ -280,7 +280,7 @@ export default function EditPhotographyService() {
             } else if (!isValidPhoneNumber(formData.contact.phone)) {
                 validationErrors.push('Please enter a valid phone number');
             }
-            if (formData.contact.whatsapp.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
+            if (formData.contact.whatsapp?.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
                 validationErrors.push('Please enter a valid WhatsApp number');
             }
             if (!formData.contact.email.trim()) validationErrors.push('Email is required');
@@ -440,32 +440,26 @@ export default function EditPhotographyService() {
                 {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
-                  const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (canAccess) {
-                            setActiveTab(tab.id);
-                            setError('');
-                          }
+                          setActiveTab(tab.id);
+                          setError('');
                         }}
-                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
                             : isCompleted
                             ? 'bg-green-500 text-white'
-                            : canAccess
-                            ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
                         }`}
                       >
                         {isCompleted && !isCurrent ? <Check className="h-5 w-5" /> : <tab.icon className="h-5 w-5" />}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-pink-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : canAccess ? 'text-gray-600' : 'text-gray-400'
+                        isCurrent ? 'text-pink-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : 'text-gray-600'
                       }`}>
                         {tab.label}
                       </span>

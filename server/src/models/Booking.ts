@@ -5,7 +5,8 @@ export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
+  COMPLETED = 'completed'
 }
 
 // Define PaymentStatus enum
