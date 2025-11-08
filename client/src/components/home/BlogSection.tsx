@@ -2,13 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import apiClient from "@/lib/api";
-import { X } from "lucide-react";
-import SocialShare from "@/components/ui/SocialShare";
 
 // BlogSection: shows latest published blogs on the homepage.
 // We keep it isolated to keep the home page file small and focused.
 // This component fetches blogs from the API.
+// When a blog is clicked, it navigates to a new page instead of opening a pop-up.
 
 interface BlogItem {
   _id: string;
@@ -21,46 +21,10 @@ interface BlogItem {
   status?: "draft" | "published";
 }
 
-interface BlogDetails extends BlogItem {
-  content?: string;
-}
-
 export default function BlogSection() {
+  const router = useRouter();
   const [blogs, setBlogs] = useState<BlogItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [openBlog, setOpenBlog] = useState<BlogDetails | null>(null);
-  const [isOpening, setIsOpening] = useState<boolean>(false);
-
-  // Lock/unlock background scroll when the blog modal is open
-  // This improves mobile UX by preventing the page behind the modal from scrolling.
-  useEffect(() => {
-    if (!openBlog) return;
-    const originalOverflow = document.body.style.overflow;
-    const originalPaddingRight = document.body.style.paddingRight;
-    // Prevent layout shift on desktop by compensating for scrollbar width
-    const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-    document.body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) {
-      document.body.style.paddingRight = `${scrollbarWidth}px`;
-    }
-
-    return () => {
-      document.body.style.overflow = originalOverflow;
-      document.body.style.paddingRight = originalPaddingRight;
-    };
-  }, [openBlog]);
-
-  // Close modal on Escape key for accessibility and convenience
-  useEffect(() => {
-    if (!openBlog) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setOpenBlog(null);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [openBlog]);
 
   useEffect(() => {
     let cancelled = false;
@@ -165,47 +129,16 @@ export default function BlogSection() {
     return null;
   }
 
-  const openBlogModal = async (id: string) => {
-    try {
-      setIsOpening(true);
-      // Fetch single blog details to show full content in the popup
-      const res = await apiClient.get(`/blogs/${id}`);
-      type ApiBlog = Partial<BlogDetails> & {
-        _id?: string;
-        author?: { firstName?: string; lastName?: string };
-        status?: "draft" | "published" | string;
-      };
-      const blog = (res?.data?.data ?? res?.data ?? null) as ApiBlog | null;
-      if (blog) {
-        // Normalize author name from different response shapes
-        const normalizedAuthorName: string =
-          typeof blog?.authorName === 'string' && blog.authorName
-            ? blog.authorName
-            : blog?.author && (blog.author.firstName || blog.author.lastName)
-            ? `${blog.author.firstName || ''} ${blog.author.lastName || ''}`.trim()
-            : 'Admin';
-        const normalizedStatus: "draft" | "published" | undefined =
-          blog.status === 'published' ? 'published' : blog.status === 'draft' ? 'draft' : undefined;
-        setOpenBlog({
-          _id: blog._id || id,
-          title: blog.title || "",
-          slug: blog.slug,
-          coverImageUrl: blog.coverImageUrl,
-          excerpt: blog.excerpt,
-          authorName: normalizedAuthorName,
-          createdAt: blog.createdAt || "",
-          status: normalizedStatus ?? 'draft',
-          content: blog.content || "",
-        });
-      }
-    } catch (e: unknown) {
-      console.error("Failed to open blog", e);
-    } finally {
-      setIsOpening(false);
-    }
+  // Navigate to blog detail page using slug-based URL
+  // Always prefer slug for SEO-friendly URLs like /blog/blog-title
+  const openBlogPage = (blog: BlogItem) => {
+    if (!blog._id) return;
+    
+    // Always use slug if available for clean URLs like /blog/blog-title
+    // Fall back to ID only if slug doesn't exist (for backward compatibility)
+    const path = blog.slug ? `/blog/${blog.slug}` : `/blog/${blog._id}`;
+    router.push(path);
   };
-
-  const closeBlogModal = () => setOpenBlog(null);
 
   return (
     <section className="py-16 bg-gray-50">
@@ -222,7 +155,7 @@ export default function BlogSection() {
             <article
               key={item?._id || idx}
               className="bg-white rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-              onClick={() => item?._id && openBlogModal(item._id)}
+              onClick={() => item && openBlogPage(item)}
             >
               {isLoading ? (
                 <div className="w-full h-48 bg-gray-200 animate-pulse" />
@@ -274,103 +207,19 @@ export default function BlogSection() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (item?._id) {
-                        openBlogModal(item._id);
+                      if (item) {
+                        openBlogPage(item);
                       }
                     }}
                     className="text-pink-600 font-medium hover:text-pink-700"
-                    disabled={isOpening}
                   >
-                    {isOpening ? 'Opening…' : 'Read more →'}
+                    Read more →
                   </button>
                 </div>
               </div>
             </article>
           ))}
         </div>
-
-        {openBlog && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/50" onClick={closeBlogModal} />
-            <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl w-full h-[90vh] overflow-hidden flex flex-col md:h-auto md:max-h-[85vh] md:overflow-hidden">
-              <button
-                aria-label="Close"
-                onClick={closeBlogModal}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-              >
-                <X className="h-6 w-6" />
-              </button>
-
-              {/* Mobile friendly sticky header with an explicit Close button */}
-              <div className="md:hidden sticky top-0 z-10 bg-white/90 backdrop-blur border-b flex items-center justify-between px-4 py-3">
-                <span className="text-sm font-medium text-gray-700">Blog</span>
-                <button
-                  onClick={closeBlogModal}
-                  className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100"
-                  aria-label="Close blog"
-                >
-                  <X className="h-4 w-4" />
-                  Close
-                </button>
-              </div>
-
-              {openBlog.coverImageUrl ? (
-                <div className="w-full relative overflow-hidden">
-                  {/* Full-width image in modal - displays image at full size */}
-                  <div className="relative w-full aspect-video min-h-[300px] md:min-h-[400px]">
-                    <Image
-                      src={openBlog.coverImageUrl}
-                      alt={openBlog.title}
-                      fill
-                      className="object-contain md:object-cover"
-                      sizes="(max-width: 768px) 100vw, 900px"
-                      unoptimized={openBlog.coverImageUrl.includes('s3.tebi.io') || openBlog.coverImageUrl.includes('s3.')}
-                    />
-                  </div>
-                </div>
-              ) : null}
-
-              <div className="p-6 flex-1 overflow-y-auto">
-                <div className="flex items-center gap-3 text-sm text-gray-500 mb-2">
-                  <span>{openBlog.authorName || 'Admin'}</span>
-                  <span>•</span>
-                  <time>{formatDate(openBlog.createdAt)}</time>
-                  {openBlog.status === 'published' && (
-                    <>
-                      <span>•</span>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Published</span>
-                    </>
-                  )}
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">{openBlog.title}</h3>
-                {openBlog.excerpt && (
-                  <p className="text-gray-700 mb-4 whitespace-pre-line">{openBlog.excerpt}</p>
-                )}
-                {openBlog.content && (
-                  <div className="prose prose-pink max-w-none text-gray-800 whitespace-pre-line">
-                    {openBlog.content}
-                  </div>
-                )}
-
-                {/* Social Sharing Section */}
-                <div className="border-t pt-6 mt-6">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600">Share this article:</span>
-                    <SocialShare
-                      url={openBlog.slug 
-                        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/blog/${openBlog.slug}`
-                        : undefined}
-                      title={openBlog.title}
-                      description={openBlog.excerpt}
-                      imageUrl={openBlog.coverImageUrl}
-                      variant="button"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </section>
   );
