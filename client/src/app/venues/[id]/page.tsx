@@ -13,6 +13,7 @@ import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { BookingModal } from '@/components/booking/BookingModal';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import SocialShare from '@/components/ui/SocialShare';
 
 interface FoodOption {
   name: string;
@@ -800,6 +801,21 @@ export default function VenueDetailsPage() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Social Sharing */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Share this venue</h3>
+              <SocialShare
+                title={venue.status === 'PENDING_EDIT' && venue.pendingEdits?.name 
+                  ? venue.pendingEdits.name 
+                  : venue.name}
+                description={venue.status === 'PENDING_EDIT' && venue.pendingEdits?.description 
+                  ? venue.pendingEdits.description 
+                  : venue.description}
+                imageUrl={venue.images.length > 0 ? venue.images[0]?.url : undefined}
+                variant="button"
+              />
             </div>
           </div>
         </div>
