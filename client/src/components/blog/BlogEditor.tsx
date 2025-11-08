@@ -221,17 +221,37 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
       // Extract error message from API response for better user feedback
       let errorMessage = "Failed to save blog";
       if (error && typeof error === 'object' && 'response' in error) {
-        const apiError = error as { response?: { data?: { error?: string; errors?: Array<{ msg?: string }> } } };
+        const apiError = error as { 
+          response?: { 
+            data?: { 
+              error?: string; 
+              errors?: Array<{ msg?: string; message?: string; field?: string }>;
+              details?: Array<{ msg?: string; message?: string }>;
+            } 
+          } 
+        };
+        
         if (apiError.response?.data?.error) {
           errorMessage = apiError.response.data.error;
-        } else if (apiError.response?.data?.errors && Array.isArray(apiError.response.data.errors)) {
-          // Handle validation errors
-          const validationErrors = apiError.response.data.errors
-            .map((err: { msg?: string }) => err.msg)
-            .filter(Boolean)
-            .join(", ");
-          if (validationErrors) {
-            errorMessage = `Validation failed: ${validationErrors}`;
+        }
+        
+        // Handle validation errors - check both 'errors' and 'details' arrays
+        const allErrors = [
+          ...(apiError.response?.data?.errors || []),
+          ...(apiError.response?.data?.details || [])
+        ];
+        
+        if (allErrors.length > 0) {
+          const errorMessages = allErrors
+            .map((err: { msg?: string; message?: string; field?: string }) => {
+              const msg = err.msg || err.message || 'Invalid value';
+              const field = err.field ? `${err.field}: ` : '';
+              return `${field}${msg}`;
+            })
+            .filter(Boolean);
+          
+          if (errorMessages.length > 0) {
+            errorMessage = `Validation failed:\n${errorMessages.join('\n')}`;
           }
         }
       } else if (error instanceof Error) {

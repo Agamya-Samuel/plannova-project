@@ -7,6 +7,41 @@ import { UserRole } from '../models/User.js';
 
 const router = Router();
 
+// Utility function to generate URL-friendly slug from title
+// Converts title to lowercase, replaces spaces with hyphens, removes special characters
+function generateSlug(title: string): string {
+  return title
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '') // Remove special characters except hyphens
+    .replace(/[\s_-]+/g, '-') // Replace spaces, underscores, multiple hyphens with single hyphen
+    .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+}
+
+// Helper function to generate unique slug
+// If slug already exists, append a number to make it unique
+async function generateUniqueSlug(baseSlug: string, excludeId?: string): Promise<string> {
+  let slug = baseSlug;
+  let counter = 1;
+  
+  while (true) {
+    // MongoDB query filter type - can include slug and optional _id filter
+    const query: { slug: string; _id?: { $ne: string } } = { slug };
+    if (excludeId) {
+      query._id = { $ne: excludeId };
+    }
+    
+    const existing = await Blog.findOne(query);
+    if (!existing) {
+      return slug;
+    }
+    
+    // Slug exists, append counter
+    slug = `${baseSlug}-${counter}`;
+    counter++;
+  }
+}
+
 // Validation middleware for blog creation
 const createBlogValidation = [
   body('title')
@@ -29,8 +64,15 @@ const createBlogValidation = [
   body('excerpt')
     .optional({ checkFalsy: true })
     .trim()
-    .isLength({ max: 1000 })
-    .withMessage('Excerpt must be less than 1000 characters'),
+    .custom((value) => {
+      // Allow empty string or undefined
+      if (!value || value === '') return true;
+      // Check length if value exists
+      if (value.length > 1000) {
+        throw new Error(`Excerpt must be less than 1000 characters (current: ${value.length})`);
+      }
+      return true;
+    }),
   body('content')
     .optional({ checkFalsy: true })
     .trim(),
@@ -63,8 +105,15 @@ const updateBlogValidation = [
   body('excerpt')
     .optional({ checkFalsy: true })
     .trim()
-    .isLength({ max: 1000 })
-    .withMessage('Excerpt must be less than 1000 characters'),
+    .custom((value) => {
+      // Allow empty string or undefined
+      if (!value || value === '') return true;
+      // Check length if value exists
+      if (value.length > 1000) {
+        throw new Error(`Excerpt must be less than 1000 characters (current: ${value.length})`);
+      }
+      return true;
+    }),
   body('content')
     .optional({ checkFalsy: true })
     .trim(),
@@ -81,9 +130,26 @@ router.post('/', authenticateToken, createBlogValidation, async (req: AuthReques
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      // Return detailed validation errors to help debug
+      // Type assertion for express-validator field errors which have a 'value' property
+      interface FieldError {
+        type: 'field';
+        path: string;
+        msg: string;
+        value?: unknown;
+      }
+      const errorMessages = errors.array().map(err => ({
+        field: err.type === 'field' ? err.path : 'unknown',
+        message: err.msg,
+        value: err.type === 'field' ? (err as FieldError).value : undefined
+      }));
+      
+      console.error('Blog creation validation failed:', errorMessages);
+      
       return res.status(400).json({ 
         error: 'Validation failed', 
-        errors: errors.array() 
+        errors: errorMessages,
+        details: errors.array()
       });
     }
 
@@ -107,9 +173,14 @@ router.post('/', authenticateToken, createBlogValidation, async (req: AuthReques
       status
     } = req.body;
 
-    // Create new blog post
+    // Generate slug from title
+    const baseSlug = generateSlug(title);
+    const uniqueSlug = await generateUniqueSlug(baseSlug);
+
+    // Create new blog post with slug
     const blog = await Blog.create({
       title,
+      slug: uniqueSlug,
       coverImageUrl: coverImageUrl || undefined,
       excerpt: excerpt || undefined,
       content: content || undefined,
@@ -263,16 +334,41 @@ router.get('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
-// GET /api/blogs/:id - Get a single blog post by ID
+// GET /api/blogs/:id - Get a single blog post by ID or slug
+// Supports both MongoDB ObjectId and slug-based URLs
 router.get('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Fetch blog with author information
-    const blog = await Blog.findById(id).populate('author', 'firstName lastName email');
+    // Try to authenticate if token is present (optional)
+    await optionalAuthenticate(req);
+
+    // Check if the id is a valid MongoDB ObjectId (24 hex characters)
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    
+    let blog;
+    if (isObjectId) {
+      // Try to find by ID first
+      blog = await Blog.findById(id).populate('author', 'firstName lastName email');
+    }
+    
+    // If not found by ID or not an ObjectId, try to find by slug
+    if (!blog) {
+      blog = await Blog.findOne({ slug: id.toLowerCase() }).populate('author', 'firstName lastName email');
+    }
 
     if (!blog) {
       return res.status(404).json({ error: 'Blog not found' });
+    }
+
+    // CRITICAL: Auto-generate slug for existing blogs that don't have one
+    // This ensures all blogs have slugs for clean URLs
+    if (!blog.slug || !blog.slug.trim()) {
+      const baseSlug = generateSlug(blog.title);
+      // Cast _id to Types.ObjectId to fix TypeScript type inference after populate
+      const uniqueSlug = await generateUniqueSlug(baseSlug, (blog._id as Types.ObjectId).toString());
+      blog.slug = uniqueSlug;
+      await blog.save(); // Save the slug to database
     }
 
     // If blog is draft, only allow author, admin, or staff to view
@@ -305,9 +401,26 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
     // Validate request
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      // Return detailed validation errors to help debug
+      // Type assertion for express-validator field errors which have a 'value' property
+      interface FieldError {
+        type: 'field';
+        path: string;
+        msg: string;
+        value?: unknown;
+      }
+      const errorMessages = errors.array().map(err => ({
+        field: err.type === 'field' ? err.path : 'unknown',
+        message: err.msg,
+        value: err.type === 'field' ? (err as FieldError).value : undefined
+      }));
+      
+      console.error('Blog update validation failed:', errorMessages);
+      
       return res.status(400).json({ 
         error: 'Validation failed', 
-        errors: errors.array() 
+        errors: errorMessages,
+        details: errors.array()
       });
     }
 
@@ -335,17 +448,40 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
     // Update blog fields
     const updateData: {
       title?: string;
+      slug?: string;
       coverImageUrl?: string;
       excerpt?: string;
       content?: string;
       status?: BlogStatus;
     } = {};
 
-    if (req.body.title !== undefined) updateData.title = req.body.title;
-    if (req.body.coverImageUrl !== undefined) updateData.coverImageUrl = req.body.coverImageUrl || undefined;
-    if (req.body.excerpt !== undefined) updateData.excerpt = req.body.excerpt || undefined;
-    if (req.body.content !== undefined) updateData.content = req.body.content || undefined;
-    if (req.body.status !== undefined) updateData.status = req.body.status;
+    if (req.body.title !== undefined) {
+      updateData.title = req.body.title;
+      // Regenerate slug if title changed
+      const baseSlug = generateSlug(req.body.title);
+      updateData.slug = await generateUniqueSlug(baseSlug, id);
+    }
+    if (req.body.coverImageUrl !== undefined) {
+      updateData.coverImageUrl = req.body.coverImageUrl && req.body.coverImageUrl.trim() 
+        ? req.body.coverImageUrl.trim() 
+        : undefined;
+    }
+    if (req.body.excerpt !== undefined) {
+      updateData.excerpt = req.body.excerpt && req.body.excerpt.trim() 
+        ? req.body.excerpt.trim() 
+        : undefined;
+    }
+    if (req.body.content !== undefined) {
+      updateData.content = req.body.content && req.body.content.trim() 
+        ? req.body.content.trim() 
+        : undefined;
+    }
+    if (req.body.status !== undefined) {
+      // Ensure status is lowercase to match enum values
+      updateData.status = (req.body.status.toLowerCase() === 'published' 
+        ? BlogStatus.PUBLISHED 
+        : BlogStatus.DRAFT) as BlogStatus;
+    }
 
     // Update the blog
     const updatedBlog = await Blog.findByIdAndUpdate(
