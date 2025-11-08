@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import apiClient from "@/lib/api";
 import { X } from "lucide-react";
+import SocialShare from "@/components/ui/SocialShare";
 
 // BlogSection: shows latest published blogs on the homepage.
 // We keep it isolated to keep the home page file small and focused.
@@ -314,13 +315,18 @@ export default function BlogSection() {
               </div>
 
               {openBlog.coverImageUrl ? (
-                <div className="w-full h-40 md:h-56 relative">
-                  <Image
-                    src={openBlog.coverImageUrl}
-                    alt={openBlog.title}
-                    fill
-                    className="object-cover"
-                  />
+                <div className="w-full relative overflow-hidden">
+                  {/* Full-width image in modal - displays image at full size */}
+                  <div className="relative w-full aspect-video min-h-[300px] md:min-h-[400px]">
+                    <Image
+                      src={openBlog.coverImageUrl}
+                      alt={openBlog.title}
+                      fill
+                      className="object-contain md:object-cover"
+                      sizes="(max-width: 768px) 100vw, 900px"
+                      unoptimized={openBlog.coverImageUrl.includes('s3.tebi.io') || openBlog.coverImageUrl.includes('s3.')}
+                    />
+                  </div>
                 </div>
               ) : null}
 
@@ -345,6 +351,22 @@ export default function BlogSection() {
                     {openBlog.content}
                   </div>
                 )}
+
+                {/* Social Sharing Section */}
+                <div className="border-t pt-6 mt-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600">Share this article:</span>
+                    <SocialShare
+                      url={openBlog.slug 
+                        ? `${typeof window !== 'undefined' ? window.location.origin : ''}/blog/${openBlog.slug}`
+                        : undefined}
+                      title={openBlog.title}
+                      description={openBlog.excerpt}
+                      imageUrl={openBlog.coverImageUrl}
+                      variant="button"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
