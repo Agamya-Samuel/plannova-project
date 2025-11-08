@@ -9,6 +9,7 @@ export enum BlogStatus {
 // Blog interface
 export interface IBlog extends Document {
   title: string;
+  slug?: string; // URL-friendly slug generated from title
   coverImageUrl?: string;
   excerpt?: string;
   content?: string;
@@ -25,6 +26,14 @@ const BlogSchema = new Schema<IBlog>({
     required: true,
     trim: true,
     maxlength: 500
+  },
+  slug: {
+    type: String,
+    required: false,
+    trim: true,
+    unique: true,
+    sparse: true, // Allow multiple null values but enforce uniqueness for non-null values
+    lowercase: true
   },
   coverImageUrl: {
     type: String,
@@ -61,6 +70,7 @@ const BlogSchema = new Schema<IBlog>({
 // Create indexes for better query performance
 BlogSchema.index({ status: 1, createdAt: -1 });
 BlogSchema.index({ author: 1 });
+BlogSchema.index({ slug: 1 }); // Index for slug-based lookups
 
 // Create and export the Blog model
 export const Blog = mongoose.model<IBlog>('Blog', BlogSchema);
