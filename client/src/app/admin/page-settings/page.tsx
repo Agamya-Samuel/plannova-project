@@ -16,6 +16,7 @@ type PageSettingsDto = {
   backgroundImages: string[];
   textGradientFrom?: string;
   textGradientTo?: string;
+  typingOptions?: string[]; // Array of options for typing effect (e.g., "wedding platform", "corporate wedding")
 };
 
 const PAGE_KEY = 'home';
@@ -30,6 +31,7 @@ export default function AdminPageSettings() {
   const [backgroundImages, setBackgroundImages] = useState<string[]>(['']);
   const [textGradientFrom, setTextGradientFrom] = useState<string>('');
   const [textGradientTo, setTextGradientTo] = useState<string>('');
+  const [typingOptions, setTypingOptions] = useState<string[]>(['']); // Options for typing effect
 
   // Fetch existing settings
   const fetchSettings = async () => {
@@ -41,6 +43,7 @@ export default function AdminPageSettings() {
       setBackgroundImages(res.data.backgroundImages?.length ? res.data.backgroundImages : ['']);
       setTextGradientFrom(res.data.textGradientFrom || '');
       setTextGradientTo(res.data.textGradientTo || '');
+      setTypingOptions(res.data.typingOptions?.length ? res.data.typingOptions : ['']);
     } catch {
       // If not found, keep defaults and allow creating
       if (process.env.NODE_ENV === 'development') {
@@ -59,6 +62,12 @@ export default function AdminPageSettings() {
   const removeImageField = (index: number) => setBackgroundImages((prev) => prev.filter((_, i) => i !== index));
   const updateImage = (index: number, value: string) =>
     setBackgroundImages((prev) => prev.map((v, i) => (i === index ? value : v)));
+  
+  // Typing options management functions
+  const addTypingOption = () => setTypingOptions((prev) => [...prev, '']);
+  const removeTypingOption = (index: number) => setTypingOptions((prev) => prev.filter((_, i) => i !== index));
+  const updateTypingOption = (index: number, value: string) =>
+    setTypingOptions((prev) => prev.map((v, i) => (i === index ? value : v)));
 
   const handleSave = async () => {
     if (!title.trim()) {
@@ -72,12 +81,16 @@ export default function AdminPageSettings() {
     }
     try {
       setSaving(true);
+      // Clean typing options - remove empty strings
+      const cleanedTypingOptions = typingOptions.map((opt) => opt.trim()).filter((opt) => opt.length > 0);
+      
       await apiClient.put(`/page-settings/${PAGE_KEY}`, {
         title: title.trim(),
         description: description.trim() || undefined,
         backgroundImages: cleaned,
         textGradientFrom: textGradientFrom || undefined,
         textGradientTo: textGradientTo || undefined,
+        typingOptions: cleanedTypingOptions.length > 0 ? cleanedTypingOptions : undefined,
       });
       await fetchSettings();
       toast.success('Page settings saved');
@@ -185,6 +198,36 @@ export default function AdminPageSettings() {
                     disabled={loading}
                   />
                   <Button variant="destructive" onClick={() => removeImageField(index)} disabled={loading || backgroundImages.length === 1}>
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Typing Options Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Typing Effect Options</label>
+              <Button variant="ghost" onClick={addTypingOption} disabled={loading}>
+                <Plus className="h-4 w-4 mr-1" /> Add Option
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              These options will cycle through with a typing effect below &quot;Welcome to Plannova&quot; (e.g., &quot;wedding platform&quot;, &quot;corporate wedding&quot;)
+            </p>
+            <div className="space-y-3">
+              {typingOptions.map((option, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => updateTypingOption(index, e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="e.g., wedding platform"
+                    disabled={loading}
+                  />
+                  <Button variant="destructive" onClick={() => removeTypingOption(index)} disabled={loading || typingOptions.length === 1}>
                     <Trash className="h-4 w-4" />
                   </Button>
                 </div>

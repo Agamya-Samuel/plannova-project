@@ -106,6 +106,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
             }}
             className="shadow-2xl"
             priority
+            unoptimized={currentImage.url.includes('s3.tebi.io') || currentImage.url.includes('s3.')}
           />
         </div>
 
@@ -133,6 +134,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                   width={64}
                   height={64}
                   className="w-full h-full object-cover"
+                  unoptimized={image.url.includes('s3.tebi.io') || image.url.includes('s3.')}
                 />
               </button>
             ))}
