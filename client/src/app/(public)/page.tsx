@@ -29,9 +29,12 @@ export default function Home() {
   // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
   // Note: pageTitle is fetched but not used - title is hardcoded as "Welcome to Plannova"
-  const [bgImages, setBgImages] = useState<string[]>([]);
+  const [bgImages, setBgImages] = useState<string[]>([]); // Legacy field - kept for backward compatibility
+  const [bgImagesMobile, setBgImagesMobile] = useState<string[]>([]); // Images for mobile devices
+  const [bgImagesLaptop, setBgImagesLaptop] = useState<string[]>([]); // Images for laptop/desktop devices
   const [pageDescription, setPageDescription] = useState<string>('');
   const [bgIndex, setBgIndex] = useState<number>(0);
+  const [isMobile, setIsMobile] = useState<boolean>(false); // Track if device is mobile
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
   const [typingOptions, setTypingOptions] = useState<string[]>([]); // Options for typing effect
@@ -78,6 +81,31 @@ export default function Home() {
   const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
   const [currentOptionIndex, setCurrentOptionIndex] = useState<number>(0); // Which option we're currently typing
 
+  // Detect if device is mobile or laptop/desktop
+  useEffect(() => {
+    // Function to check if device is mobile
+    const checkIsMobile = () => {
+      // Check window width - mobile devices are typically < 768px
+      // Also check user agent for mobile devices
+      const isMobileWidth = typeof window !== 'undefined' && window.innerWidth < 768;
+      const isMobileUserAgent = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      return isMobileWidth || isMobileUserAgent;
+    };
+    
+    // Set initial mobile state
+    setIsMobile(checkIsMobile());
+    
+    // Listen for window resize to update mobile state
+    const handleResize = () => {
+      setIsMobile(checkIsMobile());
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
+
   useEffect(() => {
     // Prevent duplicate requests and handle rate limiting
     let cancelled = false;
@@ -113,11 +141,26 @@ export default function Home() {
         if (!cancelled) {
           const data = res?.data || {};
           // Note: title is fetched but not used - homepage title is hardcoded
-          const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
-          setBgImages(imgs);
-          if (imgs.length > 0) {
-            setBgIndex(Math.floor(Math.random() * imgs.length));
+          // Load mobile and laptop images, fallback to legacy backgroundImages if needed
+          const mobileImgs = Array.isArray(data.backgroundImagesMobile) && data.backgroundImagesMobile.length > 0 
+            ? data.backgroundImagesMobile 
+            : (Array.isArray(data.backgroundImages) ? data.backgroundImages : []);
+          const laptopImgs = Array.isArray(data.backgroundImagesLaptop) && data.backgroundImagesLaptop.length > 0 
+            ? data.backgroundImagesLaptop 
+            : (Array.isArray(data.backgroundImages) ? data.backgroundImages : []);
+          const legacyImgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
+          
+          setBgImagesMobile(mobileImgs);
+          setBgImagesLaptop(laptopImgs);
+          setBgImages(legacyImgs); // Keep for backward compatibility
+          
+          // Set initial random index based on device type
+          // This will be updated when isMobile state is determined
+          const initialImgs = mobileImgs.length > 0 ? mobileImgs : (laptopImgs.length > 0 ? laptopImgs : legacyImgs);
+          if (initialImgs.length > 0) {
+            setBgIndex(Math.floor(Math.random() * initialImgs.length));
           }
+          
           setPageDescription(typeof data.description === 'string' ? data.description : '');
           setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
           setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
@@ -139,6 +182,19 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+  
+  // Update background index when device type or image arrays change
+  useEffect(() => {
+    // Select appropriate image array based on device type
+    const currentImages = isMobile ? bgImagesMobile : bgImagesLaptop;
+    // Fallback to legacy images if device-specific images are not available
+    const imagesToUse = currentImages.length > 0 ? currentImages : bgImages;
+    
+    if (imagesToUse.length > 0) {
+      // Set random index when images change or device type changes
+      setBgIndex(Math.floor(Math.random() * imagesToUse.length));
+    }
+  }, [isMobile, bgImagesMobile, bgImagesLaptop, bgImages]);
 
   // Reset typing state when typing options change
   useEffect(() => {
@@ -199,20 +255,27 @@ export default function Home() {
   }, [typingOptions, currentOptionIndex, typeIndex, typingDirection]);
 
   // Rotate background images randomly every 10 seconds if multiple provided
+  // Uses device-appropriate image array (mobile or laptop)
   useEffect(() => {
-    if (bgImages.length <= 1) return;
+    // Select appropriate image array based on device type
+    const currentImages = isMobile ? bgImagesMobile : bgImagesLaptop;
+    // Fallback to legacy images if device-specific images are not available
+    const imagesToUse = currentImages.length > 0 ? currentImages : bgImages;
+    
+    if (imagesToUse.length <= 1) return;
+    
     const interval = setInterval(() => {
       setBgIndex((current) => {
-        if (bgImages.length <= 1) return 0;
-        let next = Math.floor(Math.random() * bgImages.length);
+        if (imagesToUse.length <= 1) return 0;
+        let next = Math.floor(Math.random() * imagesToUse.length);
         if (next === current) {
-          next = (current + 1) % bgImages.length; // ensure change
+          next = (current + 1) % imagesToUse.length; // ensure change
         }
         return next;
       });
     }, 10000);
     return () => clearInterval(interval);
-  }, [bgImages]);
+  }, [isMobile, bgImagesMobile, bgImagesLaptop, bgImages]);
 
   // Component for stable crossfade image transitions
   // Uses same logic as vendor categories grid - no remounting, no jitter
@@ -455,13 +518,22 @@ export default function Home() {
       {/* Hero Section with Background Image */}
       <div className="relative min-h-[80vh] bg-gradient-to-r from-pink-600 to-purple-600 overflow-hidden">
         {/* Background Image Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-md transform-gpu scale-110"
-          style={bgImages.length > 0 ? { backgroundImage: `url(${normalizeImageUrl(bgImages[bgIndex])})` } : undefined}
-        />
+        {/* Select appropriate image array based on device type, with fallback to legacy images */}
+        {(() => {
+          const currentImages = isMobile ? bgImagesMobile : bgImagesLaptop;
+          const imagesToUse = currentImages.length > 0 ? currentImages : bgImages;
+          const currentImage = imagesToUse[bgIndex] || imagesToUse[0];
+          
+          return (
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-sm transform-gpu scale-105"
+              style={currentImage ? { backgroundImage: `url(${normalizeImageUrl(currentImage)})` } : undefined}
+            />
+          );
+        })()}
         
-        {/* Gradient/Darken Overlay to improve text readability */}
-        <div className="absolute inset-0 bg-black/30" />
+        {/* Gradient/Darken Overlay to improve text readability - reduced opacity for better image visibility */}
+        <div className="absolute inset-0 bg-black/15" />
         
         {/* Hero Content */}
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
