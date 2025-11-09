@@ -26,7 +26,7 @@ export default function ContactUs() {
           </div>
 
           <div className="prose prose-lg max-w-none">
-            <p className="text-sm text-gray-500 mb-8">Last updated on Nov 9th 2025</p>
+            <p className="text-sm text-gray-500 mb-8">Last updated on Nov 10 2025</p>
 
             <div className="space-y-6">
               <section>
