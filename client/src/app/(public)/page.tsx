@@ -68,11 +68,12 @@ export default function Home() {
     }
     return input;
   }
-  // Typing effect state for the homepage title. We keep this local so
-  // admins can still change the title dynamically via page settings.
-  const [typedTitle, setTypedTitle] = useState<string>('');
-  const [typeIndex, setTypeIndex] = useState<number>(0);
-  const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
+  // Animation state for drawer effect - triggers on every page load/refresh
+  const [isTitleVisible, setIsTitleVisible] = useState<boolean>(false);
+  // State to add wiggle effect after initial animation completes
+  const [shouldWiggle, setShouldWiggle] = useState<boolean>(false);
+  // Key to force animation replay on refresh
+  const [animationKey, setAnimationKey] = useState<number>(0);
 
   useEffect(() => {
     // Prevent duplicate requests and handle rate limiting
@@ -135,44 +136,39 @@ export default function Home() {
     };
   }, []);
 
-  // Reset typing state when title changes
+  // Reset animation state on component mount (every refresh)
   useEffect(() => {
-    setTypedTitle('');
-    setTypeIndex(0);
-    setTypingDirection('forward');
-  }, [pageTitle]);
+    setIsTitleVisible(false);
+    setShouldWiggle(false);
+    setAnimationKey(prev => prev + 1); // Force animation restart
+  }, []);
 
-  // Infinite typing loop: type forward, pause, delete backward, pause, repeat
+  // Trigger drawer animation when title is loaded
   useEffect(() => {
-    if (!pageTitle) return;
-    const atStart = typeIndex === 0 && typingDirection === 'backward';
-    const atEnd = typeIndex === pageTitle.length && typingDirection === 'forward';
-    const edgePauseMs = 1200;
-    const stepMs = 60;
-    const delay = atStart || atEnd ? edgePauseMs : stepMs;
-
-    const timeout = setTimeout(() => {
-      if (typingDirection === 'forward') {
-        if (typeIndex < pageTitle.length) {
-          const next = typeIndex + 1;
-          setTypeIndex(next);
-          setTypedTitle(pageTitle.slice(0, next));
-        } else {
-          setTypingDirection('backward');
-        }
-      } else {
-        if (typeIndex > 0) {
-          const next = typeIndex - 1;
-          setTypeIndex(next);
-          setTypedTitle(pageTitle.slice(0, next));
-        } else {
-          setTypingDirection('forward');
-        }
-      }
-    }, delay);
-
-    return () => clearTimeout(timeout);
-  }, [pageTitle, typeIndex, typingDirection]);
+    if (pageTitle) {
+      // Reset states first to ensure animation replays
+      setIsTitleVisible(false);
+      setShouldWiggle(false);
+      
+      // Small delay to ensure smooth animation start
+      const timer = setTimeout(() => {
+        setIsTitleVisible(true);
+      }, 150); // Slightly longer delay for smoother animation start
+      
+      // Start wiggle effect after initial animation completes (1 second)
+      const wiggleTimer = setTimeout(() => {
+        setShouldWiggle(true);
+      }, 1150); // 150ms initial delay + 1000ms animation duration
+      
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(wiggleTimer);
+      };
+    } else {
+      setIsTitleVisible(false);
+      setShouldWiggle(false);
+    }
+  }, [pageTitle, animationKey]);
 
   // Rotate background images randomly every 10 seconds if multiple provided
   useEffect(() => {
@@ -284,11 +280,24 @@ export default function Home() {
           <div className="text-center text-white max-w-4xl mx-auto">
             {pageTitle ? (
               <h1
-                className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
-                style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+                key={`title-${animationKey}`}
+                className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${
+                  isTitleVisible ? 'title-drawer-zoom' : 'title-initial'
+                } ${shouldWiggle ? 'title-wiggle' : ''} bg-clip-text text-transparent title-gradient-alive`}
+                style={{
+                  // Gradient pattern for continuous sweep effect
+                  // Creates a repeating pattern that sweeps from start to end
+                  backgroundImage: textFrom && textTo
+                    ? `linear-gradient(90deg, 
+                        ${textFrom} 0%, 
+                        ${textTo} 25%, 
+                        ${textFrom} 50%, 
+                        ${textTo} 75%, 
+                        ${textFrom} 100%)`
+                    : 'linear-gradient(90deg, #ffffff 0%, #f0abfc 25%, #ffffff 50%, #f0abfc 75%, #ffffff 100%)',
+                } as React.CSSProperties}
               >
-                {typedTitle || pageTitle}
-                <span className="ml-1 animate-pulse">|</span>
+                {pageTitle}
               </h1>
             ) : null}
             {pageDescription ? (
