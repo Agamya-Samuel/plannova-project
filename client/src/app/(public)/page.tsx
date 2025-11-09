@@ -28,12 +28,13 @@ export default function Home() {
   const [loadingVenues, setLoadingVenues] = useState(false);
   // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
-  const [pageTitle, setPageTitle] = useState<string>('');
+  // Note: pageTitle is fetched but not used - title is hardcoded as "Welcome to Plannova"
   const [bgImages, setBgImages] = useState<string[]>([]);
   const [pageDescription, setPageDescription] = useState<string>('');
   const [bgIndex, setBgIndex] = useState<number>(0);
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
+  const [typingOptions, setTypingOptions] = useState<string[]>([]); // Options for typing effect
   
   // Convert common sharing links to direct image URLs so background works from
   // services like Google Drive or Dropbox. If parsing fails, we return the
@@ -68,11 +69,12 @@ export default function Home() {
     }
     return input;
   }
-  // Typing effect state for the homepage title. We keep this local so
-  // admins can still change the title dynamically via page settings.
-  const [typedTitle, setTypedTitle] = useState<string>('');
+  // Typing effect state for the typing options (not the title).
+  // The title "Welcome to Plannova" is static, but options cycle through with typing effect.
+  const [typedOption, setTypedOption] = useState<string>('');
   const [typeIndex, setTypeIndex] = useState<number>(0);
   const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
+  const [currentOptionIndex, setCurrentOptionIndex] = useState<number>(0); // Which option we're currently typing
 
   useEffect(() => {
     // Prevent duplicate requests and handle rate limiting
@@ -108,7 +110,7 @@ export default function Home() {
         const res = await apiClient.get('/page-settings/home');
         if (!cancelled) {
           const data = res?.data || {};
-          setPageTitle(typeof data.title === 'string' ? data.title : '');
+          // Note: title is fetched but not used - homepage title is hardcoded
           const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
           setBgImages(imgs);
           if (imgs.length > 0) {
@@ -117,6 +119,7 @@ export default function Home() {
           setPageDescription(typeof data.description === 'string' ? data.description : '');
           setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
           setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
+          setTypingOptions(Array.isArray(data.typingOptions) && data.typingOptions.length > 0 ? data.typingOptions : []);
         }
       } catch {
         // If not configured yet, keep defaults (no title rendered)
@@ -135,44 +138,63 @@ export default function Home() {
     };
   }, []);
 
-  // Reset typing state when title changes
+  // Reset typing state when typing options change
   useEffect(() => {
-    setTypedTitle('');
+    if (typingOptions.length === 0) {
+      setTypedOption('');
+      setTypeIndex(0);
+      setCurrentOptionIndex(0);
+      setTypingDirection('forward');
+      return;
+    }
+    // Reset to first option when options change
+    setTypedOption('');
     setTypeIndex(0);
+    setCurrentOptionIndex(0);
     setTypingDirection('forward');
-  }, [pageTitle]);
+  }, [typingOptions]);
 
-  // Infinite typing loop: type forward, pause, delete backward, pause, repeat
+  // Infinite typing loop for options: type forward, pause, delete backward, move to next option, repeat
   useEffect(() => {
-    if (!pageTitle) return;
+    if (typingOptions.length === 0) return;
+    
+    const currentOption = typingOptions[currentOptionIndex];
+    if (!currentOption) return;
+    
     const atStart = typeIndex === 0 && typingDirection === 'backward';
-    const atEnd = typeIndex === pageTitle.length && typingDirection === 'forward';
-    const edgePauseMs = 1200;
-    const stepMs = 60;
+    const atEnd = typeIndex === currentOption.length && typingDirection === 'forward';
+    const edgePauseMs = 1200; // Pause at start/end
+    const stepMs = 60; // Typing speed
     const delay = atStart || atEnd ? edgePauseMs : stepMs;
 
     const timeout = setTimeout(() => {
       if (typingDirection === 'forward') {
-        if (typeIndex < pageTitle.length) {
+        if (typeIndex < currentOption.length) {
+          // Still typing forward
           const next = typeIndex + 1;
           setTypeIndex(next);
-          setTypedTitle(pageTitle.slice(0, next));
+          setTypedOption(currentOption.slice(0, next));
         } else {
+          // Finished typing, start deleting
           setTypingDirection('backward');
         }
       } else {
+        // Deleting backward
         if (typeIndex > 0) {
           const next = typeIndex - 1;
           setTypeIndex(next);
-          setTypedTitle(pageTitle.slice(0, next));
+          setTypedOption(currentOption.slice(0, next));
         } else {
+          // Finished deleting, move to next option
+          const nextOptionIndex = (currentOptionIndex + 1) % typingOptions.length;
+          setCurrentOptionIndex(nextOptionIndex);
           setTypingDirection('forward');
         }
       }
     }, delay);
 
     return () => clearTimeout(timeout);
-  }, [pageTitle, typeIndex, typingDirection]);
+  }, [typingOptions, currentOptionIndex, typeIndex, typingDirection]);
 
   // Rotate background images randomly every 10 seconds if multiple provided
   useEffect(() => {
@@ -282,15 +304,26 @@ export default function Home() {
         {/* Hero Content */}
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
           <div className="text-center text-white max-w-4xl mx-auto">
-            {pageTitle ? (
-              <h1
-                className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
+            {/* Static "Welcome to Plannova" title - no typing effect */}
+            <h1
+              className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
+              style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+            >
+              Welcome to Plannova
+            </h1>
+            
+            {/* Typing effect for options added by admin through page settings */}
+            {typingOptions.length > 0 && (
+              <h2
+                className={`text-3xl md:text-5xl font-bold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : 'text-white'}`}
                 style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
               >
-                {typedTitle || pageTitle}
+                {typedOption}
                 <span className="ml-1 animate-pulse">|</span>
-              </h1>
-            ) : null}
+              </h2>
+            )}
+            
+            {/* Description (if provided) */}
             {pageDescription ? (
               <p
                 className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto ${textFrom && textTo ? 'bg-clip-text text-transparent' : 'text-pink-100'}`}

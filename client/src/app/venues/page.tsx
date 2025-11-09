@@ -440,6 +440,7 @@ function VenuesContent() {
                   height={256}
                   className="w-full h-64 object-cover"
                   priority={venue._id === venues[0]?._id} // Prioritize loading the first image
+                  unoptimized={(venue.images.length > 0 ? venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url : '').includes('s3.tebi.io') || (venue.images.length > 0 ? venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url : '').includes('s3.')}
                 />
                 <button
                   onClick={() => handleToggleFavorite(venue._id)}

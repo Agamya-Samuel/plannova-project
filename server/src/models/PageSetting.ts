@@ -7,6 +7,7 @@ export interface IPageSetting extends Document {
   backgroundImages: string[];
   textGradientFrom?: string;
   textGradientTo?: string;
+  typingOptions?: string[]; // Array of options to cycle through with typing effect (e.g., "wedding platform", "corporate wedding")
   updatedBy?: Schema.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -19,6 +20,7 @@ const PageSettingSchema: Schema<IPageSetting> = new Schema({
   backgroundImages: [{ type: String, required: true }],
   textGradientFrom: { type: String, required: false },
   textGradientTo: { type: String, required: false },
+  typingOptions: [{ type: String, required: false, trim: true }], // Options for typing effect (e.g., "wedding platform", "corporate wedding")
   updatedBy: { type: Schema.Types.ObjectId, ref: 'User' }
 }, {
   timestamps: true,

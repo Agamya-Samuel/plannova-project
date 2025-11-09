@@ -289,6 +289,7 @@ export default function VenueDetailsPage() {
                   width={1170}
                   height={600}
                   className="w-full h-96 object-cover"
+                  unoptimized={(venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : '').includes('s3.tebi.io') || (venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : '').includes('s3.')}
                 />
                 <div className="absolute top-4 left-4 flex space-x-2">
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
@@ -322,6 +323,7 @@ export default function VenueDetailsPage() {
                           width={80}
                           height={80}
                           className="w-full h-full object-cover"
+                          unoptimized={image.url.includes('s3.tebi.io') || image.url.includes('s3.')}
                         />
                       </button>
                     ))}
