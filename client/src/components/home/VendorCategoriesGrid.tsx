@@ -300,9 +300,9 @@ export default function VendorCategoriesGrid() {
                 className="group cursor-pointer"
                 onClick={() => handleClick(card.href)}
               >
-                <div className="relative overflow-hidden rounded-2xl shadow-lg">
+                <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
                   {card.hasImage ? (
-                    <div className="relative overflow-hidden h-64">
+                    <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
                       <SwipeImageCarousel 
                         images={card.images} 
                         alt={card.title} 
