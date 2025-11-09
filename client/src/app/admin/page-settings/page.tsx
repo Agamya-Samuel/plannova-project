@@ -13,9 +13,12 @@ type PageSettingsDto = {
   key: string;
   title: string;
   description?: string;
-  backgroundImages: string[];
+  backgroundImages?: string[]; // Legacy field - kept for backward compatibility
+  backgroundImagesMobile?: string[]; // Images optimized for mobile devices
+  backgroundImagesLaptop?: string[]; // Images optimized for laptop/desktop devices
   textGradientFrom?: string;
   textGradientTo?: string;
+  typingOptions?: string[]; // Array of options for typing effect (e.g., "wedding platform", "corporate wedding")
 };
 
 const PAGE_KEY = 'home';
@@ -27,9 +30,11 @@ export default function AdminPageSettings() {
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [backgroundImages, setBackgroundImages] = useState<string[]>(['']);
+  const [backgroundImagesMobile, setBackgroundImagesMobile] = useState<string[]>(['']); // Images for mobile devices
+  const [backgroundImagesLaptop, setBackgroundImagesLaptop] = useState<string[]>(['']); // Images for laptop/desktop devices
   const [textGradientFrom, setTextGradientFrom] = useState<string>('');
   const [textGradientTo, setTextGradientTo] = useState<string>('');
+  const [typingOptions, setTypingOptions] = useState<string[]>(['']); // Options for typing effect
 
   // Fetch existing settings
   const fetchSettings = async () => {
@@ -38,9 +43,12 @@ export default function AdminPageSettings() {
       const res = await apiClient.get<PageSettingsDto>(`/page-settings/${PAGE_KEY}`);
       setTitle(res.data.title || '');
       setDescription(res.data.description || '');
-      setBackgroundImages(res.data.backgroundImages?.length ? res.data.backgroundImages : ['']);
+      // Load mobile and laptop images, fallback to legacy backgroundImages if needed
+      setBackgroundImagesMobile(res.data.backgroundImagesMobile?.length ? res.data.backgroundImagesMobile : (res.data.backgroundImages?.length ? res.data.backgroundImages : ['']));
+      setBackgroundImagesLaptop(res.data.backgroundImagesLaptop?.length ? res.data.backgroundImagesLaptop : (res.data.backgroundImages?.length ? res.data.backgroundImages : ['']));
       setTextGradientFrom(res.data.textGradientFrom || '');
       setTextGradientTo(res.data.textGradientTo || '');
+      setTypingOptions(res.data.typingOptions?.length ? res.data.typingOptions : ['']);
     } catch {
       // If not found, keep defaults and allow creating
       if (process.env.NODE_ENV === 'development') {
@@ -55,29 +63,56 @@ export default function AdminPageSettings() {
     fetchSettings();
   }, []);
 
-  const addImageField = () => setBackgroundImages((prev) => [...prev, '']);
-  const removeImageField = (index: number) => setBackgroundImages((prev) => prev.filter((_, i) => i !== index));
-  const updateImage = (index: number, value: string) =>
-    setBackgroundImages((prev) => prev.map((v, i) => (i === index ? value : v)));
+  // Mobile image management functions
+  const addMobileImageField = () => setBackgroundImagesMobile((prev) => [...prev, '']);
+  const removeMobileImageField = (index: number) => setBackgroundImagesMobile((prev) => prev.filter((_, i) => i !== index));
+  const updateMobileImage = (index: number, value: string) =>
+    setBackgroundImagesMobile((prev) => prev.map((v, i) => (i === index ? value : v)));
+  
+  // Laptop image management functions
+  const addLaptopImageField = () => setBackgroundImagesLaptop((prev) => [...prev, '']);
+  const removeLaptopImageField = (index: number) => setBackgroundImagesLaptop((prev) => prev.filter((_, i) => i !== index));
+  const updateLaptopImage = (index: number, value: string) =>
+    setBackgroundImagesLaptop((prev) => prev.map((v, i) => (i === index ? value : v)));
+  
+  // Typing options management functions
+  const addTypingOption = () => setTypingOptions((prev) => [...prev, '']);
+  const removeTypingOption = (index: number) => setTypingOptions((prev) => prev.filter((_, i) => i !== index));
+  const updateTypingOption = (index: number, value: string) =>
+    setTypingOptions((prev) => prev.map((v, i) => (i === index ? value : v)));
 
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error('Title is required');
       return;
     }
-    const cleaned = backgroundImages.map((u) => u.trim()).filter((u) => u.length > 0);
-    if (cleaned.length === 0) {
-      toast.error('Add at least one background image URL');
+    // Clean mobile and laptop images - remove empty strings
+    const cleanedMobile = backgroundImagesMobile.map((u) => u.trim()).filter((u) => u.length > 0);
+    const cleanedLaptop = backgroundImagesLaptop.map((u) => u.trim()).filter((u) => u.length > 0);
+    
+    // Require at least one image for each device type
+    if (cleanedMobile.length === 0) {
+      toast.error('Add at least one mobile background image URL');
       return;
     }
+    if (cleanedLaptop.length === 0) {
+      toast.error('Add at least one laptop background image URL');
+      return;
+    }
+    
     try {
       setSaving(true);
+      // Clean typing options - remove empty strings
+      const cleanedTypingOptions = typingOptions.map((opt) => opt.trim()).filter((opt) => opt.length > 0);
+      
       await apiClient.put(`/page-settings/${PAGE_KEY}`, {
         title: title.trim(),
         description: description.trim() || undefined,
-        backgroundImages: cleaned,
+        backgroundImagesMobile: cleanedMobile,
+        backgroundImagesLaptop: cleanedLaptop,
         textGradientFrom: textGradientFrom || undefined,
         textGradientTo: textGradientTo || undefined,
+        typingOptions: cleanedTypingOptions.length > 0 ? cleanedTypingOptions : undefined,
       });
       await fetchSettings();
       toast.success('Page settings saved');
@@ -166,25 +201,95 @@ export default function AdminPageSettings() {
             />
           </div>
 
+          {/* Mobile Background Images Section */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="block text-sm font-medium text-gray-700">Background Image URLs</label>
-              <Button variant="ghost" onClick={addImageField} disabled={loading}>
+              <label className="block text-sm font-medium text-gray-700">
+                Mobile Background Image URLs
+                <span className="text-xs text-gray-500 ml-2">(Shown on mobile devices)</span>
+              </label>
+              <Button variant="ghost" onClick={addMobileImageField} disabled={loading}>
                 <Plus className="h-4 w-4 mr-1" /> Add URL
               </Button>
             </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Add multiple images to enable random selection. Images will be randomly displayed on mobile devices.
+            </p>
             <div className="space-y-3">
-              {backgroundImages.map((url, index) => (
+              {backgroundImagesMobile.map((url, index) => (
                 <div key={index} className="flex items-center gap-2">
                   <input
                     type="url"
                     value={url}
-                    onChange={(e) => updateImage(index, e.target.value)}
+                    onChange={(e) => updateMobileImage(index, e.target.value)}
                     className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
-                    placeholder="https://example.com/image.jpg"
+                    placeholder="https://example.com/mobile-image.jpg"
                     disabled={loading}
                   />
-                  <Button variant="destructive" onClick={() => removeImageField(index)} disabled={loading || backgroundImages.length === 1}>
+                  <Button variant="destructive" onClick={() => removeMobileImageField(index)} disabled={loading || backgroundImagesMobile.length === 1}>
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Laptop Background Images Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Laptop/Desktop Background Image URLs
+                <span className="text-xs text-gray-500 ml-2">(Shown on laptop and desktop devices)</span>
+              </label>
+              <Button variant="ghost" onClick={addLaptopImageField} disabled={loading}>
+                <Plus className="h-4 w-4 mr-1" /> Add URL
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Add multiple images to enable random selection. Images will be randomly displayed on laptop and desktop devices.
+            </p>
+            <div className="space-y-3">
+              {backgroundImagesLaptop.map((url, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="url"
+                    value={url}
+                    onChange={(e) => updateLaptopImage(index, e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="https://example.com/laptop-image.jpg"
+                    disabled={loading}
+                  />
+                  <Button variant="destructive" onClick={() => removeLaptopImageField(index)} disabled={loading || backgroundImagesLaptop.length === 1}>
+                    <Trash className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Typing Options Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">Typing Effect Options</label>
+              <Button variant="ghost" onClick={addTypingOption} disabled={loading}>
+                <Plus className="h-4 w-4 mr-1" /> Add Option
+              </Button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              These options will cycle through with a typing effect below &quot;Welcome to Plannova&quot; (e.g., &quot;wedding platform&quot;, &quot;corporate wedding&quot;)
+            </p>
+            <div className="space-y-3">
+              {typingOptions.map((option, index) => (
+                <div key={index} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={option}
+                    onChange={(e) => updateTypingOption(index, e.target.value)}
+                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 focus:ring-2 focus:ring-pink-500 focus:border-transparent bg-white text-gray-900 placeholder-gray-400"
+                    placeholder="e.g., wedding platform"
+                    disabled={loading}
+                  />
+                  <Button variant="destructive" onClick={() => removeTypingOption(index)} disabled={loading || typingOptions.length === 1}>
                     <Trash className="h-4 w-4" />
                   </Button>
                 </div>

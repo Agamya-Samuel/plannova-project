@@ -10,7 +10,8 @@ export enum BlogStatus {
 export interface IBlog extends Document {
   title: string;
   slug?: string; // URL-friendly slug generated from title
-  coverImageUrl?: string;
+  coverImageUrl?: string; // Kept for backward compatibility
+  images?: string[]; // Array of image URLs for multiple images
   excerpt?: string;
   content?: string;
   status: BlogStatus;
@@ -39,6 +40,26 @@ const BlogSchema = new Schema<IBlog>({
     type: String,
     required: false,
     trim: true
+  },
+  images: {
+    type: [String],
+    required: false,
+    default: [],
+    validate: {
+      validator: function(images: string[]) {
+        // Validate each image URL in the array
+        return images.every(url => {
+          if (!url || url.trim() === '') return false;
+          try {
+            new URL(url);
+            return true;
+          } catch {
+            return false;
+          }
+        });
+      },
+      message: 'Each image URL must be a valid URL'
+    }
   },
   excerpt: {
     type: String,

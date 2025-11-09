@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -28,12 +28,18 @@ export default function Home() {
   const [loadingVenues, setLoadingVenues] = useState(false);
   // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
-  const [pageTitle, setPageTitle] = useState<string>('');
-  const [bgImages, setBgImages] = useState<string[]>([]);
+  // Note: pageTitle is fetched but not used - title is hardcoded as "Welcome to Plannova"
+  const [bgImages, setBgImages] = useState<string[]>([]); // Legacy field - kept for backward compatibility
+  const [bgImagesMobile, setBgImagesMobile] = useState<string[]>([]); // Images for mobile devices
+  const [bgImagesLaptop, setBgImagesLaptop] = useState<string[]>([]); // Images for laptop/desktop devices
   const [pageDescription, setPageDescription] = useState<string>('');
   const [bgIndex, setBgIndex] = useState<number>(0);
+  const [isMobile, setIsMobile] = useState<boolean>(false); // Track if device is mobile
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
+  const [typingOptions, setTypingOptions] = useState<string[]>([]); // Options for typing effect
+  // Track current image index for each venue category to enable image cycling
+  const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   
   // Convert common sharing links to direct image URLs so background works from
   // services like Google Drive or Dropbox. If parsing fails, we return the
@@ -68,11 +74,37 @@ export default function Home() {
     }
     return input;
   }
-  // Typing effect state for the homepage title. We keep this local so
-  // admins can still change the title dynamically via page settings.
-  const [typedTitle, setTypedTitle] = useState<string>('');
+  // Typing effect state for the typing options (not the title).
+  // The title "Welcome to Plannova" is static, but options cycle through with typing effect.
+  const [typedOption, setTypedOption] = useState<string>('');
   const [typeIndex, setTypeIndex] = useState<number>(0);
   const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
+  const [currentOptionIndex, setCurrentOptionIndex] = useState<number>(0); // Which option we're currently typing
+
+  // Detect if device is mobile or laptop/desktop
+  useEffect(() => {
+    // Function to check if device is mobile
+    const checkIsMobile = () => {
+      // Check window width - mobile devices are typically < 768px
+      // Also check user agent for mobile devices
+      const isMobileWidth = typeof window !== 'undefined' && window.innerWidth < 768;
+      const isMobileUserAgent = typeof window !== 'undefined' && /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      return isMobileWidth || isMobileUserAgent;
+    };
+    
+    // Set initial mobile state
+    setIsMobile(checkIsMobile());
+    
+    // Listen for window resize to update mobile state
+    const handleResize = () => {
+      setIsMobile(checkIsMobile());
+    };
+    
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+    }
+  }, []);
 
   useEffect(() => {
     // Prevent duplicate requests and handle rate limiting
@@ -108,15 +140,31 @@ export default function Home() {
         const res = await apiClient.get('/page-settings/home');
         if (!cancelled) {
           const data = res?.data || {};
-          setPageTitle(typeof data.title === 'string' ? data.title : '');
-          const imgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
-          setBgImages(imgs);
-          if (imgs.length > 0) {
-            setBgIndex(Math.floor(Math.random() * imgs.length));
+          // Note: title is fetched but not used - homepage title is hardcoded
+          // Load mobile and laptop images, fallback to legacy backgroundImages if needed
+          const mobileImgs = Array.isArray(data.backgroundImagesMobile) && data.backgroundImagesMobile.length > 0 
+            ? data.backgroundImagesMobile 
+            : (Array.isArray(data.backgroundImages) ? data.backgroundImages : []);
+          const laptopImgs = Array.isArray(data.backgroundImagesLaptop) && data.backgroundImagesLaptop.length > 0 
+            ? data.backgroundImagesLaptop 
+            : (Array.isArray(data.backgroundImages) ? data.backgroundImages : []);
+          const legacyImgs = Array.isArray(data.backgroundImages) ? data.backgroundImages : [];
+          
+          setBgImagesMobile(mobileImgs);
+          setBgImagesLaptop(laptopImgs);
+          setBgImages(legacyImgs); // Keep for backward compatibility
+          
+          // Set initial random index based on device type
+          // This will be updated when isMobile state is determined
+          const initialImgs = mobileImgs.length > 0 ? mobileImgs : (laptopImgs.length > 0 ? laptopImgs : legacyImgs);
+          if (initialImgs.length > 0) {
+            setBgIndex(Math.floor(Math.random() * initialImgs.length));
           }
+          
           setPageDescription(typeof data.description === 'string' ? data.description : '');
           setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
           setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
+          setTypingOptions(Array.isArray(data.typingOptions) && data.typingOptions.length > 0 ? data.typingOptions : []);
         }
       } catch {
         // If not configured yet, keep defaults (no title rendered)
@@ -134,61 +182,207 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
-
-  // Reset typing state when title changes
+  
+  // Update background index when device type or image arrays change
   useEffect(() => {
-    setTypedTitle('');
+    // Select appropriate image array based on device type
+    const currentImages = isMobile ? bgImagesMobile : bgImagesLaptop;
+    // Fallback to legacy images if device-specific images are not available
+    const imagesToUse = currentImages.length > 0 ? currentImages : bgImages;
+    
+    if (imagesToUse.length > 0) {
+      // Set random index when images change or device type changes
+      setBgIndex(Math.floor(Math.random() * imagesToUse.length));
+    }
+  }, [isMobile, bgImagesMobile, bgImagesLaptop, bgImages]);
+
+  // Reset typing state when typing options change
+  useEffect(() => {
+    if (typingOptions.length === 0) {
+      setTypedOption('');
+      setTypeIndex(0);
+      setCurrentOptionIndex(0);
+      setTypingDirection('forward');
+      return;
+    }
+    // Reset to first option when options change
+    setTypedOption('');
     setTypeIndex(0);
+    setCurrentOptionIndex(0);
     setTypingDirection('forward');
-  }, [pageTitle]);
+  }, [typingOptions]);
 
-  // Infinite typing loop: type forward, pause, delete backward, pause, repeat
+  // Infinite typing loop for options: type forward, pause, delete backward, move to next option, repeat
   useEffect(() => {
-    if (!pageTitle) return;
+    if (typingOptions.length === 0) return;
+    
+    const currentOption = typingOptions[currentOptionIndex];
+    if (!currentOption) return;
+    
     const atStart = typeIndex === 0 && typingDirection === 'backward';
-    const atEnd = typeIndex === pageTitle.length && typingDirection === 'forward';
-    const edgePauseMs = 1200;
-    const stepMs = 60;
+    const atEnd = typeIndex === currentOption.length && typingDirection === 'forward';
+    const edgePauseMs = 1200; // Pause at start/end
+    const stepMs = 60; // Typing speed
     const delay = atStart || atEnd ? edgePauseMs : stepMs;
 
     const timeout = setTimeout(() => {
       if (typingDirection === 'forward') {
-        if (typeIndex < pageTitle.length) {
+        if (typeIndex < currentOption.length) {
+          // Still typing forward
           const next = typeIndex + 1;
           setTypeIndex(next);
-          setTypedTitle(pageTitle.slice(0, next));
+          setTypedOption(currentOption.slice(0, next));
         } else {
+          // Finished typing, start deleting
           setTypingDirection('backward');
         }
       } else {
+        // Deleting backward
         if (typeIndex > 0) {
           const next = typeIndex - 1;
           setTypeIndex(next);
-          setTypedTitle(pageTitle.slice(0, next));
+          setTypedOption(currentOption.slice(0, next));
         } else {
+          // Finished deleting, move to next option
+          const nextOptionIndex = (currentOptionIndex + 1) % typingOptions.length;
+          setCurrentOptionIndex(nextOptionIndex);
           setTypingDirection('forward');
         }
       }
     }, delay);
 
     return () => clearTimeout(timeout);
-  }, [pageTitle, typeIndex, typingDirection]);
+  }, [typingOptions, currentOptionIndex, typeIndex, typingDirection]);
 
   // Rotate background images randomly every 10 seconds if multiple provided
+  // Uses device-appropriate image array (mobile or laptop)
   useEffect(() => {
-    if (bgImages.length <= 1) return;
+    // Select appropriate image array based on device type
+    const currentImages = isMobile ? bgImagesMobile : bgImagesLaptop;
+    // Fallback to legacy images if device-specific images are not available
+    const imagesToUse = currentImages.length > 0 ? currentImages : bgImages;
+    
+    if (imagesToUse.length <= 1) return;
+    
     const interval = setInterval(() => {
       setBgIndex((current) => {
-        if (bgImages.length <= 1) return 0;
-        let next = Math.floor(Math.random() * bgImages.length);
+        if (imagesToUse.length <= 1) return 0;
+        let next = Math.floor(Math.random() * imagesToUse.length);
         if (next === current) {
-          next = (current + 1) % bgImages.length; // ensure change
+          next = (current + 1) % imagesToUse.length; // ensure change
         }
         return next;
       });
     }, 10000);
     return () => clearInterval(interval);
-  }, [bgImages]);
+  }, [isMobile, bgImagesMobile, bgImagesLaptop, bgImages]);
+
+  // Component for stable crossfade image transitions
+  // Uses same logic as vendor categories grid - no remounting, no jitter
+  const SwipeImageCarousel = ({ 
+    images, 
+    alt, 
+    priority,
+    currentIndex 
+  }: { 
+    images: string[]; 
+    alt: string; 
+    priority?: boolean;
+    currentIndex: number;
+  }) => {
+    // Initialize displayIndex from currentIndex
+    const [displayIndex, setDisplayIndex] = useState(() => currentIndex % (images.length || 1));
+    const [overlayOpacity, setOverlayOpacity] = useState(0);
+    const [nextImageUrl, setNextImageUrl] = useState<string | null>(null);
+    const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Update display index when current index changes
+    useEffect(() => {
+      if (images.length === 0) return;
+      const safeIndex = currentIndex % images.length;
+      
+      // If already showing this image and no transition in progress, do nothing
+      if (safeIndex === displayIndex && !nextImageUrl) return;
+      
+      // If different image, start transition
+      if (safeIndex !== displayIndex) {
+        // Clear any existing transition first
+        if (transitionTimerRef.current) {
+          clearTimeout(transitionTimerRef.current);
+          transitionTimerRef.current = null;
+        }
+        
+        const nextImg = images[safeIndex] || images[0];
+        setNextImageUrl(nextImg);
+        
+        // Start fade in after a brief delay
+        const fadeTimer = setTimeout(() => {
+          setOverlayOpacity(1);
+        }, 50);
+        
+        // After transition completes, update base image
+        transitionTimerRef.current = setTimeout(() => {
+          setDisplayIndex(safeIndex);
+          setOverlayOpacity(0);
+          setNextImageUrl(null);
+          transitionTimerRef.current = null;
+        }, 2500);
+        
+        return () => {
+          clearTimeout(fadeTimer);
+          if (transitionTimerRef.current) {
+            clearTimeout(transitionTimerRef.current);
+            transitionTimerRef.current = null;
+          }
+        };
+      }
+    }, [currentIndex, displayIndex, images, nextImageUrl]);
+
+    if (images.length === 0) {
+      return (
+        <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+          <span className="text-gray-600 font-semibold">No image available</span>
+        </div>
+      );
+    }
+
+    const currentImage = images[displayIndex] || images[0];
+
+    return (
+      <div className="w-full h-64 relative overflow-hidden">
+        {/* Base image layer - always visible */}
+        <div className="absolute inset-0 w-full h-full">
+          <Image
+            src={currentImage}
+            alt={alt}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover"
+            priority={priority}
+            unoptimized={currentImage.includes('s3.tebi.io') || currentImage.includes('s3.')}
+          />
+        </div>
+        
+        {/* Overlay image layer - fades in when transitioning */}
+        {nextImageUrl && (
+          <div 
+            className="absolute inset-0 w-full h-full transition-opacity duration-[2500ms] ease-in-out"
+            style={{ opacity: overlayOpacity }}
+          >
+            <Image
+              src={nextImageUrl}
+              alt={alt}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+              priority={false}
+              unoptimized={nextImageUrl.includes('s3.tebi.io') || nextImageUrl.includes('s3.')}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const handleCategoryClick = (categoryTitle: string) => {
     // Map category titles to venue types for filtering
@@ -250,47 +444,120 @@ export default function Home() {
     }
   ]), []);
 
+  // Helper function to shuffle array randomly
+  // This ensures images from all venues of a type are shown in random order
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   const categoryCards = useMemo(() => {
     return categoryDefs.map(def => {
       const items = venues.filter(def.match);
       const count = items.length;
-      const cover = items.find(v => (v.images?.length || 0) > 0);
-      const image = cover?.images?.find(i => i.isPrimary)?.url || cover?.images?.[0]?.url || '';
+      
+      // Collect all images from all venues of this type
+      const allImages: string[] = [];
+      
+      // Iterate through all venues of this type and collect their images
+      items.forEach(venue => {
+        if (venue.images && venue.images.length > 0) {
+          venue.images.forEach(img => {
+            if (img.url) {
+              allImages.push(img.url);
+            }
+          });
+        }
+      });
+      
+      // Remove duplicates while preserving order
+      const uniqueImages = Array.from(new Set(allImages));
+      
+      // Shuffle images randomly so different images appear on each page load
+      const shuffledImages = shuffleArray(uniqueImages);
+      
       return {
         title: def.title,
-        image,
-        venuesText: image ? `${count} Venues` : 'Unavailable',
+        images: shuffledImages, // Now returns array of all images instead of single image
+        venuesText: shuffledImages.length > 0 ? `${count} Venues` : 'Unavailable',
         location: def.cities,
-        hasImage: Boolean(image),
-      } as { title: string; image?: string; venuesText: string; location: string; hasImage: boolean };
+        hasImage: shuffledImages.length > 0,
+      } as { title: string; images: string[]; venuesText: string; location: string; hasImage: boolean };
     });
   }, [venues, categoryDefs]);
+
+  // Periodically cycle through images for each venue category with smooth transitions
+  // Similar to vendor categories grid - cycles every 6 seconds
+  // Must be defined after categoryCards to avoid reference error
+  useEffect(() => {
+    if (categoryCards.length === 0) return;
+    
+    // Cycle images every 6 seconds to allow very slow, smooth transitions
+    const INTERVAL_MS = 6000;
+    const id = setInterval(() => {
+      setImageIndices(prev => {
+        const next = { ...prev };
+        // Update each category's index based on available images
+        categoryCards.forEach(card => {
+          if (card.images.length > 1) {
+            next[card.title] = ((next[card.title] || 0) + 1) % card.images.length;
+          }
+        });
+        return next;
+      });
+    }, INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [categoryCards]);
 
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Background Image */}
       <div className="relative min-h-[80vh] bg-gradient-to-r from-pink-600 to-purple-600 overflow-hidden">
         {/* Background Image Overlay */}
-        <div 
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-md transform-gpu scale-110"
-          style={bgImages.length > 0 ? { backgroundImage: `url(${normalizeImageUrl(bgImages[bgIndex])})` } : undefined}
-        />
+        {/* Select appropriate image array based on device type, with fallback to legacy images */}
+        {(() => {
+          const currentImages = isMobile ? bgImagesMobile : bgImagesLaptop;
+          const imagesToUse = currentImages.length > 0 ? currentImages : bgImages;
+          const currentImage = imagesToUse[bgIndex] || imagesToUse[0];
+          
+          return (
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-sm transform-gpu scale-105"
+              style={currentImage ? { backgroundImage: `url(${normalizeImageUrl(currentImage)})` } : undefined}
+            />
+          );
+        })()}
         
-        {/* Gradient/Darken Overlay to improve text readability */}
-        <div className="absolute inset-0 bg-black/30" />
+        {/* Gradient/Darken Overlay to improve text readability - reduced opacity for better image visibility */}
+        <div className="absolute inset-0 bg-black/15" />
         
         {/* Hero Content */}
         <div className="relative z-10 flex items-center justify-center min-h-[80vh] px-4">
           <div className="text-center text-white max-w-4xl mx-auto">
-            {pageTitle ? (
-              <h1
-                className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
+            {/* Static "Welcome to Plannova" title - no typing effect */}
+            <h1
+              className={`text-5xl md:text-7xl font-extrabold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : ''}`}
+              style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
+            >
+              Welcome to Plannova
+            </h1>
+            
+            {/* Typing effect for options added by admin through page settings */}
+            {typingOptions.length > 0 && (
+              <h2
+                className={`text-3xl md:text-5xl font-bold mb-6 leading-tight ${textFrom && textTo ? 'bg-clip-text text-transparent' : 'text-white'}`}
                 style={textFrom && textTo ? { backgroundImage: `linear-gradient(90deg, ${textFrom}, ${textTo})` } : undefined}
               >
-                {typedTitle || pageTitle}
+                {typedOption}
                 <span className="ml-1 animate-pulse">|</span>
-              </h1>
-            ) : null}
+              </h2>
+            )}
+            
+            {/* Description (if provided) */}
             {pageDescription ? (
               <p
                 className={`text-xl md:text-2xl mb-8 max-w-2xl mx-auto ${textFrom && textTo ? 'bg-clip-text text-transparent' : 'text-pink-100'}`}
@@ -354,36 +621,40 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {categoryCards.slice(0, 6).map((category, index) => (
-              <div 
-                key={index} 
-                className="group cursor-pointer"
-                onClick={() => handleCategoryClick(category.title)}
-              >
-                <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                  {category.hasImage ? (
-                    <Image 
-                      src={category.image as string} 
-                      alt={category.title}
-                      width={800}
-                      height={256}
-                      className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
-                      priority={index === 0}
-                    />
-                  ) : (
-                    <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-600 font-semibold">No image available</span>
+            {categoryCards.slice(0, 6).map((category, index) => {
+              const currentIndex = imageIndices[category.title] || 0;
+              
+              return (
+                <div 
+                  key={index} 
+                  className="group cursor-pointer"
+                  onClick={() => handleCategoryClick(category.title)}
+                >
+                  <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+                    {category.hasImage ? (
+                      <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
+                        <SwipeImageCarousel 
+                          images={category.images} 
+                          alt={category.title} 
+                          priority={index === 0}
+                          currentIndex={currentIndex}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-600 font-semibold">No image available</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-6 left-6 text-white">
+                      <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
+                      <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
+                      <p className="text-sm text-gray-300">{category.location}</p>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-6 left-6 text-white">
-                    <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
-                    <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
-                    <p className="text-sm text-gray-300">{category.location}</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {/* Browse more venues button - navigates to full venues page */}
           <div className="mt-10 flex justify-center">

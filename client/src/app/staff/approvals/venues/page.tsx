@@ -507,13 +507,19 @@ export default function StaffVenueApprovalsPage() {
                             {/* Show pending images if in pending edit status, otherwise show current images */}
                             {(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).length > 0 ? (
                               <>
-                                <Image
-                                  src={(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images).find((img: { isPrimary: boolean; }) => img.isPrimary)?.url || 
-                                  ((venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images)[0]?.url) || '/placeholder-image.jpg'}
-                                  alt={venue.name}
-                                  fill
-                                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
+                                {(() => {
+                                  const images = (venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images && venue.pendingEdits.images.length > 0 ? venue.pendingEdits.images : venue.images);
+                                  const imageUrl = images.find((img: { isPrimary: boolean; }) => img.isPrimary)?.url || images[0]?.url || '/placeholder-image.jpg';
+                                  return (
+                                    <Image
+                                      src={imageUrl}
+                                      alt={venue.name}
+                                      fill
+                                      className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                      unoptimized={imageUrl.includes('s3.tebi.io') || imageUrl.includes('s3.')}
+                                    />
+                                  );
+                                })()}
                                 {/* Overlay on hover */}
                                 <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                                   <div className="bg-white/90 backdrop-blur-sm text-gray-900 px-3 py-1 rounded-full text-xs font-medium">

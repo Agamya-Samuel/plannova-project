@@ -27,7 +27,8 @@ import {
   BarChart3,
   FileCheck,
   FileClock,
-  Heart
+  Heart,
+  Loader2
 } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api';
@@ -87,8 +88,9 @@ export default function AccountSettingsPage() {
   const [loadingBlogStats, setLoadingBlogStats] = useState(false);
 
   // Check if user can manage blogs
+  // All authenticated users (Admin, Staff, Provider, Customer) can manage their own blogs
   const canManageBlogsBool = React.useMemo(() => {
-    return Boolean(user && ['ADMIN', 'STAFF', 'PROVIDER'].includes(user.role || ''));
+    return Boolean(user && ['ADMIN', 'STAFF', 'PROVIDER', 'CUSTOMER'].includes(user.role || ''));
   }, [user]);
 
   // Admin/Staff-only access for Past Events
@@ -98,35 +100,211 @@ export default function AccountSettingsPage() {
 
   useEffect(() => {
     const fetchBlogStats = async () => {
-      if (!canManageBlogsBool || activeSection !== 'blogs') return;
+      if (!canManageBlogsBool || activeSection !== 'blogs' || !user) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Blog Stats: Skipping fetch', {
+            canManageBlogsBool,
+            activeSection,
+            hasUser: !!user,
+            userRole: user?.role
+          });
+        }
+        return;
+      }
+      
       setLoadingBlogStats(true);
       try {
-        // Fetch counts with minimal payload; rely on pagination.total
-        const [allRes, pubRes, draftRes] = await Promise.all([
-          apiClient.get('/blogs', { params: { status: 'all', page: 1, limit: 1 } }),
-          apiClient.get('/blogs', { params: { status: 'published', page: 1, limit: 1 } }),
-          apiClient.get('/blogs', { params: { status: 'draft', page: 1, limit: 1 } })
-        ]);
+        // Use new simplified API endpoints for better performance and accuracy
+        const isAdmin = user.role === 'ADMIN';
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Blog Stats: Starting fetch', {
+            userId: user.id,
+            userRole: user.role,
+            isAdmin
+          });
+        }
+        
+        // For non-admin users, use the simplified endpoints which automatically filter by user
+        // For admin, we need to fetch all published posts
+        let totalRes, myPostsRes, draftsRes;
+        
+        if (isAdmin) {
+          // Admin: fetch all published posts for "Total Posts"
+          const totalParams: Record<string, string> = { 
+            page: '1', 
+            limit: '1',
+            status: 'published'
+          };
+          
+          [totalRes, myPostsRes, draftsRes] = await Promise.all([
+            apiClient.get('/blogs', { params: totalParams }).catch(err => {
+              console.error('Error fetching total blogs:', err);
+              throw err;
+            }),
+            apiClient.get('/blogs/my').catch(err => {
+              console.error('Error fetching my blogs:', err);
+              throw err;
+            }),
+            apiClient.get('/blogs/drafts').catch(err => {
+              console.error('Error fetching drafts:', err);
+              throw err;
+            })
+          ]);
+        } else {
+          // Non-admin: "Total Posts" should show ALL published posts from ALL users
+          // "My Posts" shows only their own published posts
+          // So we need to fetch all published posts (public) for Total Posts
+          const axios = (await import('axios')).default;
+          const publicApiClient = axios.create({
+            baseURL: process.env.NEXT_PUBLIC_API_URL,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+          
+          const totalParams: Record<string, string> = { 
+            page: '1', 
+            limit: '1',
+            status: 'published'
+          };
+          
+          [totalRes, myPostsRes, draftsRes] = await Promise.all([
+            // Total Posts: ALL published posts from ALL users (public request, no auth)
+            publicApiClient.get('/blogs', { params: totalParams }).catch(err => {
+              console.error('Error fetching total blogs (non-admin):', err);
+              throw err;
+            }),
+            // My Posts: Only user's own published posts
+            apiClient.get('/blogs/my').catch(err => {
+              console.error('Error fetching my blogs (non-admin):', err);
+              throw err;
+            }),
+            // Drafts: Only user's own drafts
+            apiClient.get('/blogs/drafts').catch(err => {
+              console.error('Error fetching drafts (non-admin):', err);
+              throw err;
+            })
+          ]);
+        }
 
-        const total = allRes.data?.pagination?.total || 0;
-        const published = pubRes.data?.pagination?.total || 0;
-        const drafts = draftRes.data?.pagination?.total || 0;
+        // Verify responses are successful
+        if (!totalRes || totalRes.status !== 200) {
+          console.error('Total blogs API call failed:', totalRes?.status, totalRes?.data);
+        }
+        if (!myPostsRes || myPostsRes.status !== 200) {
+          console.error('My blogs API call failed:', myPostsRes?.status, myPostsRes?.data);
+        }
+        if (!draftsRes || draftsRes.status !== 200) {
+          console.error('Drafts API call failed:', draftsRes?.status, draftsRes?.data);
+        }
+        
+        // Extract counts from pagination totals
+        // Handle different response structures
+        const total = totalRes?.data?.pagination?.total ?? totalRes?.data?.total ?? 0;
+        const myPosts = myPostsRes?.data?.pagination?.total ?? myPostsRes?.data?.total ?? 0;
+        const drafts = draftsRes?.data?.pagination?.total ?? draftsRes?.data?.total ?? 0;
+        
+        // Debug logging (only in development)
+        if (process.env.NODE_ENV === 'development') {
+          console.log('Blog Stats (using new API endpoints):', {
+            total,
+            myPosts,
+            drafts,
+            userId: user.id,
+            userRole: user.role,
+            isAdmin,
+            totalResponse: totalRes?.data,
+            myPostsResponse: myPostsRes?.data,
+            draftsResponse: draftsRes?.data,
+            totalResponseKeys: totalRes?.data ? Object.keys(totalRes.data) : [],
+            myPostsResponseKeys: myPostsRes?.data ? Object.keys(myPostsRes.data) : [],
+            draftsResponseKeys: draftsRes?.data ? Object.keys(draftsRes.data) : [],
+            totalStatus: totalRes?.status,
+            myPostsStatus: myPostsRes?.status,
+            draftsStatus: draftsRes?.status
+          });
+        }
+        
+        // Additional validation - check if responses are valid
+        if (!totalRes || !myPostsRes || !draftsRes) {
+          console.error('One or more API responses are missing:', {
+            hasTotalRes: !!totalRes,
+            hasMyPostsRes: !!myPostsRes,
+            hasDraftsRes: !!draftsRes
+          });
+        }
 
         setBlogStats({
           total,
-          published,
+          published: myPosts, // Store as "published" - represents user's published posts
           drafts,
           lastUpdated: new Date().toISOString()
         });
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('Failed to load blog stats', error);
+        // Log detailed error information for debugging
+        // Type guard to safely access error properties
+        const errorStatus = (error as { response?: { status?: number } })?.response?.status;
+        const errorMessage = 
+          (error as { response?: { data?: { error?: string } } })?.response?.data?.error || 
+          (error as { message?: string })?.message || 
+          'Unknown error';
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Blog Stats Error Details:', {
+            error,
+            errorMessage,
+            errorResponse: (error as { response?: { data?: unknown } })?.response?.data,
+            errorStatus,
+            userId: user?.id,
+            userRole: user?.role,
+            canManageBlogs: canManageBlogsBool,
+            errorConfig: (error as { config?: unknown })?.config
+          });
+        }
+        
+        // Show user-friendly error message for authentication/authorization errors
+        if (errorStatus === 401 || errorStatus === 403) {
+          console.error('Authentication/Authorization error when fetching blog stats. User may need to log in again.');
+          // Don't show toast here as it might be annoying, but log it
+        } else if (errorStatus && errorStatus >= 500) {
+          console.error('Server error when fetching blog stats:', errorMessage);
+        }
+        
+        // Set stats to 0 on error to avoid showing stale data
+        setBlogStats({
+          total: 0,
+          published: 0,
+          drafts: 0,
+          lastUpdated: null
+        });
       } finally {
         setLoadingBlogStats(false);
       }
     };
 
+    // Always fetch fresh stats when the blogs section is active
+    // This ensures deleted blogs are not counted
     fetchBlogStats();
-  }, [activeSection, canManageBlogsBool]);
+  }, [activeSection, canManageBlogsBool, user]);
+  
+  // Listen for refresh event to manually refresh stats
+  useEffect(() => {
+    const handleRefresh = () => {
+      if (activeSection === 'blogs' && canManageBlogsBool && user) {
+          // Force a refresh by temporarily changing a dependency
+          // This will trigger the fetchBlogStats useEffect
+          setLoadingBlogStats(true);
+          // The useEffect will handle the actual fetch
+        }
+    };
+    
+    window.addEventListener('refreshBlogStats', handleRefresh);
+    return () => {
+      window.removeEventListener('refreshBlogStats', handleRefresh);
+    };
+  }, [activeSection, canManageBlogsBool, user]);
 
   // Get blog management URL based on user role
   const getBlogManagementUrl = () => {
@@ -138,8 +316,10 @@ export default function AccountSettingsPage() {
         return '/staff/blog';
       case 'PROVIDER':
         return '/provider/blog';
+      case 'CUSTOMER':
+        return '/my-blogs';
       default:
-        return null; // Regular users don't have blog access
+        return '/my-blogs'; // Default to my-blogs for any other role
     }
   };
 
@@ -580,71 +760,173 @@ export default function AccountSettingsPage() {
                       <BookOpen className="h-6 w-6 text-pink-500 mr-3" />
                       <h2 className="text-2xl font-bold text-gray-900">Manage Blogs</h2>
                     </div>
-                    <Button
-                      onClick={() => router.push(getBlogManagementUrl() || '#')}
-                      className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Go to Blog Management
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => {
+                          // Manually trigger stats refresh
+                          setLoadingBlogStats(true);
+                          // Dispatch event to trigger refresh
+                          window.dispatchEvent(new Event('refreshBlogStats'));
+                          // Also directly call fetchBlogStats logic
+                          const fetchBlogStats = async () => {
+                            if (!canManageBlogsBool || !user) return;
+                            try {
+                              // Use new simplified API endpoints
+                              const isAdmin = user.role === 'ADMIN';
+                              
+                              let totalRes, myPostsRes, draftsRes;
+                              
+                              if (isAdmin) {
+                                // Admin: fetch all published posts for "Total Posts"
+                                const totalParams: Record<string, string> = { 
+                                  page: '1', 
+                                  limit: '1',
+                                  status: 'published'
+                                };
+                                
+                                [totalRes, myPostsRes, draftsRes] = await Promise.all([
+                                  apiClient.get('/blogs', { params: totalParams }),
+                                  apiClient.get('/blogs/my'),
+                                  apiClient.get('/blogs/drafts')
+                                ]);
+                              } else {
+                                // Non-admin: "Total Posts" should show ALL published posts from ALL users
+                                // "My Posts" shows only their own published posts
+                                const axios = (await import('axios')).default;
+                                const publicApiClient = axios.create({
+                                  baseURL: process.env.NEXT_PUBLIC_API_URL,
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                  },
+                                });
+                                
+                                const totalParams: Record<string, string> = { 
+                                  page: '1', 
+                                  limit: '1',
+                                  status: 'published'
+                                };
+                                
+                                [totalRes, myPostsRes, draftsRes] = await Promise.all([
+                                  // Total Posts: ALL published posts from ALL users (public request, no auth)
+                                  publicApiClient.get('/blogs', { params: totalParams }).catch(err => {
+                                    console.error('Error fetching total blogs (non-admin refresh):', err);
+                                    throw err;
+                                  }),
+                                  // My Posts: Only user's own published posts
+                                  apiClient.get('/blogs/my').catch(err => {
+                                    console.error('Error fetching my blogs (non-admin refresh):', err);
+                                    throw err;
+                                  }),
+                                  // Drafts: Only user's own drafts
+                                  apiClient.get('/blogs/drafts').catch(err => {
+                                    console.error('Error fetching drafts (non-admin refresh):', err);
+                                    throw err;
+                                  })
+                                ]);
+                              }
+                              
+                              // Handle different response structures
+                              const total = totalRes?.data?.pagination?.total ?? totalRes?.data?.total ?? 0;
+                              const myPosts = myPostsRes?.data?.pagination?.total ?? myPostsRes?.data?.total ?? 0;
+                              const drafts = draftsRes?.data?.pagination?.total ?? draftsRes?.data?.total ?? 0;
+                              
+                              if (process.env.NODE_ENV === 'development') {
+                                console.log('Blog Stats Refresh:', {
+                                  total,
+                                  myPosts,
+                                  drafts,
+                                  totalResponse: totalRes?.data,
+                                  myPostsResponse: myPostsRes?.data,
+                                  draftsResponse: draftsRes?.data
+                                });
+                              }
+                              
+                              setBlogStats({
+                                total,
+                                published: myPosts,
+                                drafts,
+                                lastUpdated: new Date().toISOString()
+                              });
+                              toast.success('Stats refreshed');
+                            } catch (error) {
+                              console.error('Failed to refresh blog stats', error);
+                              toast.error('Failed to refresh stats');
+                            } finally {
+                              setLoadingBlogStats(false);
+                            }
+                          };
+                          fetchBlogStats();
+                        }}
+                        variant="outline"
+                        className="w-auto bg-gray-50 hover:bg-gray-100 border-gray-300"
+                        disabled={loadingBlogStats}
+                      >
+                        {loadingBlogStats ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin text-pink-500" />
+                            Refreshing...
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="h-4 w-4 mr-2 text-pink-500" />
+                            Refresh Stats
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        onClick={() => router.push(getBlogManagementUrl() || '#')}
+                        className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-md"
+                      >
+                        <Edit className="h-4 w-4 mr-2" />
+                        Go to Blog Management
+                        <ExternalLink className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
                   </div>
                   
-                  <div className="space-y-4">
-                    {/* Stats */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="rounded-lg border border-gray-200 p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-sm text-gray-500">Total Posts</div>
-                            <div className="text-2xl font-bold text-gray-900">{loadingBlogStats ? '—' : blogStats.total}</div>
-                          </div>
-                          <BarChart3 className="h-6 w-6 text-pink-500" />
+                  <div className="space-y-6">
+                    {/* Stats Cards - Updated design to match dashboard */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                      {/* Total Posts Card */}
+                      <div className="bg-white rounded-xl shadow-lg p-6 relative">
+                        <div className="mb-4">
+                          <div className="text-sm font-medium text-gray-600 mb-1">Total Posts</div>
+                          <div className="text-3xl font-bold text-gray-900">{loadingBlogStats ? '—' : blogStats.total}</div>
+                        </div>
+                        <div className="absolute bottom-4 right-4">
+                          <BarChart3 className="h-8 w-8 text-pink-500" />
                         </div>
                       </div>
-                      <div className="rounded-lg border border-gray-200 p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-sm text-gray-500">Published</div>
-                            <div className="text-2xl font-bold text-gray-900">{loadingBlogStats ? '—' : blogStats.published}</div>
-                          </div>
-                          <FileCheck className="h-6 w-6 text-green-600" />
+
+                      {/* My Posts Card */}
+                      <div className="bg-white rounded-xl shadow-lg p-6 relative">
+                        <div className="mb-4">
+                          <div className="text-sm font-medium text-gray-600 mb-1">My Posts</div>
+                          <div className="text-3xl font-bold text-gray-900">{loadingBlogStats ? '—' : blogStats.published}</div>
+                        </div>
+                        <div className="absolute bottom-4 right-4">
+                          <FileCheck className="h-8 w-8 text-green-600" />
                         </div>
                       </div>
-                      <div className="rounded-lg border border-gray-200 p-4">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="text-sm text-gray-500">Drafts</div>
-                            <div className="text-2xl font-bold text-gray-900">{loadingBlogStats ? '—' : blogStats.drafts}</div>
-                          </div>
-                          <FileClock className="h-6 w-6 text-amber-600" />
+
+                      {/* Drafts Card */}
+                      <div className="bg-white rounded-xl shadow-lg p-6 relative">
+                        <div className="mb-4">
+                          <div className="text-sm font-medium text-gray-600 mb-1">Drafts</div>
+                          <div className="text-3xl font-bold text-gray-900">{loadingBlogStats ? '—' : blogStats.drafts}</div>
+                        </div>
+                        <div className="absolute bottom-4 right-4">
+                          <FileClock className="h-8 w-8 text-orange-500" />
                         </div>
                       </div>
                     </div>
 
-                    <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-6 border border-pink-200">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Blog Management Portal</h3>
-                      <p className="text-gray-600 mb-4">
+                    {/* Blog Management Portal Section */}
+                    <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-t-xl p-6 border-t border-l border-r border-pink-200">
+                      <h3 className="text-xl font-bold text-gray-900 mb-3">Blog Management Portal</h3>
+                      <p className="text-gray-700 text-sm">
                         Create, edit, and manage your blog posts. You can write new articles, edit drafts, and publish content.
                       </p>
-                      <ul className="space-y-2 text-sm text-gray-700">
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Create and publish blog articles</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Save drafts for later editing</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Edit and update published posts</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Manage all your blog content in one place</span>
-                        </li>
-                      </ul>
                     </div>
                     
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">

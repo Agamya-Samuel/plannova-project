@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Blog, { BlogStatus } from '../models/Blog.js';
+import Blog, { BlogStatus, IBlog } from '../models/Blog.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
 
@@ -61,6 +61,26 @@ const createBlogValidation = [
         throw new Error('Cover image URL must be a valid URL');
       }
     }),
+  body('images')
+    .optional()
+    .isArray()
+    .withMessage('Images must be an array')
+    .custom((images) => {
+      // Allow empty array
+      if (!images || images.length === 0) return true;
+      // Validate each image URL
+      for (const url of images) {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+          throw new Error('Each image URL must be a non-empty string');
+        }
+        try {
+          new URL(url);
+        } catch {
+          throw new Error(`Invalid image URL: ${url}`);
+        }
+      }
+      return true;
+    }),
   body('excerpt')
     .optional({ checkFalsy: true })
     .trim()
@@ -102,6 +122,26 @@ const updateBlogValidation = [
         throw new Error('Cover image URL must be a valid URL');
       }
     }),
+  body('images')
+    .optional()
+    .isArray()
+    .withMessage('Images must be an array')
+    .custom((images) => {
+      // Allow empty array
+      if (!images || images.length === 0) return true;
+      // Validate each image URL
+      for (const url of images) {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+          throw new Error('Each image URL must be a non-empty string');
+        }
+        try {
+          new URL(url);
+        } catch {
+          throw new Error(`Invalid image URL: ${url}`);
+        }
+      }
+      return true;
+    }),
   body('excerpt')
     .optional({ checkFalsy: true })
     .trim()
@@ -124,7 +164,7 @@ const updateBlogValidation = [
 ];
 
 // POST /api/blogs - Create a new blog post
-// Only ADMIN, STAFF, or PROVIDER roles can create blogs
+// Any authenticated user can create blogs
 router.post('/', authenticateToken, createBlogValidation, async (req: AuthRequest, res: Response) => {
   try {
     // Validate request
@@ -154,20 +194,16 @@ router.post('/', authenticateToken, createBlogValidation, async (req: AuthReques
     }
 
     // Check if user is authenticated
+    // Any authenticated user can create blogs
     if (!req.user) {
       return res.status(401).json({ error: 'User not authenticated' });
-    }
-
-    // Check if user has permission to create blogs
-    // Allow ADMIN, STAFF, and PROVIDER roles
-    if (!req.user.role || ![UserRole.ADMIN, UserRole.STAFF, UserRole.PROVIDER].includes(req.user.role)) {
-      return res.status(403).json({ error: 'Only admins, staff, and providers can create blogs' });
     }
 
     // Extract blog data from request body
     const {
       title,
       coverImageUrl,
+      images,
       excerpt,
       content,
       status
@@ -177,15 +213,53 @@ router.post('/', authenticateToken, createBlogValidation, async (req: AuthReques
     const baseSlug = generateSlug(title);
     const uniqueSlug = await generateUniqueSlug(baseSlug);
 
+    // Process images array - filter out empty strings and validate
+    const processedImages = Array.isArray(images) 
+      ? images.filter((url: string) => url && typeof url === 'string' && url.trim() !== '')
+      : [];
+
+    // Normalize status to ensure it matches the enum value
+    // Handle both string and enum values, defaulting to DRAFT
+    let normalizedStatus = BlogStatus.DRAFT;
+    if (status) {
+      const statusLower = typeof status === 'string' ? status.toLowerCase().trim() : String(status).toLowerCase().trim();
+      if (statusLower === 'published' || statusLower === BlogStatus.PUBLISHED) {
+        normalizedStatus = BlogStatus.PUBLISHED;
+      } else {
+        // Default to DRAFT for any other value or if explicitly 'draft'
+        normalizedStatus = BlogStatus.DRAFT;
+      }
+    }
+
+    // Ensure author is converted to ObjectId for proper MongoDB storage
+    let authorObjectId: Types.ObjectId;
+    try {
+      authorObjectId = new Types.ObjectId(req.user.id);
+    } catch (error) {
+      console.error('Error converting author to ObjectId:', error, 'userId:', req.user.id);
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
     // Create new blog post with slug
     const blog = await Blog.create({
       title,
       slug: uniqueSlug,
       coverImageUrl: coverImageUrl || undefined,
+      images: processedImages.length > 0 ? processedImages : undefined,
       excerpt: excerpt || undefined,
       content: content || undefined,
-      status: status || BlogStatus.DRAFT,
-      author: req.user.id
+      status: normalizedStatus, // Use normalized status (enum value)
+      author: authorObjectId // Use ObjectId for proper MongoDB storage
+    });
+    
+    // Debug log to verify status is saved correctly
+    console.log('Blog created:', {
+      id: (blog._id as Types.ObjectId).toString(),
+      title: blog.title,
+      status: blog.status,
+      statusValue: String(blog.status),
+      author: blog.author.toString(),
+      authorType: blog.author.constructor?.name
     });
 
     // Populate author information for response
@@ -241,16 +315,16 @@ const optionalAuthenticate = async (req: AuthRequest): Promise<void> => {
   }
 };
 
-// GET /api/blogs - Get all published blogs (public) or all blogs (for admins/staff)
+// GET /api/blogs - Get all published blogs (public) or all blogs (for admins)
 // Supports query params: status, author (for filtering by author), page, limit
-// Authentication is optional - public can see published, authenticated can see more
+// Authentication is optional - public can see published, authenticated users see published + their own drafts, admins see all
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
     // Try to authenticate if token is present (optional)
     await optionalAuthenticate(req);
     
     // Build filter based on authentication and query params
-    let filter: { status?: BlogStatus | { $in: BlogStatus[] }; author?: string } = {};
+    let filter: { status?: BlogStatus | { $in: BlogStatus[] }; author?: Types.ObjectId | string } = {};
     
     // Check if user is authenticated (might be null for public access)
     const isAuthenticated = !!req.user;
@@ -264,19 +338,70 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 100; // Increased limit for admin dashboard
     const skip = (page - 1) * limit;
 
-    // If status is specified in query, use it (for authenticated users)
-    if (status && isAuthenticated) {
-      if (status === 'draft' || status === 'published') {
-        filter.status = status as BlogStatus;
-      } else if (status === 'all') {
-        // Show both draft and published
-        filter.status = { $in: [BlogStatus.DRAFT, BlogStatus.PUBLISHED] };
+    // CRITICAL: For non-admin users, always filter by their own author ID first
+    // This ensures provider, staff, and customer users only see their own blogs
+    // This filter MUST be applied regardless of status to prevent users from seeing other users' blogs
+    if (isAuthenticated && userRole !== UserRole.ADMIN && userId) {
+      // Non-admin users: always filter by their own ID (ignore authorId from query params for security)
+      // Convert userId to ObjectId for proper MongoDB comparison
+      try {
+        filter.author = new Types.ObjectId(userId);
+      } catch (error) {
+        // If conversion fails, use string (shouldn't happen but safety check)
+        console.error('Error converting userId to ObjectId:', error, 'userId:', userId);
+        filter.author = userId;
+      }
+    } else if (authorId && isAuthenticated && userRole === UserRole.ADMIN) {
+      // Admin can filter by specific author if authorId is provided in query params
+      try {
+        filter.author = new Types.ObjectId(authorId);
+      } catch (error) {
+        console.error('Error converting authorId to ObjectId:', error, 'authorId:', authorId);
+        filter.author = authorId;
+      }
+    } else if (authorId && isAuthenticated) {
+      // If authorId is provided but user is not admin, this shouldn't happen for non-admin users
+      // But if it does, we should still filter by their own ID for security
+      // This is a safety check
+      if (userRole !== UserRole.ADMIN && userId) {
+        try {
+          filter.author = new Types.ObjectId(userId);
+        } catch (error) {
+          console.error('Error converting userId to ObjectId (fallback):', error);
+          filter.author = userId;
+        }
       }
     }
     
-    // Filter by author if specified
-    if (authorId && isAuthenticated) {
-      filter.author = authorId;
+    // CRITICAL: If authorId is provided in query for non-admin users, override with their own ID for security
+    // This ensures non-admin users can't see other users' blogs even if they try to manipulate the query
+    if (isAuthenticated && userRole !== UserRole.ADMIN && userId && authorId && authorId !== userId) {
+      console.warn('Non-admin user tried to filter by different author ID. Overriding with their own ID.', {
+        userId,
+        requestedAuthorId: authorId,
+        userRole
+      });
+      try {
+        filter.author = new Types.ObjectId(userId);
+      } catch {
+        // If conversion fails, use string as fallback
+        filter.author = userId;
+      }
+    }
+
+    // If status is specified in query, use it (for authenticated users)
+    // Note: Author filter is already set above for non-admin users, so this won't override it
+    // CRITICAL: Status filter must be applied to ensure only the correct status blogs are returned
+    if (status && isAuthenticated) {
+      const statusLower = status.toLowerCase().trim();
+      if (statusLower === 'draft') {
+        filter.status = BlogStatus.DRAFT; // Use enum value 'draft'
+      } else if (statusLower === 'published') {
+        filter.status = BlogStatus.PUBLISHED; // Use enum value 'published'
+      } else if (statusLower === 'all') {
+        // Show both draft and published
+        filter.status = { $in: [BlogStatus.DRAFT, BlogStatus.PUBLISHED] };
+      }
     }
 
     // If not authenticated, only show published blogs
@@ -284,40 +409,142 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       filter.status = BlogStatus.PUBLISHED;
     } else {
       // For authenticated users:
-      // - Admin/Staff/Provider can see all blogs (their own + all published)
-      // - Others can see published + their own drafts
+      // - Admin can see all blogs (unless author filter is specified)
+      // - Regular users can see published + their own drafts (already filtered by author above)
       if (!status) {
         // Default: show published + user's own drafts
-        if ([UserRole.ADMIN, UserRole.STAFF, UserRole.PROVIDER].includes(userRole!)) {
-          // Admin/Staff/Provider see all blogs if no status filter
-          filter = {}; // No status filter = show all
+        if (userRole === UserRole.ADMIN) {
+          // Admin sees all blogs if no status filter and no author filter
+          // If author filter is specified, respect it
+          if (!authorId) {
+            filter = {}; // No status filter and no author filter = show all
+          }
         } else {
           // Regular users see published + their own drafts
-          filter.status = { $in: [BlogStatus.PUBLISHED] };
-          if (userId) {
-            filter.author = userId;
-            filter.status = { $in: [BlogStatus.DRAFT, BlogStatus.PUBLISHED] };
-          }
-        }
-      } else if (status === 'draft') {
-        // When filtering drafts, only show user's own drafts (unless admin/staff)
-        if (![UserRole.ADMIN, UserRole.STAFF, UserRole.PROVIDER].includes(userRole!)) {
-          if (userId) {
-            filter.author = userId;
-          }
+          // Author filter is already set above, just set status
+          filter.status = { $in: [BlogStatus.DRAFT, BlogStatus.PUBLISHED] };
         }
       }
+      // Note: For draft and published status, the filter is already set above
+      // The author filter is already applied for non-admin users
     }
 
-    // Fetch blogs
+    // Debug logging for troubleshooting draft and published filtering issues
+    if (status && (status.toLowerCase().trim() === 'draft' || status.toLowerCase().trim() === 'published')) {
+      const statusLower = status.toLowerCase().trim();
+      console.log(`=== ${statusLower.toUpperCase()} FILTER DEBUG ===`);
+      console.log('Request params:', { status, authorId, userId, userRole, isAuthenticated });
+      console.log('Filter object:', {
+        filter: filter,
+        filterAuthor: filter.author?.toString(),
+        filterStatus: filter.status,
+        filterStatusType: typeof filter.status,
+        filterStatusValue: String(filter.status)
+      });
+      
+      // Also check what blogs exist in DB for this user with the requested status
+      const testFilter = { 
+        author: filter.author,
+        status: statusLower === 'draft' ? BlogStatus.DRAFT : BlogStatus.PUBLISHED
+      };
+      const testBlogs = await Blog.find(testFilter).select('_id title status author createdAt');
+      
+      // CRITICAL: Also check ALL blogs by this author to see what statuses they have
+      const allUserBlogs = await Blog.find({ author: filter.author }).select('_id title status author createdAt');
+      
+      console.log(`Direct DB query test (author + ${statusLower}):`, {
+        filter: testFilter,
+        count: testBlogs.length,
+        blogs: testBlogs.map((b: IBlog) => ({
+          id: (b._id as Types.ObjectId).toString(),
+          title: b.title,
+          status: b.status,
+          statusValue: String(b.status),
+          author: b.author.toString(),
+          createdAt: b.createdAt
+        }))
+      });
+      
+      console.log(`ALL blogs by this author (for verification):`, {
+        totalBlogs: allUserBlogs.length,
+        publishedCount: allUserBlogs.filter((b: IBlog) => b.status === BlogStatus.PUBLISHED).length,
+        draftCount: allUserBlogs.filter((b: IBlog) => b.status === BlogStatus.DRAFT).length,
+        blogs: allUserBlogs.map((b: IBlog) => ({
+          id: (b._id as Types.ObjectId).toString(),
+          title: b.title,
+          status: b.status,
+          statusValue: String(b.status),
+          author: b.author.toString(),
+          createdAt: b.createdAt
+        }))
+      });
+    }
+    
+    // Fetch blogs with the applied filter
+    // For non-admin users, filter.author is already set to their userId (as ObjectId)
+    // For draft status, filter.status is set to BlogStatus.DRAFT ('draft')
+    // Combined: { author: ObjectId(userId), status: 'draft' } for non-admin users viewing drafts
     const blogs = await Blog.find(filter)
       .populate('author', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
 
-    // Get total count for pagination
+    // Get total count for pagination using the same filter
+    // CRITICAL: Use the exact same filter for countDocuments to ensure accurate count
     const total = await Blog.countDocuments(filter);
+    
+    // Additional debug logging for draft and published queries
+    if (status && (status.toLowerCase().trim() === 'draft' || status.toLowerCase().trim() === 'published')) {
+      const statusLower = status.toLowerCase().trim();
+      const expectedStatus = statusLower === 'draft' ? BlogStatus.DRAFT : BlogStatus.PUBLISHED;
+      
+      // CRITICAL: Verify the count by querying the database directly with the same filter
+      const directCount = await Blog.countDocuments(filter);
+      const directQuery = await Blog.find(filter).select('_id title status author');
+      
+      console.log(`${statusLower.charAt(0).toUpperCase() + statusLower.slice(1)} query results:`, {
+        paginationTotal: total,
+        directCount: directCount,
+        blogsReturned: blogs.length,
+        directQueryCount: directQuery.length,
+        filterApplied: {
+          author: filter.author?.toString(),
+          status: filter.status,
+          statusValue: String(filter.status),
+          filterType: typeof filter,
+          filterStringified: JSON.stringify(filter)
+        },
+        blogDetails: blogs.map((b: IBlog) => ({
+          id: (b._id as Types.ObjectId).toString(),
+          title: b.title,
+          status: b.status,
+          statusValue: String(b.status),
+          statusMatches: b.status === expectedStatus,
+          author: typeof b.author === 'object' && b.author?._id ? b.author._id.toString() : b.author?.toString(),
+          authorMatches: filter.author ? (typeof b.author === 'object' && b.author?._id ? b.author._id.toString() === filter.author.toString() : b.author?.toString() === filter.author.toString()) : true
+        })),
+        directQueryResults: directQuery.map((b: IBlog) => ({
+          id: (b._id as Types.ObjectId).toString(),
+          title: b.title,
+          status: b.status,
+          statusValue: String(b.status),
+          author: b.author.toString()
+        }))
+      });
+      
+      // CRITICAL: If there's a mismatch, log a warning
+      if (total !== directCount || total !== directQuery.length) {
+        console.error(`COUNT MISMATCH for ${statusLower}:`, {
+          paginationTotal: total,
+          directCount: directCount,
+          directQueryLength: directQuery.length,
+          filter: filter
+        });
+      }
+      
+      console.log(`=== END ${statusLower.toUpperCase()} DEBUG ===`);
+    }
 
     res.json({
       data: blogs,
@@ -330,6 +557,118 @@ router.get('/', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching blogs:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/blogs/my - Get published blogs by logged-in user (any role)
+// Simplified endpoint for "My Blogs" tab - returns only published blogs by the current user
+// IMPORTANT: This route must come before /:id to avoid matching "my" as an ID
+router.get('/my', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const userId = req.user.id;
+    
+    // Convert userId to ObjectId for proper MongoDB comparison
+    let authorObjectId: Types.ObjectId;
+    try {
+      authorObjectId = new Types.ObjectId(userId);
+    } catch (error) {
+      console.error('Error converting userId to ObjectId:', error, 'userId:', userId);
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    // Get pagination params
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const skip = (page - 1) * limit;
+
+    // Find only published blogs by the current user
+    const blogs = await Blog.find({
+      author: authorObjectId,
+      status: BlogStatus.PUBLISHED
+    })
+      .populate('author', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count for pagination
+    const total = await Blog.countDocuments({
+      author: authorObjectId,
+      status: BlogStatus.PUBLISHED
+    });
+
+    res.json({
+      data: blogs,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching my blogs:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/blogs/drafts - Get draft blogs by logged-in user (any role)
+// Simplified endpoint for "Drafts" tab - returns only draft blogs by the current user
+// IMPORTANT: This route must come before /:id to avoid matching "drafts" as an ID
+router.get('/drafts', authenticateToken, async (req: AuthRequest, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const userId = req.user.id;
+    
+    // Convert userId to ObjectId for proper MongoDB comparison
+    let authorObjectId: Types.ObjectId;
+    try {
+      authorObjectId = new Types.ObjectId(userId);
+    } catch (error) {
+      console.error('Error converting userId to ObjectId:', error, 'userId:', userId);
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+
+    // Get pagination params
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const skip = (page - 1) * limit;
+
+    // Find only draft blogs by the current user
+    const drafts = await Blog.find({
+      author: authorObjectId,
+      status: BlogStatus.DRAFT
+    })
+      .populate('author', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Get total count for pagination
+    const total = await Blog.countDocuments({
+      author: authorObjectId,
+      status: BlogStatus.DRAFT
+    });
+
+    res.json({
+      data: drafts,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching drafts:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -371,17 +710,17 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       await blog.save(); // Save the slug to database
     }
 
-    // If blog is draft, only allow author, admin, or staff to view
+    // If blog is draft, only allow author or admin to view
     if (blog.status === BlogStatus.DRAFT) {
       if (!req.user) {
         return res.status(403).json({ error: 'Access denied' });
       }
       
-      // Check if user is the author, admin, or staff
+      // Check if user is the author or admin
       const isAuthor = blog.author.toString() === req.user.id;
-      const isAdminOrStaff = req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
+      const isAdmin = req.user.role === UserRole.ADMIN;
       
-      if (!isAuthor && !isAdminOrStaff) {
+      if (!isAuthor && !isAdmin) {
         return res.status(403).json({ error: 'Access denied' });
       }
     }
@@ -437,12 +776,12 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
       return res.status(404).json({ error: 'Blog not found' });
     }
 
-    // Check permissions: only author, admin, or staff can update
+    // Check permissions: users can only edit their own blogs, admin can edit any blog
     const isAuthor = blog.author.toString() === req.user.id;
-    const isAdminOrStaff = req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
+    const isAdmin = req.user.role === UserRole.ADMIN;
 
-    if (!isAuthor && !isAdminOrStaff) {
-      return res.status(403).json({ error: 'You do not have permission to update this blog' });
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({ error: 'You can only edit your own blogs' });
     }
 
     // Update blog fields
@@ -450,6 +789,7 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
       title?: string;
       slug?: string;
       coverImageUrl?: string;
+      images?: string[];
       excerpt?: string;
       content?: string;
       status?: BlogStatus;
@@ -466,6 +806,13 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
         ? req.body.coverImageUrl.trim() 
         : undefined;
     }
+    if (req.body.images !== undefined) {
+      // Process images array - filter out empty strings
+      const processedImages = Array.isArray(req.body.images)
+        ? req.body.images.filter((url: string) => url && typeof url === 'string' && url.trim() !== '')
+        : [];
+      updateData.images = processedImages.length > 0 ? processedImages : [];
+    }
     if (req.body.excerpt !== undefined) {
       updateData.excerpt = req.body.excerpt && req.body.excerpt.trim() 
         ? req.body.excerpt.trim() 
@@ -477,10 +824,20 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
         : undefined;
     }
     if (req.body.status !== undefined) {
-      // Ensure status is lowercase to match enum values
-      updateData.status = (req.body.status.toLowerCase() === 'published' 
+      // Normalize status to ensure it matches enum values
+      const statusLower = String(req.body.status).toLowerCase().trim();
+      updateData.status = (statusLower === 'published' 
         ? BlogStatus.PUBLISHED 
         : BlogStatus.DRAFT) as BlogStatus;
+      
+      // Debug log to verify status update
+      console.log('Blog status update:', {
+        blogId: id,
+        oldStatus: blog.status,
+        newStatus: updateData.status,
+        statusValue: String(updateData.status),
+        requestedStatus: req.body.status
+      });
     }
 
     // Update the blog
@@ -489,6 +846,22 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
       { $set: updateData },
       { new: true, runValidators: true }
     ).populate('author', 'firstName lastName email');
+
+    if (!updatedBlog) {
+      return res.status(404).json({ error: 'Blog not found' });
+    }
+
+    // Verify the status was updated correctly
+    if (updateData.status) {
+      console.log('Blog status updated successfully:', {
+        blogId: (updatedBlog._id as Types.ObjectId).toString(),
+        title: updatedBlog.title,
+        oldStatus: blog.status,
+        newStatus: updatedBlog.status,
+        statusValue: String(updatedBlog.status),
+        statusMatches: updatedBlog.status === updateData.status
+      });
+    }
 
     res.json({
       message: 'Blog updated successfully',
@@ -516,12 +889,12 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
       return res.status(404).json({ error: 'Blog not found' });
     }
 
-    // Check permissions: only author, admin, or staff can delete
+    // Check permissions: users can only delete their own blogs, admin can delete any blog
     const isAuthor = blog.author.toString() === req.user.id;
-    const isAdminOrStaff = req.user.role === UserRole.ADMIN || req.user.role === UserRole.STAFF;
+    const isAdmin = req.user.role === UserRole.ADMIN;
 
-    if (!isAuthor && !isAdminOrStaff) {
-      return res.status(403).json({ error: 'You do not have permission to delete this blog' });
+    if (!isAuthor && !isAdmin) {
+      return res.status(403).json({ error: 'You can only delete your own blogs. Only admins can delete other users\' blogs.' });
     }
 
     // Delete the blog
