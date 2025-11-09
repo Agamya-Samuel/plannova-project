@@ -258,6 +258,7 @@ export default function ProviderVenueViewPage() {
                           width={400}
                           height={192}
                           className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
+                          unoptimized={image.url.includes('s3.tebi.io') || image.url.includes('s3.')}
                         />
                         {image.isPrimary && (
                           <span className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">

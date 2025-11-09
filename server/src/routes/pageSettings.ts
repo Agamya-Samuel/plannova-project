@@ -23,7 +23,7 @@ router.get('/:key', async (req: Request, res: Response) => {
 router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { key } = req.params;
-    const { title, description, backgroundImages, textGradientFrom, textGradientTo } = req.body as { title: string; description?: string; backgroundImages: string[]; textGradientFrom?: string; textGradientTo?: string };
+    const { title, description, backgroundImages, textGradientFrom, textGradientTo, typingOptions } = req.body as { title: string; description?: string; backgroundImages: string[]; textGradientFrom?: string; textGradientTo?: string; typingOptions?: string[] };
 
     if (!title || !Array.isArray(backgroundImages)) {
       return res.status(400).json({ error: 'Invalid payload' });
@@ -31,7 +31,7 @@ router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, re
 
     const updated = await PageSetting.findOneAndUpdate(
       { key },
-      { $set: { title, description, backgroundImages, textGradientFrom, textGradientTo, updatedBy: req.user ? req.user.id : undefined } },
+      { $set: { title, description, backgroundImages, textGradientFrom, textGradientTo, typingOptions, updatedBy: req.user ? req.user.id : undefined } },
       { new: true, upsert: true }
     );
 
