@@ -151,10 +151,19 @@ export default function PrivacyPolicy() {
                   If you have any questions about this Privacy Policy, please contact us at:
                 </p>
                 <p className="text-gray-700 mt-2">
-                  <strong>Email:</strong> privacy@plannova.in
+                  <strong>Merchant Legal Entity Name:</strong> DEEPAK KUMAR
                 </p>
                 <p className="text-gray-700 mt-1">
-                  <strong>Address:</strong> Plannova Inc., 123 Event Plaza, San Francisco, CA 94102
+                  <strong>Registered Address:</strong> Gram - Toderpur, Bansgaon, Azamgargh<br />Azamgarh UTTAR PRADESH 276126
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <strong>Operational Address:</strong> Gram - Toderpur, Bansgaon, Azamgargh<br />Azamgarh UTTAR PRADESH 276126
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <strong>Telephone:</strong> 6388850059
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <strong>Email:</strong> support@plannova.in
                 </p>
               </section>
             </div>
