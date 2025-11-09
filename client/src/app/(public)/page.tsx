@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
 import { useRouter } from 'next/navigation';
@@ -35,6 +35,8 @@ export default function Home() {
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
   const [typingOptions, setTypingOptions] = useState<string[]>([]); // Options for typing effect
+  // Track current image index for each venue category to enable image cycling
+  const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   
   // Convert common sharing links to direct image URLs so background works from
   // services like Google Drive or Dropbox. If parsing fails, we return the
@@ -212,6 +214,113 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [bgImages]);
 
+  // Component for stable crossfade image transitions
+  // Uses same logic as vendor categories grid - no remounting, no jitter
+  const SwipeImageCarousel = ({ 
+    images, 
+    alt, 
+    priority,
+    currentIndex 
+  }: { 
+    images: string[]; 
+    alt: string; 
+    priority?: boolean;
+    currentIndex: number;
+  }) => {
+    // Initialize displayIndex from currentIndex
+    const [displayIndex, setDisplayIndex] = useState(() => currentIndex % (images.length || 1));
+    const [overlayOpacity, setOverlayOpacity] = useState(0);
+    const [nextImageUrl, setNextImageUrl] = useState<string | null>(null);
+    const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Update display index when current index changes
+    useEffect(() => {
+      if (images.length === 0) return;
+      const safeIndex = currentIndex % images.length;
+      
+      // If already showing this image and no transition in progress, do nothing
+      if (safeIndex === displayIndex && !nextImageUrl) return;
+      
+      // If different image, start transition
+      if (safeIndex !== displayIndex) {
+        // Clear any existing transition first
+        if (transitionTimerRef.current) {
+          clearTimeout(transitionTimerRef.current);
+          transitionTimerRef.current = null;
+        }
+        
+        const nextImg = images[safeIndex] || images[0];
+        setNextImageUrl(nextImg);
+        
+        // Start fade in after a brief delay
+        const fadeTimer = setTimeout(() => {
+          setOverlayOpacity(1);
+        }, 50);
+        
+        // After transition completes, update base image
+        transitionTimerRef.current = setTimeout(() => {
+          setDisplayIndex(safeIndex);
+          setOverlayOpacity(0);
+          setNextImageUrl(null);
+          transitionTimerRef.current = null;
+        }, 2500);
+        
+        return () => {
+          clearTimeout(fadeTimer);
+          if (transitionTimerRef.current) {
+            clearTimeout(transitionTimerRef.current);
+            transitionTimerRef.current = null;
+          }
+        };
+      }
+    }, [currentIndex, displayIndex, images, nextImageUrl]);
+
+    if (images.length === 0) {
+      return (
+        <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+          <span className="text-gray-600 font-semibold">No image available</span>
+        </div>
+      );
+    }
+
+    const currentImage = images[displayIndex] || images[0];
+
+    return (
+      <div className="w-full h-64 relative overflow-hidden">
+        {/* Base image layer - always visible */}
+        <div className="absolute inset-0 w-full h-full">
+          <Image
+            src={currentImage}
+            alt={alt}
+            fill
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            className="object-cover"
+            priority={priority}
+            unoptimized={currentImage.includes('s3.tebi.io') || currentImage.includes('s3.')}
+          />
+        </div>
+        
+        {/* Overlay image layer - fades in when transitioning */}
+        {nextImageUrl && (
+          <div 
+            className="absolute inset-0 w-full h-full transition-opacity duration-[2500ms] ease-in-out"
+            style={{ opacity: overlayOpacity }}
+          >
+            <Image
+              src={nextImageUrl}
+              alt={alt}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+              priority={false}
+              unoptimized={nextImageUrl.includes('s3.tebi.io') || nextImageUrl.includes('s3.')}
+            />
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const handleCategoryClick = (categoryTitle: string) => {
     // Map category titles to venue types for filtering
     // Only map to categories that exist in the venue creation form
@@ -272,21 +381,74 @@ export default function Home() {
     }
   ]), []);
 
+  // Helper function to shuffle array randomly
+  // This ensures images from all venues of a type are shown in random order
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
   const categoryCards = useMemo(() => {
     return categoryDefs.map(def => {
       const items = venues.filter(def.match);
       const count = items.length;
-      const cover = items.find(v => (v.images?.length || 0) > 0);
-      const image = cover?.images?.find(i => i.isPrimary)?.url || cover?.images?.[0]?.url || '';
+      
+      // Collect all images from all venues of this type
+      const allImages: string[] = [];
+      
+      // Iterate through all venues of this type and collect their images
+      items.forEach(venue => {
+        if (venue.images && venue.images.length > 0) {
+          venue.images.forEach(img => {
+            if (img.url) {
+              allImages.push(img.url);
+            }
+          });
+        }
+      });
+      
+      // Remove duplicates while preserving order
+      const uniqueImages = Array.from(new Set(allImages));
+      
+      // Shuffle images randomly so different images appear on each page load
+      const shuffledImages = shuffleArray(uniqueImages);
+      
       return {
         title: def.title,
-        image,
-        venuesText: image ? `${count} Venues` : 'Unavailable',
+        images: shuffledImages, // Now returns array of all images instead of single image
+        venuesText: shuffledImages.length > 0 ? `${count} Venues` : 'Unavailable',
         location: def.cities,
-        hasImage: Boolean(image),
-      } as { title: string; image?: string; venuesText: string; location: string; hasImage: boolean };
+        hasImage: shuffledImages.length > 0,
+      } as { title: string; images: string[]; venuesText: string; location: string; hasImage: boolean };
     });
   }, [venues, categoryDefs]);
+
+  // Periodically cycle through images for each venue category with smooth transitions
+  // Similar to vendor categories grid - cycles every 6 seconds
+  // Must be defined after categoryCards to avoid reference error
+  useEffect(() => {
+    if (categoryCards.length === 0) return;
+    
+    // Cycle images every 6 seconds to allow very slow, smooth transitions
+    const INTERVAL_MS = 6000;
+    const id = setInterval(() => {
+      setImageIndices(prev => {
+        const next = { ...prev };
+        // Update each category's index based on available images
+        categoryCards.forEach(card => {
+          if (card.images.length > 1) {
+            next[card.title] = ((next[card.title] || 0) + 1) % card.images.length;
+          }
+        });
+        return next;
+      });
+    }, INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [categoryCards]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -387,36 +549,40 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {categoryCards.slice(0, 6).map((category, index) => (
-              <div 
-                key={index} 
-                className="group cursor-pointer"
-                onClick={() => handleCategoryClick(category.title)}
-              >
-                <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                  {category.hasImage ? (
-                    <Image 
-                      src={category.image as string} 
-                      alt={category.title}
-                      width={800}
-                      height={256}
-                      className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
-                      priority={index === 0}
-                    />
-                  ) : (
-                    <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
-                      <span className="text-gray-600 font-semibold">No image available</span>
+            {categoryCards.slice(0, 6).map((category, index) => {
+              const currentIndex = imageIndices[category.title] || 0;
+              
+              return (
+                <div 
+                  key={index} 
+                  className="group cursor-pointer"
+                  onClick={() => handleCategoryClick(category.title)}
+                >
+                  <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+                    {category.hasImage ? (
+                      <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
+                        <SwipeImageCarousel 
+                          images={category.images} 
+                          alt={category.title} 
+                          priority={index === 0}
+                          currentIndex={currentIndex}
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+                        <span className="text-gray-600 font-semibold">No image available</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                    <div className="absolute bottom-6 left-6 text-white">
+                      <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
+                      <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
+                      <p className="text-sm text-gray-300">{category.location}</p>
                     </div>
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                  <div className="absolute bottom-6 left-6 text-white">
-                    <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
-                    <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
-                    <p className="text-sm text-gray-300">{category.location}</p>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {/* Browse more venues button - navigates to full venues page */}
           <div className="mt-10 flex justify-center">
