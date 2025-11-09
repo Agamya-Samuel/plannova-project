@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 export default function PrivacyPolicy() {
@@ -170,9 +171,26 @@ export default function PrivacyPolicy() {
           </div>
 
           <div className="mt-10 pt-6 border-t border-gray-200">
-            <p className="text-gray-600 text-sm text-center">
+            <p className="text-gray-600 text-sm text-center mb-4">
               © {new Date().getFullYear()} Plannova. All rights reserved.
             </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/terms" className="text-pink-600 hover:text-pink-800 text-sm">
+                Terms & Conditions
+              </Link>
+              <Link href="/refund-policy" className="text-pink-600 hover:text-pink-800 text-sm">
+                Refund Policy
+              </Link>
+              <Link href="/cancellation-policy" className="text-pink-600 hover:text-pink-800 text-sm">
+                Cancellation Policy
+              </Link>
+              <Link href="/shipping" className="text-pink-600 hover:text-pink-800 text-sm">
+                Shipping & Delivery Policy
+              </Link>
+              <Link href="/contact" className="text-pink-600 hover:text-pink-800 text-sm">
+                Contact Us
+              </Link>
+            </div>
           </div>
         </div>
       </div>
