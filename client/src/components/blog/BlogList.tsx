@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef } from "react";
 import Image from "next/image";
 import apiClient from "@/lib/api";
 import { toast } from "sonner";
-import { Edit, Trash2, MoreVertical, Loader2, CheckCircle } from "lucide-react";
+import { Edit, Trash2, MoreVertical, Loader2, CheckCircle, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
@@ -30,18 +30,22 @@ interface BlogItem {
 
 interface BlogListProps {
   status?: "draft" | "published" | "all";
+  showAllBlogs?: boolean; // If true, show all blogs (for admin). If false, filter by current user
   onEdit?: (blog: BlogItem) => void;
   onDelete?: (blogId: string) => void;
   onPublish?: (blogId: string) => void;
+  onUnpublish?: (blogId: string) => void; // New prop for unpublishing
   onRefresh?: () => void;
   showActions?: boolean;
 }
 
 export default function BlogList({ 
   status = "all", 
+  showAllBlogs = false, // Default to false - show only user's own blogs
   onEdit,
   onDelete,
   onPublish,
+  onUnpublish,
   onRefresh,
   showActions = true 
 }: BlogListProps) {
@@ -54,16 +58,113 @@ export default function BlogList({
   const { user } = useAuth();
 
   // Fetch blogs from API
+  // Uses simplified endpoints when appropriate for better performance
   const fetchBlogs = async () => {
     setIsLoading(true);
     try {
-      const params: Record<string, string> = {};
-      if (status !== "all") {
-        params.status = status;
+      let res;
+      let blogList: BlogItem[] = [];
+
+      // Use simplified endpoints when fetching user's own blogs
+      // This is more efficient and matches the API design
+      if (!showAllBlogs && user && user.id) {
+        // For user's own blogs, use simplified endpoints
+        if (status === "published") {
+          // Use /api/blogs/my endpoint for published blogs
+          res = await apiClient.get("/blogs/my");
+          blogList = res?.data?.data || [];
+        } else if (status === "draft") {
+          // Use /api/blogs/drafts endpoint for draft blogs
+          res = await apiClient.get("/blogs/drafts");
+          blogList = res?.data?.data || [];
+        } else {
+          // For "all" status, use main endpoint with author filter
+          const params: Record<string, string> = { status: "all" };
+          params.author = user.id;
+          res = await apiClient.get("/blogs", { params });
+          blogList = res?.data?.data || [];
+        }
+      } else {
+        // For admin viewing all blogs or other cases, use main endpoint
+        const params: Record<string, string> = {};
+        if (status !== "all") {
+          params.status = status;
+        }
+        
+        // Filter by author ID for admin's own blogs if needed
+        if (user && user.id && user.role === "ADMIN" && !showAllBlogs) {
+          params.author = user.id;
+        }
+        
+        res = await apiClient.get("/blogs", { params });
+        blogList = res?.data?.data || [];
       }
       
-      const res = await apiClient.get("/blogs", { params });
-      const blogList: BlogItem[] = res?.data?.data || [];
+      // CRITICAL: Client-side filtering to ensure data integrity
+      // Filter by status FIRST to ensure only the correct status blogs are shown
+      if (status && status !== "all") {
+        blogList = blogList.filter(blog => {
+          // Normalize status comparison - handle both string and enum values
+          const blogStatus = String(blog.status || '').toLowerCase().trim();
+          const targetStatus = String(status || '').toLowerCase().trim();
+          const matches = blogStatus === targetStatus;
+          
+          // Debug log if status doesn't match (only in development)
+          if (!matches && process.env.NODE_ENV === 'development') {
+            console.warn('Blog status mismatch:', {
+              blogId: blog._id,
+              blogStatus: blog.status,
+              blogStatusNormalized: blogStatus,
+              targetStatus: status,
+              targetStatusNormalized: targetStatus,
+              matches
+            });
+          }
+          
+          return matches;
+        });
+      }
+      
+      // Additional client-side filtering for non-admin users to ensure only their own blogs are shown
+      // This is a safety measure in case backend filtering doesn't work correctly
+      if (user && user.id && user.role !== "ADMIN") {
+        blogList = blogList.filter(blog => {
+          // Check if blog author matches current user
+          // Handle both populated author object and direct author ID
+          const authorId = blog.author?._id || (typeof blog.author === 'string' ? blog.author : null) || blog.author;
+          const currentUserId = user.id;
+          
+          // Compare as strings to handle ObjectId comparison
+          const authorIdStr = authorId?.toString() || '';
+          const userIdStr = currentUserId?.toString() || '';
+          const matches = authorIdStr === userIdStr;
+          
+          // Debug log if author doesn't match (only in development)
+          if (!matches && process.env.NODE_ENV === 'development') {
+            console.warn('Blog author mismatch:', {
+              blogId: blog._id,
+              blogAuthor: blog.author,
+              blogAuthorId: authorIdStr,
+              currentUserId: userIdStr,
+              matches
+            });
+          }
+          
+          return matches;
+        });
+      }
+      
+      // Final debug log for draft filtering (only in development)
+      if (status === 'draft' && process.env.NODE_ENV === 'development') {
+        console.log('Client-side draft filter result:', {
+          requestedStatus: status,
+          totalFromAPI: res?.data?.data?.length || 0,
+          afterStatusFilter: blogList.length,
+          drafts: blogList.filter(b => String(b.status).toLowerCase() === 'draft').length,
+          blogStatuses: blogList.map(b => ({ id: b._id, status: b.status, title: b.title }))
+        });
+      }
+      
       setBlogs(Array.isArray(blogList) ? blogList : []);
     } catch (error) {
       console.error("Error fetching blogs:", error);
@@ -76,7 +177,7 @@ export default function BlogList({
   useEffect(() => {
     fetchBlogs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [status, user?.id, showAllBlogs]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -135,10 +236,17 @@ export default function BlogList({
 
     setPublishingId(blogId);
     try {
+      // Normalize status to ensure it's properly sent
       await apiClient.patch(`/blogs/${blogId}`, { status: "published" });
       toast.success("Blog published successfully");
-      // Refresh the list
+      
+      // Remove the blog from current list (since it's now published, it shouldn't be in drafts)
+      setBlogs(prev => prev.filter(blog => blog._id !== blogId));
+      
+      // Refresh the list to get updated data
       await fetchBlogs();
+      
+      // Trigger refresh callbacks
       if (onRefresh) {
         onRefresh();
       }
@@ -148,6 +256,44 @@ export default function BlogList({
     } catch (error) {
       console.error("Error publishing blog:", error);
       toast.error("Failed to publish blog");
+      // Refresh on error to ensure we have correct data
+      await fetchBlogs();
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  // Handle unpublish blog (change from published to draft)
+  const handleUnpublish = async (blogId: string) => {
+    setOpenMenuId(null);
+    if (!confirm("Are you sure you want to unpublish this blog? It will be moved to drafts and won't be visible on the main page.")) {
+      return;
+    }
+
+    setPublishingId(blogId);
+    try {
+      // Normalize status to ensure it's properly sent
+      await apiClient.patch(`/blogs/${blogId}`, { status: "draft" });
+      toast.success("Blog unpublished successfully");
+      
+      // Remove the blog from current list (since it's now draft, it shouldn't be in published)
+      setBlogs(prev => prev.filter(blog => blog._id !== blogId));
+      
+      // Refresh the list to get updated data
+      await fetchBlogs();
+      
+      // Trigger refresh callbacks
+      if (onRefresh) {
+        onRefresh();
+      }
+      if (onUnpublish) {
+        onUnpublish(blogId);
+      }
+    } catch (error) {
+      console.error("Error unpublishing blog:", error);
+      toast.error("Failed to unpublish blog");
+      // Refresh on error to ensure we have correct data
+      await fetchBlogs();
     } finally {
       setPublishingId(null);
     }
@@ -178,9 +324,19 @@ export default function BlogList({
   // Check if user can edit/delete this blog
   const canModify = (blog: BlogItem) => {
     if (!user) return false;
-    // Admin and staff can modify any blog
-    if (user.role === "ADMIN" || user.role === "STAFF") return true;
+    // Admin can modify any blog
+    if (user.role === "ADMIN") return true;
     // Users can only modify their own blogs
+    return blog.author?._id === user.id;
+  };
+
+  // Check if user can delete this blog
+  // Admin can delete any blog in "All Blogs" section, users can only delete their own
+  const canDelete = (blog: BlogItem) => {
+    if (!user) return false;
+    // Admin can delete any blog
+    if (user.role === "ADMIN") return true;
+    // Users can only delete their own blogs
     return blog.author?._id === user.id;
   };
 
@@ -211,7 +367,7 @@ export default function BlogList({
           className="relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow flex flex-col"
         >
           {/* Actions - moved to top-right */}
-          {showActions && canModify(blog) && (
+          {showActions && (canModify(blog) || canDelete(blog)) && (
             <div
               className="absolute top-3 right-3 z-20"
               ref={(el) => {
@@ -232,15 +388,17 @@ export default function BlogList({
 
               {openMenuId === blog._id && (
                 <div className="absolute right-0 top-10 w-48 bg-white rounded-md shadow-lg border border-gray-200 z-30 py-1">
-                  <button
-                    onClick={() => handleEdit(blog)}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </button>
+                  {canModify(blog) && (
+                    <button
+                      onClick={() => handleEdit(blog)}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </button>
+                  )}
 
-                  {blog.status === "draft" && (
+                  {canModify(blog) && blog.status === "draft" && (
                     <button
                       onClick={() => handlePublish(blog._id)}
                       disabled={publishingId === blog._id}
@@ -255,18 +413,35 @@ export default function BlogList({
                     </button>
                   )}
 
-                  <button
-                    onClick={() => handleDelete(blog._id)}
-                    disabled={deletingId === blog._id}
-                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {deletingId === blog._id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                    Delete
-                  </button>
+                  {canModify(blog) && blog.status === "published" && onUnpublish && (
+                    <button
+                      onClick={() => handleUnpublish(blog._id)}
+                      disabled={publishingId === blog._id}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {publishingId === blog._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <FileText className="h-4 w-4 text-yellow-600" />
+                      )}
+                      Unpublish
+                    </button>
+                  )}
+
+                  {canDelete(blog) && (
+                    <button
+                      onClick={() => handleDelete(blog._id)}
+                      disabled={deletingId === blog._id}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {deletingId === blog._id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                      Delete
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -291,15 +466,12 @@ export default function BlogList({
               <h3 className="text-lg font-semibold text-gray-900 line-clamp-1">
                 {blog.title || "Untitled"}
               </h3>
-              <span
-                className={`px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap ${
-                  blog.status === "published"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-yellow-100 text-yellow-800"
-                }`}
-              >
-                {blog.status === "published" ? "Published" : "Draft"}
-              </span>
+              {/* Show Draft badge only - Published status is kept in backend but not displayed */}
+              {blog.status === "draft" && (
+                <span className="px-2 py-1 text-xs font-medium rounded-full whitespace-nowrap bg-yellow-100 text-yellow-800">
+                  Draft
+                </span>
+              )}
             </div>
 
             {blog.excerpt && (
