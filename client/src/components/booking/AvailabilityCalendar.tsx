@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { ServiceType } from '@/types/booking';
@@ -8,8 +8,11 @@ import { ServiceType } from '@/types/booking';
 interface AvailabilityCalendarProps {
   serviceId: string;
   serviceType: ServiceType;
-  onDateSelect: (date: string) => void;
+  onDateSelect: (date: string | string[]) => void;
   selectedDate?: string;
+  selectedDates?: string[]; // For multi-date selection
+  selectionMode?: 'single' | 'range' | 'multiple'; // Selection mode
+  onSelectionModeChange?: (mode: 'single' | 'range' | 'multiple') => void; // Callback for mode changes
 }
 
 interface BookedDates {
@@ -25,11 +28,18 @@ export function AvailabilityCalendar({
   serviceId, 
   serviceType, 
   onDateSelect,
-  selectedDate
+  selectedDate,
+  selectedDates = [],
+  selectionMode = 'single',
+  onSelectionModeChange
 }: AvailabilityCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [bookedDates, setBookedDates] = useState<BookedDates>({});
   const [loading, setLoading] = useState(false);
+  const [dragStart, setDragStart] = useState<Date | null>(null);
+  const [dragEnd, setDragEnd] = useState<Date | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchAvailability();
@@ -43,12 +53,6 @@ export function AvailabilityCalendar({
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-
-  // Helper function to parse YYYY-MM-DD string to local Date object
-  // const parseLocalDate = (dateStr: string): Date => {
-  //   const [year, month, day] = dateStr.split('-').map(Number);
-  //   return new Date(year, month - 1, day);
-  // };
 
   const fetchAvailability = async () => {
     try {
@@ -97,15 +101,93 @@ export function AvailabilityCalendar({
   };
 
   const isDateSelected = (date: Date) => {
-    if (!selectedDate) return false;
     const dateStr = formatDateToString(date);
-    return dateStr === selectedDate;
+    
+    if (selectionMode === 'single') {
+      return selectedDate ? dateStr === selectedDate : false;
+    } else if (selectionMode === 'range' && dragStart && dragEnd) {
+      const startDate = new Date(Math.min(dragStart.getTime(), dragEnd.getTime()));
+      const endDate = new Date(Math.max(dragStart.getTime(), dragEnd.getTime()));
+      startDate.setHours(0, 0, 0, 0);
+      endDate.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      return date >= startDate && date <= endDate;
+    } else if (selectionMode === 'multiple') {
+      return selectedDates.includes(dateStr);
+    }
+    
+    return false;
   };
 
-  const handleDateClick = (date: Date) => {
+  const getSelectedDatesInRange = (): string[] => {
+    if (selectionMode === 'range' && dragStart && dragEnd) {
+      const startDate = new Date(Math.min(dragStart.getTime(), dragEnd.getTime()));
+      const endDate = new Date(Math.max(dragStart.getTime(), dragEnd.getTime()));
+      
+      const dates: string[] = [];
+      const currentDate = new Date(startDate);
+      
+      while (currentDate <= endDate) {
+        if (!isDateBooked(currentDate) && !isDatePast(currentDate)) {
+          dates.push(formatDateToString(currentDate));
+        }
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      
+      return dates;
+    } else if (selectionMode === 'multiple') {
+      return selectedDates;
+    }
+    
+    return selectedDate ? [selectedDate] : [];
+  };
+
+  const handleDateMouseDown = (date: Date) => {
     if (isDateBooked(date) || isDatePast(date)) return;
-    const dateStr = formatDateToString(date);
-    onDateSelect(dateStr);
+    
+    if (selectionMode === 'range') {
+      setDragStart(date);
+      setDragEnd(date);
+      setIsDragging(true);
+    } else if (selectionMode === 'multiple') {
+      const dateStr = formatDateToString(date);
+      if (selectedDates.includes(dateStr)) {
+        // Remove date from selection
+        const newSelectedDates = selectedDates.filter(d => d !== dateStr);
+        onDateSelect(newSelectedDates);
+      } else {
+        // Add date to selection
+        onDateSelect([...selectedDates, dateStr]);
+      }
+    } else {
+      // Single selection mode
+      const dateStr = formatDateToString(date);
+      onDateSelect(dateStr);
+    }
+  };
+
+  const handleDateMouseEnter = (date: Date) => {
+    if (isDragging && dragStart && selectionMode === 'range') {
+      setDragEnd(date);
+    }
+  };
+
+  const handleDateMouseUp = () => {
+    if (isDragging && selectionMode === 'range') {
+      setIsDragging(false);
+      // Notify parent of selected dates
+      const selectedDates = getSelectedDatesInRange();
+      onDateSelect(selectedDates);
+    }
+  };
+
+  const handleCalendarMouseUp = () => {
+    if (isDragging && selectionMode === 'range') {
+      setIsDragging(false);
+      // Notify parent of selected dates
+      const selectedDates = getSelectedDatesInRange();
+      onDateSelect(selectedDates);
+    }
   };
 
   const previousMonth = () => {
@@ -165,7 +247,9 @@ export function AvailabilityCalendar({
       days.push(
         <button
           key={day}
-          onClick={() => handleDateClick(date)}
+          onMouseDown={() => handleDateMouseDown(date)}
+          onMouseEnter={() => handleDateMouseEnter(date)}
+          onMouseUp={handleDateMouseUp}
           disabled={disabled}
           className={buttonClass}
           title={title}
@@ -191,12 +275,50 @@ export function AvailabilityCalendar({
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div 
+      ref={calendarRef}
+      className="bg-white rounded-xl shadow-lg p-6"
+      onMouseUp={handleCalendarMouseUp}
+      onMouseLeave={handleCalendarMouseUp}
+    >
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <CalendarIcon className="h-5 w-5 mr-2 text-pink-600" />
           Check Availability
         </h3>
+        {/* Selection Mode Controls */}
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onSelectionModeChange?.('single')}
+            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+              selectionMode === 'single'
+                ? 'bg-pink-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Single
+          </button>
+          <button
+            onClick={() => onSelectionModeChange?.('range')}
+            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+              selectionMode === 'range'
+                ? 'bg-pink-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Range
+          </button>
+          <button
+            onClick={() => onSelectionModeChange?.('multiple')}
+            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+              selectionMode === 'multiple'
+                ? 'bg-pink-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Multiple
+          </button>
+        </div>
       </div>
 
       {/* Month Navigation */}

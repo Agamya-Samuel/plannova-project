@@ -13,6 +13,7 @@ import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { BookingModal } from '@/components/booking/BookingModal';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import SocialShare from '@/components/ui/SocialShare';
 
 interface FoodOption {
   name: string;
@@ -111,8 +112,10 @@ export default function VenueDetailsPage() {
   const [error, setError] = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [favorite, setFavorite] = useState(false);
-  const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Redirect to login if not authenticated (prevents direct URL access)
   useEffect(() => {
@@ -216,9 +219,18 @@ export default function VenueDetailsPage() {
     }
   };
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowBookingModal(true);
+  const handleDateSelect = (date: string | string[]) => {
+    if (typeof date === 'string') {
+      // Single date selection
+      setSelectedDate(date);
+      setSelectedDates([date]); // Also set the array for consistency
+      setShowBookingModal(true);
+    } else if (date.length > 0) {
+      // Multiple dates selection
+      setSelectedDates(date);
+      setSelectedDate(date[0]); // Set first date as primary
+      setShowBookingModal(true);
+    }
   };
 
   if (loading) {
@@ -288,6 +300,7 @@ export default function VenueDetailsPage() {
                   width={1170}
                   height={600}
                   className="w-full h-96 object-cover"
+                  unoptimized={(venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : '').includes('s3.tebi.io') || (venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : '').includes('s3.')}
                 />
                 <div className="absolute top-4 left-4 flex space-x-2">
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
@@ -321,6 +334,7 @@ export default function VenueDetailsPage() {
                           width={80}
                           height={80}
                           className="w-full h-full object-cover"
+                          unoptimized={image.url.includes('s3.tebi.io') || image.url.includes('s3.')}
                         />
                       </button>
                     ))}
@@ -717,6 +731,9 @@ export default function VenueDetailsPage() {
               serviceType="venue"
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Card */}
@@ -730,6 +747,22 @@ export default function VenueDetailsPage() {
                 </div>
                 <p className="text-gray-600">per event</p>
               </div>
+
+              {selectedDate ? (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-lg transition-colors mb-4"
+                >
+                  {selectedDates.length > 1 
+                    ? `Book for ${selectedDates.length} dates` 
+                    : `Book for ${selectedDate}`}
+                </button>
+              ) : (
+                <div className="text-center mb-4">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              )}
 
               {/* Instruction to use calendar */}
               <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 mb-4">
@@ -801,6 +834,21 @@ export default function VenueDetailsPage() {
                 )}
               </div>
             </div>
+
+            {/* Social Sharing */}
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Share this venue</h3>
+              <SocialShare
+                title={venue.status === 'PENDING_EDIT' && venue.pendingEdits?.name 
+                  ? venue.pendingEdits.name 
+                  : venue.name}
+                description={venue.status === 'PENDING_EDIT' && venue.pendingEdits?.description 
+                  ? venue.pendingEdits.description 
+                  : venue.description}
+                imageUrl={venue.images.length > 0 ? venue.images[0]?.url : undefined}
+                variant="button"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -816,6 +864,7 @@ export default function VenueDetailsPage() {
           basePrice={venue.basePrice}
           pricePerGuest={0}
           preselectedDate={selectedDate}
+          preselectedDates={selectedDates}
         />
       )}
     </div>

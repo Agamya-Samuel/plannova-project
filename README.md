@@ -252,4 +252,4 @@ See `server/docs/image-compression.md` for detailed documentation.
 
 ## 📄 License
 
-[Your License Here]
+Licensed under the [MIT](LICENSE) License.

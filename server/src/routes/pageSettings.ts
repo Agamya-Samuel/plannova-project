@@ -23,15 +23,58 @@ router.get('/:key', async (req: Request, res: Response) => {
 router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { key } = req.params;
-    const { title, description, backgroundImages, textGradientFrom, textGradientTo } = req.body as { title: string; description?: string; backgroundImages: string[]; textGradientFrom?: string; textGradientTo?: string };
+    const { 
+      title, 
+      description, 
+      backgroundImages, // Legacy field - kept for backward compatibility
+      backgroundImagesMobile, 
+      backgroundImagesLaptop, 
+      textGradientFrom, 
+      textGradientTo, 
+      typingOptions 
+    } = req.body as { 
+      title: string; 
+      description?: string; 
+      backgroundImages?: string[]; 
+      backgroundImagesMobile?: string[]; 
+      backgroundImagesLaptop?: string[]; 
+      textGradientFrom?: string; 
+      textGradientTo?: string; 
+      typingOptions?: string[] 
+    };
 
-    if (!title || !Array.isArray(backgroundImages)) {
-      return res.status(400).json({ error: 'Invalid payload' });
+    if (!title) {
+      return res.status(400).json({ error: 'Title is required' });
     }
+
+    // Build update object - include all fields that are provided
+    // Using Partial to allow optional fields, and Record for dynamic property assignment
+    const updateData: Partial<{
+      title: string;
+      description?: string;
+      backgroundImages?: string[];
+      backgroundImagesMobile?: string[];
+      backgroundImagesLaptop?: string[];
+      textGradientFrom?: string;
+      textGradientTo?: string;
+      typingOptions?: string[];
+      updatedBy?: string;
+    }> = {
+      title,
+      updatedBy: req.user ? req.user.id : undefined
+    };
+
+    if (description !== undefined) updateData.description = description;
+    if (Array.isArray(backgroundImages)) updateData.backgroundImages = backgroundImages;
+    if (Array.isArray(backgroundImagesMobile)) updateData.backgroundImagesMobile = backgroundImagesMobile;
+    if (Array.isArray(backgroundImagesLaptop)) updateData.backgroundImagesLaptop = backgroundImagesLaptop;
+    if (textGradientFrom !== undefined) updateData.textGradientFrom = textGradientFrom;
+    if (textGradientTo !== undefined) updateData.textGradientTo = textGradientTo;
+    if (Array.isArray(typingOptions)) updateData.typingOptions = typingOptions;
 
     const updated = await PageSetting.findOneAndUpdate(
       { key },
-      { $set: { title, description, backgroundImages, textGradientFrom, textGradientTo, updatedBy: req.user ? req.user.id : undefined } },
+      { $set: updateData },
       { new: true, upsert: true }
     );
 

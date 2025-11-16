@@ -15,6 +15,7 @@ import Image from "next/image";
 interface BlogPayload {
   title: string;
   coverImageUrl?: string;
+  images?: string[]; // Array of image URLs for multiple images
   excerpt?: string;
   content?: string;
   status?: "draft" | "published";
@@ -31,6 +32,7 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
   const [form, setForm] = useState<BlogPayload>({
     title: "",
     coverImageUrl: "",
+    images: [],
     excerpt: "",
     content: "",
     status: defaultStatus,
@@ -40,7 +42,6 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [imageError, setImageError] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
   const uploadService = React.useMemo(() => getImageUploadService(), []);
@@ -94,8 +95,13 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
         }
       );
 
-      // Set the uploaded image URL to the form
-      setForm(prev => ({ ...prev, coverImageUrl: result.url }));
+      // Add the uploaded image URL to the images array
+      setForm(prev => ({
+        ...prev,
+        images: [...(prev.images || []), result.url],
+        // Also set as coverImageUrl if it's the first image (for backward compatibility)
+        coverImageUrl: prev.coverImageUrl || result.url
+      }));
       toast.success("Image uploaded successfully");
       
       // Reset file input
@@ -111,11 +117,15 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
     }
   }, [uploadService]);
 
-  // Handle image file upload from input
+  // Handle image file upload from input - supports multiple files
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    await processImageUpload(file);
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    // Process all selected files
+    for (let i = 0; i < files.length; i++) {
+      await processImageUpload(files[i]);
+    }
   };
 
   // Handle drag and drop
@@ -136,16 +146,34 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
     e.stopPropagation();
     setIsDragging(false);
 
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      await processImageUpload(file);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      // Process all dropped files
+      for (let i = 0; i < files.length; i++) {
+        await processImageUpload(files[i]);
+      }
     }
   }, [processImageUpload]);
 
-  // Handle remove uploaded image
-  const handleRemoveImage = () => {
-    setForm(prev => ({ ...prev, coverImageUrl: "" }));
-    setImageError(false);
+  // Handle remove uploaded image from images array
+  const handleRemoveImage = (imageUrl: string) => {
+    setForm(prev => {
+      const updatedImages = (prev.images || []).filter(img => img !== imageUrl);
+      // If removing the cover image, set first remaining image as cover, or clear it
+      const newCoverImage = prev.coverImageUrl === imageUrl 
+        ? (updatedImages.length > 0 ? updatedImages[0] : "")
+        : prev.coverImageUrl;
+      return {
+        ...prev,
+        images: updatedImages,
+        coverImageUrl: newCoverImage
+      };
+    });
+  };
+
+  // Handle remove all images
+  const handleRemoveAllImages = () => {
+    setForm(prev => ({ ...prev, images: [], coverImageUrl: "" }));
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -161,12 +189,25 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
         const res = await apiClient.get(`/blogs/${blogId}`);
         const blog = res.data?.data || res.data;
         if (blog) {
+          // If blog has images array, use it; otherwise use coverImageUrl as single image
+          const images = blog.images && Array.isArray(blog.images) && blog.images.length > 0
+            ? blog.images
+            : (blog.coverImageUrl ? [blog.coverImageUrl] : []);
+          
+          // Normalize status when loading - ensure it's 'draft' or 'published'
+          let normalizedStatus: "draft" | "published" = defaultStatus;
+          if (blog.status) {
+            const statusLower = String(blog.status).toLowerCase().trim();
+            normalizedStatus = statusLower === 'published' ? 'published' : 'draft';
+          }
+          
           setForm({
             title: blog.title || "",
             coverImageUrl: blog.coverImageUrl || "",
+            images: images,
             excerpt: blog.excerpt || "",
             content: blog.content || "",
-            status: blog.status || defaultStatus,
+            status: normalizedStatus, // Use normalized status
           });
         }
       } catch (error) {
@@ -180,19 +221,7 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
     loadBlog();
   }, [blogId, defaultStatus]);
 
-  // Reset image error when URL changes
-  React.useEffect(() => {
-    if (form.coverImageUrl) {
-      setImageError(false);
-      // Validate URL format
-      try {
-        new URL(form.coverImageUrl);
-      } catch {
-        setImageError(true);
-        toast.error("Invalid URL format. Please enter a valid image URL.");
-      }
-    }
-  }, [form.coverImageUrl]);
+  // Note: Image error handling is now per-image in the gallery view
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,16 +231,26 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
     }
     setIsSubmitting(true);
     try {
+      // Normalize the status to ensure it's properly mapped
+      // Ensure status is either 'draft' or 'published' (lowercase)
+      const normalizedStatus = form.status?.toLowerCase().trim() === 'published' ? 'published' : 'draft';
+      
+      // Prepare the payload with normalized status
+      const payload: BlogPayload = {
+        ...form,
+        status: normalizedStatus
+      };
+      
       // Decide create vs update based on locked edit mode and id
       if (isEditModeRef.current && editIdRef.current) {
         // Update existing blog (ALWAYS PATCH the original id)
-        await apiClient.patch(`/blogs/${editIdRef.current}`, form);
+        await apiClient.patch(`/blogs/${editIdRef.current}`, payload);
         toast.success("Blog updated successfully");
       } else {
         // Create new blog
-        await apiClient.post("/blogs", form);
+        await apiClient.post("/blogs", payload);
         toast.success("Blog saved successfully");
-        setForm({ title: "", coverImageUrl: "", excerpt: "", content: "", status: defaultStatus });
+        setForm({ title: "", coverImageUrl: "", images: [], excerpt: "", content: "", status: defaultStatus });
       }
       // Call onSave callback if provided to refresh lists
       if (onSave) {
@@ -221,17 +260,37 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
       // Extract error message from API response for better user feedback
       let errorMessage = "Failed to save blog";
       if (error && typeof error === 'object' && 'response' in error) {
-        const apiError = error as { response?: { data?: { error?: string; errors?: Array<{ msg?: string }> } } };
+        const apiError = error as { 
+          response?: { 
+            data?: { 
+              error?: string; 
+              errors?: Array<{ msg?: string; message?: string; field?: string }>;
+              details?: Array<{ msg?: string; message?: string }>;
+            } 
+          } 
+        };
+        
         if (apiError.response?.data?.error) {
           errorMessage = apiError.response.data.error;
-        } else if (apiError.response?.data?.errors && Array.isArray(apiError.response.data.errors)) {
-          // Handle validation errors
-          const validationErrors = apiError.response.data.errors
-            .map((err: { msg?: string }) => err.msg)
-            .filter(Boolean)
-            .join(", ");
-          if (validationErrors) {
-            errorMessage = `Validation failed: ${validationErrors}`;
+        }
+        
+        // Handle validation errors - check both 'errors' and 'details' arrays
+        const allErrors = [
+          ...(apiError.response?.data?.errors || []),
+          ...(apiError.response?.data?.details || [])
+        ];
+        
+        if (allErrors.length > 0) {
+          const errorMessages = allErrors
+            .map((err: { msg?: string; message?: string; field?: string }) => {
+              const msg = err.msg || err.message || 'Invalid value';
+              const field = err.field ? `${err.field}: ` : '';
+              return `${field}${msg}`;
+            })
+            .filter(Boolean);
+          
+          if (errorMessages.length > 0) {
+            errorMessage = `Validation failed:\n${errorMessages.join('\n')}`;
           }
         }
       } else if (error instanceof Error) {
@@ -267,93 +326,62 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
         />
       </div>
 
-      {/* Cover Image */}
+      {/* Blog Images - Multiple Images Support */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Cover Image</label>
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          Blog Images {form.images && form.images.length > 0 && `(${form.images.length})`}
+        </label>
         
-        {/* Image Preview */}
-        {form.coverImageUrl && (
-          <div className="mb-6 relative group">
-            <div className="relative w-full h-80 rounded-xl overflow-hidden border-2 border-gray-200 shadow-lg bg-gray-100">
-              {!imageError ? (
-                <>
-                  <Image
-                    src={form.coverImageUrl}
-                    alt="Cover preview"
-                    fill
-                    className="object-cover"
-                    unoptimized={form.coverImageUrl.includes('s3.tebi.io') || form.coverImageUrl.includes('s3.')}
-                    onError={() => {
-                      setImageError(true);
-                      toast.error("Failed to load image. The URL may be invalid or the image may not be accessible.");
-                    }}
-                  />
-                  {/* Overlay with remove button */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
-                    <button
-                      type="button"
-                      onClick={handleRemoveImage}
-                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center space-x-2 transition-colors duration-200 shadow-lg"
-                    >
-                      <X className="h-4 w-4" />
-                      <span>Remove Image</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                /* Error state - show error message and options */
-                <div className="absolute inset-0 flex flex-col items-center justify-center bg-red-50 p-6">
-                  <div className="text-center space-y-4">
-                    <div className="flex justify-center">
-                      <div className="p-3 bg-red-100 rounded-full">
-                        <X className="h-8 w-8 text-red-600" />
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        Failed to Load Image
-                      </h3>
-                      <p className="text-sm text-gray-600 mb-4">
-                        The image at this URL could not be loaded. Please check the URL or upload a new image.
-                      </p>
-                      <div className="text-xs text-gray-500 bg-white/50 p-2 rounded break-all max-h-20 overflow-y-auto">
-                        {form.coverImageUrl}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-center space-x-3">
+        {/* Images Gallery - Show all uploaded images */}
+        {form.images && form.images.length > 0 && (
+          <div className="mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {form.images.map((imageUrl, index) => (
+                <div key={index} className="relative group">
+                  <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-gray-200 shadow-md bg-gray-100">
+                    <Image
+                      src={imageUrl}
+                      alt={`Blog image ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      unoptimized={imageUrl.includes('s3.tebi.io') || imageUrl.includes('s3.')}
+                    />
+                    {/* Overlay with remove button */}
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
                       <button
                         type="button"
-                        onClick={handleRemoveImage}
-                        className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+                        onClick={() => handleRemoveImage(imageUrl)}
+                        className="px-3 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg flex items-center space-x-2 transition-colors duration-200 shadow-lg text-sm"
                       >
-                        Remove URL
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setImageError(false);
-                          // Force reload attempt
-                          const url = form.coverImageUrl;
-                          setForm(prev => ({ ...prev, coverImageUrl: "" }));
-                          setTimeout(() => {
-                            setForm(prev => ({ ...prev, coverImageUrl: url }));
-                          }, 100);
-                        }}
-                        className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
-                      >
-                        Retry
+                        <X className="h-4 w-4" />
+                        <span>Remove</span>
                       </button>
                     </div>
+                    {/* Cover badge for first image */}
+                    {index === 0 && (
+                      <div className="absolute top-2 left-2 bg-pink-600 text-white text-xs px-2 py-1 rounded">
+                        Cover
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
+              ))}
             </div>
+            {/* Remove all button */}
+            {form.images.length > 1 && (
+              <button
+                type="button"
+                onClick={handleRemoveAllImages}
+                className="mt-4 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors duration-200"
+              >
+                Remove All Images
+              </button>
+            )}
           </div>
         )}
 
-        {/* Upload Section - Only show if no image is uploaded or show upload options */}
-        {!form.coverImageUrl && (
-          <div className="space-y-4">
+        {/* Upload Section - Always show to allow adding more images */}
+        <div className="space-y-4">
             {/* Drag and Drop Zone */}
             <div
               ref={dropZoneRef}
@@ -371,6 +399,7 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                multiple
                 onChange={handleImageUpload}
                 className="hidden"
                 id="cover-image-upload"
@@ -402,7 +431,9 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
                     ) : isDragging ? (
                       'Drop your image here'
                     ) : (
-                      'Drag & drop your image here'
+                      form.images && form.images.length > 0 
+                        ? 'Add more images' 
+                        : 'Drag & drop your image here'
                     )}
                   </h3>
                   <p className="text-sm text-gray-500">
@@ -412,7 +443,7 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
                     }
                   </p>
                   <p className="text-xs text-gray-400 mt-2">
-                    Supported: JPG, PNG, WebP, GIF (Max 10MB)
+                    Supported: JPG, PNG, WebP, GIF (Max 10MB per image)
                   </p>
                 </div>
 
@@ -456,80 +487,71 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
             <div className="bg-gray-50 rounded-xl p-6 border border-gray-200">
               <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center space-x-2">
                 <Link2 className="h-4 w-4 text-pink-600" />
-                <span>Paste Image URL</span>
+                <span>Add Image by URL</span>
               </label>
               <div className="space-y-2">
-                <input
-                  type="url"
-                  value={form.coverImageUrl || ""}
-                  onChange={e => handleChange("coverImageUrl", e.target.value)}
-                  className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-gray-900 transition-all duration-200"
-                  placeholder="https://example.com/image.jpg"
-                  disabled={isSubmitting}
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    id="image-url-input"
+                    className="flex-1 border-2 border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 bg-white text-gray-900 transition-all duration-200"
+                    placeholder="https://example.com/image.jpg"
+                    disabled={isSubmitting}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const input = e.target as HTMLInputElement;
+                        const url = input.value.trim();
+                        if (url) {
+                          try {
+                            new URL(url);
+                            setForm(prev => ({
+                              ...prev,
+                              images: [...(prev.images || []), url],
+                              coverImageUrl: prev.coverImageUrl || url
+                            }));
+                            input.value = '';
+                            toast.success("Image URL added");
+                          } catch {
+                            toast.error("Invalid URL format");
+                          }
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const input = document.getElementById('image-url-input') as HTMLInputElement;
+                      const url = input?.value.trim();
+                      if (url) {
+                        try {
+                          new URL(url);
+                          setForm(prev => ({
+                            ...prev,
+                            images: [...(prev.images || []), url],
+                            coverImageUrl: prev.coverImageUrl || url
+                          }));
+                          input.value = '';
+                          toast.success("Image URL added");
+                        } catch {
+                          toast.error("Invalid URL format");
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-lg font-medium transition-colors duration-200"
+                    disabled={isSubmitting}
+                  >
+                    Add
+                  </button>
+                </div>
                 <p className="text-xs text-gray-500 flex items-start space-x-1">
                   <span className="mt-0.5">💡</span>
-                  <span>Enter a direct URL to an image hosted elsewhere</span>
+                  <span>Enter a direct URL to an image hosted elsewhere and press Enter or click Add</span>
                 </p>
               </div>
             </div>
           </div>
-        )}
-
-        {/* Show upload again option when image exists */}
-        {form.coverImageUrl && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800 mb-3">Want to replace this image?</p>
-            <div className="flex items-center space-x-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="replace-image-upload"
-                disabled={isUploading || isSubmitting}
-              />
-              <label
-                htmlFor="replace-image-upload"
-                className={`inline-flex items-center space-x-2 px-4 py-2 border border-blue-300 rounded-lg cursor-pointer transition-all duration-200 ${
-                  isUploading || isSubmitting
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-300'
-                    : 'bg-white text-blue-700 hover:bg-blue-100 hover:border-blue-400'
-                }`}
-              >
-                {isUploading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Uploading... {uploadProgress}%</span>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="h-4 w-4" />
-                    <span>Upload New Image</span>
-                  </>
-                )}
-              </label>
-              <span className="text-sm text-gray-500">or</span>
-              <input
-                type="url"
-                value={form.coverImageUrl}
-                onChange={e => handleChange("coverImageUrl", e.target.value)}
-                className="flex-1 border border-blue-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 text-sm"
-                placeholder="Paste new image URL"
-                disabled={isSubmitting}
-              />
-            </div>
-            {isUploading && (
-              <div className="mt-3 w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
-                <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-1.5 rounded-full transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                ></div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Excerpt */}
@@ -560,13 +582,21 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ defaultStatus = "draft", blogId
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
         <select
-          value={form.status}
-          onChange={e => handleChange("status", e.target.value)}
+          value={form.status || 'draft'}
+          onChange={e => {
+            // Normalize the value to ensure it's 'draft' or 'published'
+            const value = e.target.value.toLowerCase().trim();
+            const normalizedValue = value === 'published' ? 'published' : 'draft';
+            handleChange("status", normalizedValue);
+          }}
           className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-pink-500 bg-white text-gray-900"
         >
           <option value="draft">Draft</option>
           <option value="published">Published</option>
         </select>
+        {process.env.NODE_ENV === 'development' && (
+          <p className="text-xs text-gray-500 mt-1">Current status: {form.status || 'draft'}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">

@@ -15,7 +15,6 @@ const router = Router();
 
 // Validation middleware for booking creation
 const createBookingValidation = [
-  body('date').isISO8601().withMessage('Valid date is required'),
   body('time').notEmpty().withMessage('Time is required'),
   body('guestCount').isInt({ min: 1 }).withMessage('Guest count must be at least 1'),
   body('contactPerson').trim().notEmpty().withMessage('Contact person is required'),
@@ -23,9 +22,66 @@ const createBookingValidation = [
   body('contactEmail').isEmail().withMessage('Valid email is required')
 ];
 
+// Custom validation middleware for date/dates
+const validateBookingDates = (req: AuthRequest, res: Response, next: () => void) => {
+  const { date, dates } = req.body;
+  
+  // Either date or dates must be provided
+  if (!date && (!dates || !Array.isArray(dates) || dates.length === 0)) {
+    return res.status(400).json({ error: 'Either date or dates array is required' });
+  }
+  
+  // If dates array is provided, validate each date
+  if (dates && Array.isArray(dates) && dates.length > 0) {
+    for (const dateStr of dates) {
+      if (!dateStr || typeof dateStr !== 'string' || isNaN(Date.parse(dateStr))) {
+        return res.status(400).json({ error: `Invalid date format in dates array: ${dateStr}` });
+      }
+    }
+  }
+  
+  // If single date is provided, validate it
+  if (date) {
+    if (typeof date !== 'string' || isNaN(Date.parse(date))) {
+      return res.status(400).json({ error: 'Invalid date format' });
+    }
+  }
+  
+  next();
+};
+
 // Interface for a booking populated with venue details
 interface IPopulatedBooking extends Omit<IBooking, 'venueId'> {
   venueId?: IVenue;
+}
+
+// Interface for populated user data
+interface IPopulatedUser {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+}
+
+// Interface for service objects
+interface IService {
+  _id: Types.ObjectId;
+  name: string;
+  images?: Array<{ url: string }>;
+  contact?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  providerId?: Types.ObjectId;
+  provider?: Types.ObjectId;
+  basePrice: number;
+  pricePerGuest?: number;
+  reviews?: Array<{ rating: number }>;
+  rating?: number;
+  reviewCount?: number;
+  totalReviews?: number;
+  averageRating?: number;
 }
 
 // Helper to transform booking data
@@ -53,8 +109,90 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       .populate('providerId', 'firstName lastName email')
       .sort({ createdAt: -1 });
 
-    // Transform bookings to include service and provider details
-    const transformedBookings = await Promise.all(bookings.map(async (booking) => {
+    // Group bookings by bookingGroupId
+    const groupedBookings: { [key: string]: IBooking[] } = {};
+    const ungroupedBookings: IBooking[] = [];
+
+    bookings.forEach(booking => {
+      const groupId = booking.bookingGroupId;
+      if (groupId) {
+        if (!groupedBookings[groupId]) {
+          groupedBookings[groupId] = [];
+        }
+        groupedBookings[groupId].push(booking);
+      } else {
+        ungroupedBookings.push(booking);
+      }
+    });
+
+    // Transform grouped bookings
+    const transformedGroupedBookings = Object.values(groupedBookings).map(group => {
+      // Use the first booking as the primary one for display
+      const primaryBooking = group[0];
+      
+      // Get all dates in the group
+      const dates = group.map(b => b.date).sort((a, b) => a.getTime() - b.getTime());
+      
+      // Calculate total price for all bookings in the group
+      const totalPrice = group.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+      
+      // Get provider contact info
+      let providerContact = {
+        name: 'Provider',
+        email: '',
+        phone: ''
+      };
+      
+      try {
+        const provider = primaryBooking.providerId as unknown as IPopulatedUser | null;
+        if (provider) {
+          providerContact = {
+            name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+            email: provider.email || '',
+            phone: provider.phone || ''
+          };
+        }
+      } catch (error) {
+        console.error('Error fetching provider details:', error);
+      }
+      
+      return {
+        id: (primaryBooking._id as Types.ObjectId).toString(),
+        serviceId: (primaryBooking.serviceId as Types.ObjectId).toString(),
+        serviceType: primaryBooking.serviceType,
+        serviceName: '', // Will be populated below
+        serviceImage: '', // Will be populated below
+        // For backward compatibility
+        venueName: '',
+        venueImage: '',
+        // Group information
+        isGroupBooking: true,
+        bookingGroupId: primaryBooking.bookingGroupId,
+        dates: dates.map(d => d.toISOString().split('T')[0]),
+        date: dates[0], // First date for display
+        time: primaryBooking.time,
+        status: primaryBooking.status,
+        paymentStatus: primaryBooking.paymentStatus,
+        totalPrice,
+        guestCount: primaryBooking.guestCount,
+        contactPerson: primaryBooking.contactPerson,
+        contactPhone: primaryBooking.contactPhone,
+        contactEmail: primaryBooking.contactEmail,
+        specialRequests: primaryBooking.specialRequests,
+        provider: providerContact,
+        createdAt: primaryBooking.createdAt,
+        // Individual bookings in the group
+        individualBookings: group.map(b => ({
+          id: (b._id as Types.ObjectId).toString(),
+          date: b.date.toISOString().split('T')[0],
+          status: b.status,
+          totalPrice: b.totalPrice
+        }))
+      };
+    });
+
+    // Transform ungrouped bookings
+    const transformedUngroupedBookings = await Promise.all(ungroupedBookings.map(async (booking) => {
       let serviceName = 'Unknown Service';
       let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
       let providerContact = {
@@ -64,8 +202,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       };
       
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let service: any = null;
+                let service: IService | null = null;
         
       switch (booking.serviceType) {
           case ServiceType.VENUE:
@@ -106,8 +243,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         }
         
         // Fallback to provider user info if service doesn't have contact
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const provider = booking.providerId as any;
+        const provider = booking.providerId as unknown as IPopulatedUser | null;
         if (provider && !providerContact.email) {
           providerContact = {
             name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
@@ -121,13 +257,15 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
 
       return {
         id: (booking._id as Types.ObjectId).toString(),
-        serviceId: booking.serviceId?.toString(),
+        serviceId: (booking.serviceId as Types.ObjectId).toString(),
         serviceType: booking.serviceType,
         serviceName,
         serviceImage,
         // For backward compatibility
         venueName: serviceName,
         venueImage: serviceImage,
+        // Single booking information
+        isGroupBooking: false,
         date: booking.date,
         time: booking.time,
         status: booking.status,
@@ -140,6 +278,64 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         specialRequests: booking.specialRequests,
         provider: providerContact,
         createdAt: booking.createdAt
+      };
+    }));
+
+    // Combine all bookings
+    const allBookings = [...transformedGroupedBookings, ...transformedUngroupedBookings];
+
+    // Transform grouped bookings to include service details
+    const transformedBookings = await Promise.all(allBookings.map(async (booking) => {
+      // If service details are already populated, return as is
+      if (booking.serviceName && booking.serviceName !== 'Unknown Service') {
+        return booking;
+      }
+      
+      let serviceName = 'Unknown Service';
+      let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+      
+      try {
+                let service: IService | null = null;
+        
+        switch (booking.serviceType) {
+          case ServiceType.VENUE:
+            service = await Venue.findById(booking.serviceId);
+            break;
+          case ServiceType.CATERING:
+            service = await Catering.findById(booking.serviceId);
+            break;
+          case ServiceType.PHOTOGRAPHY:
+            service = await Photography.findById(booking.serviceId);
+            break;
+          case ServiceType.VIDEOGRAPHY:
+            service = await Videography.findById(booking.serviceId);
+            break;
+          case ServiceType.BRIDAL_MAKEUP:
+            service = await BridalMakeup.findById(booking.serviceId);
+            break;
+          case ServiceType.DECORATION:
+            service = await Decoration.findById(booking.serviceId);
+            break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
+        }
+        
+        if (service) {
+          serviceName = service.name;
+          serviceImage = service.images?.[0]?.url || serviceImage;
+        }
+      } catch (error) {
+        console.error('Error fetching service details:', error);
+      }
+
+      return {
+        ...booking,
+        serviceName,
+        serviceImage,
+        // For backward compatibility
+        venueName: serviceName,
+        venueImage: serviceImage
       };
     }));
 
@@ -403,14 +599,102 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
     .populate('customerId', 'firstName lastName email phone')
     .sort({ createdAt: -1 });
 
+    // Group bookings by bookingGroupId
+    const groupedBookings: { [key: string]: IBooking[] } = {};
+    const ungroupedBookings: IBooking[] = [];
+
+    bookings.forEach(booking => {
+      const groupId = booking.bookingGroupId;
+      if (groupId) {
+        if (!groupedBookings[groupId]) {
+          groupedBookings[groupId] = [];
+        }
+        groupedBookings[groupId].push(booking);
+      } else {
+        ungroupedBookings.push(booking);
+      }
+    });
+
+    // Transform grouped bookings
+    const transformedGroupedBookings = Object.values(groupedBookings).map(group => {
+      // Use the first booking as the primary one for display
+      const primaryBooking = group[0];
+      
+      // Get all dates in the group
+      const dates = group.map(b => b.date).sort((a, b) => a.getTime() - b.getTime());
+      
+      // Calculate total price for all bookings in the group
+      const totalPrice = group.reduce((sum, b) => sum + (b.totalPrice || 0), 0);
+      
+      return {
+        id: (primaryBooking._id as Types.ObjectId).toString(),
+        serviceId: (primaryBooking.serviceId as Types.ObjectId).toString(),
+        serviceType: primaryBooking.serviceType,
+        serviceName: '', // Will be populated below
+        serviceImage: '', // Will be populated below
+        // For backward compatibility
+        venueName: '',
+        venueImage: '',
+        // Group information
+        isGroupBooking: true,
+        bookingGroupId: primaryBooking.bookingGroupId,
+        dates: dates.map(d => d.toISOString().split('T')[0]),
+        date: dates[0], // First date for display
+        time: primaryBooking.time,
+        status: primaryBooking.status,
+        paymentStatus: primaryBooking.paymentStatus,
+        totalPrice,
+        guestCount: primaryBooking.guestCount,
+        contactPerson: primaryBooking.contactPerson,
+        contactPhone: primaryBooking.contactPhone,
+        contactEmail: primaryBooking.contactEmail,
+        specialRequests: primaryBooking.specialRequests,
+        createdAt: primaryBooking.createdAt,
+        // Individual bookings in the group
+        individualBookings: group.map(b => ({
+          id: (b._id as Types.ObjectId).toString(),
+          date: b.date.toISOString().split('T')[0],
+          status: b.status,
+          totalPrice: b.totalPrice
+        }))
+      };
+    });
+
+    // Transform ungrouped bookings
+    const transformedUngroupedBookings = ungroupedBookings.map(booking => ({
+      id: (booking._id as Types.ObjectId).toString(),
+      serviceId: (booking.serviceId as Types.ObjectId).toString(),
+      serviceType: booking.serviceType,
+      serviceName: '', // Will be populated below
+      serviceImage: '', // Will be populated below
+      // For backward compatibility
+      venueName: '',
+      venueImage: '',
+      // Single booking information
+      isGroupBooking: false,
+      date: booking.date,
+      time: booking.time,
+      status: booking.status,
+      paymentStatus: booking.paymentStatus,
+      totalPrice: booking.totalPrice,
+      guestCount: booking.guestCount,
+      contactPerson: booking.contactPerson,
+      contactPhone: booking.contactPhone,
+      contactEmail: booking.contactEmail,
+      specialRequests: booking.specialRequests,
+      createdAt: booking.createdAt
+    }));
+
+    // Combine all bookings
+    const allBookings = [...transformedGroupedBookings, ...transformedUngroupedBookings];
+
     // Transform bookings to include service details
-    const transformedBookings = await Promise.all(bookings.map(async (booking) => {
+    const transformedBookings = await Promise.all(allBookings.map(async (booking) => {
       let serviceName = 'Unknown Service';
       let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
       
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let service: any = null;
+                let service: IService | null = null;
         
         switch (booking.serviceType) {
           case ServiceType.VENUE:
@@ -445,25 +729,12 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
       }
 
       return {
-        id: (booking._id as Types.ObjectId).toString(),
-        serviceId: booking.serviceId.toString(),
-        serviceType: booking.serviceType,
+        ...booking,
         serviceName,
         serviceImage,
         // For backward compatibility
         venueName: serviceName,
-        venueImage: serviceImage,
-        date: booking.date,
-        time: booking.time,
-        status: booking.status,
-        paymentStatus: booking.paymentStatus,
-        totalPrice: booking.totalPrice,
-        guestCount: booking.guestCount,
-        contactPerson: booking.contactPerson,
-        contactPhone: booking.contactPhone,
-        contactEmail: booking.contactEmail,
-        specialRequests: booking.specialRequests,
-        createdAt: booking.createdAt
+        venueImage: serviceImage
       };
     }));
 
@@ -646,6 +917,7 @@ router.get('/provider/stats', authenticateToken, requireProvider, async (req: Au
 // PUT /api/bookings/:id/accept - Accept a booking (Provider only)
 router.put('/:id/accept', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {
+    // First, find the booking to get its bookingGroupId if it exists
     const booking = await Booking.findOne({
       _id: req.params.id,
       providerId: req.user!.id
@@ -659,14 +931,26 @@ router.put('/:id/accept', authenticateToken, requireProvider, async (req: AuthRe
       return res.status(400).json({ error: 'Only pending bookings can be accepted' });
     }
 
-    booking.status = BookingStatus.CONFIRMED;
-    await booking.save();
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.CONFIRMED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.CONFIRMED;
+      await booking.save();
+    }
 
     res.json({
       message: 'Booking accepted successfully',
       booking: {
         id: (booking._id as Types.ObjectId).toString(),
-        status: booking.status
+        status: BookingStatus.CONFIRMED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
       }
     });
   } catch (error) {
@@ -678,6 +962,7 @@ router.put('/:id/accept', authenticateToken, requireProvider, async (req: AuthRe
 // PUT /api/bookings/:id/reject - Reject a booking (Provider only)
 router.put('/:id/reject', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {
+    // First, find the booking to get its bookingGroupId if it exists
     const booking = await Booking.findOne({
       _id: req.params.id,
       providerId: req.user!.id
@@ -691,14 +976,26 @@ router.put('/:id/reject', authenticateToken, requireProvider, async (req: AuthRe
       return res.status(400).json({ error: 'Only pending bookings can be rejected' });
     }
 
-    booking.status = BookingStatus.REJECTED;
-    await booking.save();
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.REJECTED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.REJECTED;
+      await booking.save();
+    }
 
     res.json({
       message: 'Booking rejected successfully',
       booking: {
         id: (booking._id as Types.ObjectId).toString(),
-        status: booking.status
+        status: BookingStatus.REJECTED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
       }
     });
   } catch (error) {
@@ -710,6 +1007,7 @@ router.put('/:id/reject', authenticateToken, requireProvider, async (req: AuthRe
 // PUT /api/bookings/:id/complete - Mark a booking as completed (Provider only)
 router.put('/:id/complete', authenticateToken, requireProvider, async (req: AuthRequest, res: Response) => {
   try {
+    // First, find the booking to get its bookingGroupId if it exists
     const booking = await Booking.findOne({
       _id: req.params.id,
       providerId: req.user!.id
@@ -732,14 +1030,26 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
       return res.status(400).json({ error: 'Cannot mark future bookings as completed. The event must have occurred.' });
     }
 
-    booking.status = BookingStatus.COMPLETED;
-    await booking.save();
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.COMPLETED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.COMPLETED;
+      await booking.save();
+    }
 
     res.json({
       message: 'Booking marked as completed successfully',
       booking: {
         id: (booking._id as Types.ObjectId).toString(),
-        status: booking.status
+        status: BookingStatus.COMPLETED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
       }
     });
   } catch (error) {
@@ -749,14 +1059,14 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
 });
 
 // POST /api/bookings - Create a new booking
-router.post('/', authenticateToken, createBookingValidation, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticateToken, createBookingValidation, validateBookingDates, async (req: AuthRequest, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { venueId, serviceId, serviceType, date, time, guestCount, contactPerson, contactPhone, contactEmail, specialRequests } = req.body;
+    const { venueId, serviceId, serviceType, date, time, guestCount, contactPerson, contactPhone, contactEmail, specialRequests, dates } = req.body;
 
     // Support both old (venueId) and new (serviceId + serviceType) formats
     const actualServiceId = serviceId || venueId;
@@ -837,37 +1147,89 @@ router.post('/', authenticateToken, createBookingValidation, async (req: AuthReq
       return res.status(400).json({ error: 'Providers cannot book their own services' });
     }
 
-    const booking = await Booking.create({
-      customerId: req.user!.id,
-      providerId,
-      serviceType: actualServiceType,
-      serviceId: new Types.ObjectId(actualServiceId),
-      // For backward compatibility
-      venueId: actualServiceType === ServiceType.VENUE ? new Types.ObjectId(actualServiceId) : undefined,
-      date: new Date(date),
-      time,
-      totalPrice,
-      guestCount,
-      contactPerson,
-      contactPhone,
-      contactEmail,
-      specialRequests
-    });
+    // Handle multiple dates - create a booking group
+    if (dates && Array.isArray(dates) && dates.length > 1) {
+      // Generate a unique booking group ID
+      const bookingGroupId = `group_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create bookings for each date
+      const bookingPromises = dates.map((dateStr: string) => {
+        const bookingData = {
+          customerId: req.user!.id,
+          providerId,
+          serviceType: actualServiceType,
+          serviceId: new Types.ObjectId(actualServiceId),
+          // For backward compatibility
+          venueId: actualServiceType === ServiceType.VENUE ? new Types.ObjectId(actualServiceId) : undefined,
+          date: new Date(dateStr),
+          time,
+          totalPrice,
+          guestCount: parseInt(guestCount),
+          contactPerson,
+          contactPhone,
+          contactEmail,
+          specialRequests,
+          bookingGroupId // Group all related bookings together
+        };
+        
+        return Booking.create(bookingData);
+      });
+      
+      // Wait for all bookings to be created
+      const bookings = await Promise.all(bookingPromises);
+      
+      // Return success response with group information
+      res.status(201).json({
+        message: `Successfully created ${bookings.length} bookings`,
+        bookingGroupId,
+        bookings: bookings.map(booking => ({
+          id: (booking._id as Types.ObjectId).toString(),
+          serviceId: booking.serviceId.toString(),
+          serviceType: booking.serviceType,
+          date: booking.date.toISOString().split('T')[0],
+          time: booking.time,
+          status: booking.status,
+          totalPrice: booking.totalPrice,
+          guestCount: booking.guestCount,
+          contactPerson: booking.contactPerson,
+          contactPhone: booking.contactPhone,
+          contactEmail: booking.contactEmail
+        }))
+      });
+    } else {
+      // Single booking (existing behavior)
+      const booking = await Booking.create({
+        customerId: req.user!.id,
+        providerId,
+        serviceType: actualServiceType,
+        serviceId: new Types.ObjectId(actualServiceId),
+        // For backward compatibility
+        venueId: actualServiceType === ServiceType.VENUE ? new Types.ObjectId(actualServiceId) : undefined,
+        date: new Date(date),
+        time,
+        totalPrice,
+        guestCount: parseInt(guestCount),
+        contactPerson,
+        contactPhone,
+        contactEmail,
+        specialRequests
+      });
 
-    // Return success response
-    res.status(201).json({
-      id: (booking._id as Types.ObjectId).toString(),
-      serviceId: booking.serviceId.toString(),
-      serviceType: booking.serviceType,
-      date: booking.date.toISOString().split('T')[0],
-      time: booking.time,
-      status: booking.status,
-      totalPrice: booking.totalPrice,
-      guestCount: booking.guestCount,
-      contactPerson: booking.contactPerson,
-      contactPhone: booking.contactPhone,
-      contactEmail: booking.contactEmail
-    });
+      // Return success response
+      res.status(201).json({
+        id: (booking._id as Types.ObjectId).toString(),
+        serviceId: booking.serviceId.toString(),
+        serviceType: booking.serviceType,
+        date: booking.date.toISOString().split('T')[0],
+        time: booking.time,
+        status: booking.status,
+        totalPrice: booking.totalPrice,
+        guestCount: booking.guestCount,
+        contactPerson: booking.contactPerson,
+        contactPhone: booking.contactPhone,
+        contactEmail: booking.contactEmail
+      });
+    }
   } catch (error) {
     console.error('Error creating booking:', error);
     res.status(500).json({ error: 'Failed to create booking' });

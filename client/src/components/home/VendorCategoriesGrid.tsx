@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 
@@ -22,7 +22,7 @@ type AnyService = BaseService;
 // A single grid item ready to render
 interface CategoryCardItem {
   title: string;
-  image?: string;
+  images: string[]; // Array of images for this category
   countText: string;
   locationText?: string;
   hasImage: boolean;
@@ -31,6 +31,7 @@ interface CategoryCardItem {
 
 // Renders service categories (Photography, Catering, etc.) as large image cards
 // The layout and interactions mirror the Venue Categories grid from the homepage
+// Enhanced with smooth swipe-like transitions and category-wise image cycling
 export default function VendorCategoriesGrid() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -40,8 +41,8 @@ export default function VendorCategoriesGrid() {
   const [decoration, setDecoration] = useState<AnyService[]>([]);
   const [entertainment, setEntertainment] = useState<AnyService[]>([]);
   const [bridalMakeup, setBridalMakeup] = useState<AnyService[]>([]);
-  // Ticks to reshuffle displayed images periodically
-  const [shuffleTick, setShuffleTick] = useState(0);
+  // Track current image index for each category
+  const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -68,18 +69,7 @@ export default function VendorCategoriesGrid() {
     fetchAll();
   }, []);
 
-  // Periodically reshuffle images so cards update automatically
-  useEffect(() => {
-    // Do nothing if nothing is loaded yet
-    const anyLoaded = [photography, catering, videography, decoration, entertainment, bridalMakeup].some(
-      arr => Array.isArray(arr) && arr.length > 0
-    );
-    if (!anyLoaded) return;
-    const INTERVAL_MS = 2000; // faster changes: every 2s
-    const id = setInterval(() => setShuffleTick(t => t + 1), INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [photography, catering, videography, decoration, entertainment, bridalMakeup]);
-
+  // Build cards with all available images for each category
   const cards: CategoryCardItem[] = useMemo(() => {
     const build = (title: string, list: AnyService[], categoryParam: string): CategoryCardItem => {
       const count = list.length;
@@ -102,34 +92,50 @@ export default function VendorCategoriesGrid() {
       const narrowed = list.filter(maybeCategoryMatches);
       const servicesWithImages = (narrowed.length ? narrowed : list).filter(s => (s.images?.length || 0) > 0);
 
-      let chosenService: AnyService | undefined;
-      let image = '';
+      // Collect all images from all services in this category
+      const allImages: string[] = [];
+      let locationText = '';
 
       if (servicesWithImages.length > 0) {
-        // Pick a random service that has images
-        const randomServiceIndex = (Math.floor(Math.random() * servicesWithImages.length) + shuffleTick) % servicesWithImages.length;
-        chosenService = servicesWithImages[randomServiceIndex];
+        // Get first service for location (we'll use the first one found)
+        const firstService = servicesWithImages[0];
+        const city = firstService?.serviceLocation?.city || '';
+        const state = firstService?.serviceLocation?.state || '';
+        locationText = [city, state].filter(Boolean).join(', ');
 
-        const imgs = chosenService.images || [];
-        // If multiple photos exist, pick a random one; otherwise fall back to primary/first
-        const primary = imgs.find(i => i.isPrimary)?.url;
-        if (imgs.length > 1) {
-          const randomImageIndex = (Math.floor(Math.random() * imgs.length) + shuffleTick) % imgs.length;
-          image = imgs[randomImageIndex]?.url || primary || imgs[0]?.url || '';
-        } else {
-          image = primary || imgs[0]?.url || '';
-        }
+        // Collect all images from all services, prioritizing primary images
+        servicesWithImages.forEach(service => {
+          const imgs = service.images || [];
+          // Add primary images first, then others
+          const primary = imgs.find(i => i.isPrimary);
+          if (primary?.url) {
+            allImages.push(primary.url);
+          }
+          imgs.forEach(img => {
+            if (img.url && (!img.isPrimary || !primary)) {
+              allImages.push(img.url);
+            }
+          });
+        });
+
+        // Remove duplicates while preserving order
+        const uniqueImages = Array.from(new Set(allImages));
+        return {
+          title,
+          images: uniqueImages,
+          countText: uniqueImages.length > 0 ? `${count} Services` : 'Unavailable',
+          locationText,
+          hasImage: uniqueImages.length > 0,
+          href: `/vendors?category=${encodeURIComponent(categoryParam)}`,
+        };
       }
 
-      const city = chosenService?.serviceLocation?.city || '';
-      const state = chosenService?.serviceLocation?.state || '';
-      const locationText = [city, state].filter(Boolean).join(', ');
       return {
         title,
-        image,
-        countText: image ? `${count} Services` : 'Unavailable',
-        locationText,
-        hasImage: Boolean(image),
+        images: [],
+        countText: 'Unavailable',
+        locationText: '',
+        hasImage: false,
         href: `/vendors?category=${encodeURIComponent(categoryParam)}`,
       };
     };
@@ -141,60 +147,137 @@ export default function VendorCategoriesGrid() {
       build('Bridal Makeup', bridalMakeup, 'Makeup & Beauty'),
       build('Entertainment', entertainment, 'Music & Entertainment'),
     ];
-  }, [photography, catering, videography, decoration, bridalMakeup, entertainment, shuffleTick]);
+  }, [photography, catering, videography, decoration, bridalMakeup, entertainment]);
+
+  // Periodically cycle through images for each category with smooth transitions
+  // Uses same pattern as venue section for consistency
+  useEffect(() => {
+    if (cards.length === 0) return;
+    
+    // Cycle images every 6 seconds to allow very slow, smooth transitions
+    const INTERVAL_MS = 6000;
+    const id = setInterval(() => {
+      setImageIndices(prev => {
+        const next = { ...prev };
+        // Update each category's index based on available images
+        cards.forEach(card => {
+          if (card.images.length > 1) {
+            next[card.title] = ((next[card.title] || 0) + 1) % card.images.length;
+          }
+        });
+        return next;
+      });
+    }, INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [cards]);
 
   const handleClick = (href: string) => {
     router.push(href);
   };
 
-  // Small helper to crossfade images when src changes
-  const CrossfadeImage = ({ src, alt, priority }: { src: string; alt: string; priority?: boolean }) => {
-    const [currentSrc, setCurrentSrc] = useState(src);
-    const [nextSrc, setNextSrc] = useState<string | null>(null);
-    const [fading, setFading] = useState(false);
+  // Component for stable crossfade image transitions
+  // Uses same logic as venue section - no remounting, no jitter
+  const SwipeImageCarousel = ({ 
+    images, 
+    alt, 
+    priority,
+    currentIndex 
+  }: { 
+    images: string[]; 
+    alt: string; 
+    priority?: boolean;
+    currentIndex: number;
+  }) => {
+    // Initialize displayIndex from currentIndex
+    const [displayIndex, setDisplayIndex] = useState(() => currentIndex % (images.length || 1));
+    const [overlayOpacity, setOverlayOpacity] = useState(0);
+    const [nextImageUrl, setNextImageUrl] = useState<string | null>(null);
+    const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
+    // Update display index when current index changes
     useEffect(() => {
-      if (src && src !== currentSrc) {
-        setNextSrc(src);
-        setFading(true);
+      if (images.length === 0) return;
+      const safeIndex = currentIndex % images.length;
+      
+      // If already showing this image and no transition in progress, do nothing
+      if (safeIndex === displayIndex && !nextImageUrl) return;
+      
+      // If different image, start transition
+      if (safeIndex !== displayIndex) {
+        // Clear any existing transition first
+        if (transitionTimerRef.current) {
+          clearTimeout(transitionTimerRef.current);
+          transitionTimerRef.current = null;
+        }
+        
+        const nextImg = images[safeIndex] || images[0];
+        setNextImageUrl(nextImg);
+        
+        // Start fade in after a brief delay
+        const fadeTimer = setTimeout(() => {
+          setOverlayOpacity(1);
+        }, 50);
+        
+        // After transition completes, update base image
+        transitionTimerRef.current = setTimeout(() => {
+          setDisplayIndex(safeIndex);
+          setOverlayOpacity(0);
+          setNextImageUrl(null);
+          transitionTimerRef.current = null;
+        }, 2500);
+        
+        return () => {
+          clearTimeout(fadeTimer);
+          if (transitionTimerRef.current) {
+            clearTimeout(transitionTimerRef.current);
+            transitionTimerRef.current = null;
+          }
+        };
       }
-    }, [src, currentSrc]);
+    }, [currentIndex, displayIndex, images, nextImageUrl]);
 
-    // When the overlaid image loads, complete the crossfade and commit the src
-    const handleNewImageLoaded = () => {
-      setCurrentSrc(nextSrc as string);
-      setFading(false);
-      setNextSrc(null);
-    };
+    if (images.length === 0) {
+      return (
+        <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+          <span className="text-gray-600 font-semibold">No image available</span>
+        </div>
+      );
+    }
+
+    const currentImage = images[displayIndex] || images[0];
 
     return (
-      <div className="w-full h-64 relative">
+      <div className="w-full h-64 relative overflow-hidden">
+        {/* Base image layer - always visible */}
+        <div className="absolute inset-0 w-full h-full">
           <Image
-          src={currentSrc}
-          alt={alt}
-          fill
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          className="object-cover absolute inset-0"
-          priority={priority}
-        />
-        {nextSrc ? (
-          <Image
-            src={nextSrc}
+            src={currentImage}
             alt={alt}
             fill
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            className={`object-cover absolute inset-0 transition-opacity duration-200 ${fading ? 'opacity-0 animate-[fadeIn_200ms_ease_forwards]' : ''}`}
-            onLoadingComplete={handleNewImageLoaded}
+            className="object-cover"
             priority={priority}
+            unoptimized={currentImage.includes('s3.tebi.io') || currentImage.includes('s3.')}
           />
-        ) : null}
-        {/* Tailwind keyframes for the quick fade-in */}
-        <style jsx>{`
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-          }
-        `}</style>
+        </div>
+        
+        {/* Overlay image layer - fades in when transitioning */}
+        {nextImageUrl && (
+          <div 
+            className="absolute inset-0 w-full h-full transition-opacity duration-[2500ms] ease-in-out"
+            style={{ opacity: overlayOpacity }}
+          >
+            <Image
+              src={nextImageUrl}
+              alt={alt}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+              className="object-cover"
+              priority={false}
+              unoptimized={nextImageUrl.includes('s3.tebi.io') || nextImageUrl.includes('s3.')}
+            />
+          </div>
+        )}
       </div>
     );
   };
@@ -208,35 +291,42 @@ export default function VendorCategoriesGrid() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {cards.map((card, index) => (
-            <div
-              key={card.title}
-              className="group cursor-pointer"
-              onClick={() => handleClick(card.href)}
-            >
-              <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                {card.hasImage ? (
-                  <div className="relative overflow-hidden">
-                    <div className="group-hover:scale-110 transition-transform duration-300">
-                      <CrossfadeImage src={card.image as string} alt={card.title} priority={index === 0} />
+          {cards.map((card, index) => {
+            const currentIndex = imageIndices[card.title] || 0;
+            
+            return (
+              <div
+                key={card.title}
+                className="group cursor-pointer"
+                onClick={() => handleClick(card.href)}
+              >
+                <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+                  {card.hasImage ? (
+                    <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
+                      <SwipeImageCarousel 
+                        images={card.images} 
+                        alt={card.title} 
+                        priority={index === 0}
+                        currentIndex={currentIndex}
+                      />
                     </div>
+                  ) : (
+                    <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
+                      <span className="text-gray-600 font-semibold">No image available</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                  <div className="absolute bottom-6 left-6 text-white">
+                    <h3 className="text-2xl font-bold mb-2">{card.title}</h3>
+                    <p className="text-pink-200 font-medium">{loading ? 'Loading…' : card.countText}</p>
+                    {card.locationText ? (
+                      <p className="text-sm text-gray-300">{card.locationText}</p>
+                    ) : null}
                   </div>
-                ) : (
-                  <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
-                    <span className="text-gray-600 font-semibold">No image available</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                <div className="absolute bottom-6 left-6 text-white">
-                  <h3 className="text-2xl font-bold mb-2">{card.title}</h3>
-                  <p className="text-pink-200 font-medium">{loading ? 'Loading…' : card.countText}</p>
-                  {card.locationText ? (
-                    <p className="text-sm text-gray-300">{card.locationText}</p>
-                  ) : null}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="mt-10 flex justify-center">

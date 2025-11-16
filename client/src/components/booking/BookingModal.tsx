@@ -19,6 +19,7 @@ interface BookingModalProps {
   basePrice: number;
   pricePerGuest?: number;
   preselectedDate?: string; // Optional preselected date from calendar
+  preselectedDates?: string[]; // Optional preselected dates for range/multiple selection
 }
 
 export function BookingModal({
@@ -29,13 +30,15 @@ export function BookingModal({
   serviceType,
   basePrice,
   pricePerGuest = 0,
-  preselectedDate
+  preselectedDate,
+  preselectedDates
 }: BookingModalProps) {
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    date: preselectedDate || '',
+    date: preselectedDate || (preselectedDates && preselectedDates.length > 0 ? preselectedDates[0] : '') || '',
+    dates: preselectedDates || (preselectedDate ? [preselectedDate] : []),
     time: '',
     guestCount: '',
     contactPerson: '',
@@ -43,12 +46,14 @@ export function BookingModal({
     contactEmail: user?.email || ''
   });
 
-  // Update date when preselectedDate changes
+  // Update date when preselectedDate or preselectedDates changes
   useEffect(() => {
-    if (preselectedDate) {
-      setFormData(prev => ({ ...prev, date: preselectedDate }));
+    if (preselectedDates && preselectedDates.length > 0) {
+      setFormData(prev => ({ ...prev, dates: preselectedDates, date: preselectedDates[0] }));
+    } else if (preselectedDate) {
+      setFormData(prev => ({ ...prev, dates: [preselectedDate], date: preselectedDate }));
     }
-  }, [preselectedDate]);
+  }, [preselectedDate, preselectedDates]);
 
   // Format phone number with country code
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -77,14 +82,16 @@ export function BookingModal({
 
   const calculateTotal = () => {
     const guests = parseInt(formData.guestCount) || 0;
-    return basePrice + (guests * pricePerGuest);
+    // For multiple dates, we might want to multiply the price by the number of dates
+    const dateCount = formData.dates.length || 1;
+    return (basePrice + (guests * pricePerGuest)) * dateCount;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validation
-    if (!formData.date || !formData.time || !formData.guestCount || !formData.contactPerson || !formData.contactPhone || !formData.contactEmail) {
+    if ((!formData.date && formData.dates.length === 0) || !formData.time || !formData.guestCount || !formData.contactPerson || !formData.contactPhone || !formData.contactEmail) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -104,26 +111,63 @@ export function BookingModal({
     setLoading(true);
 
     try {
-      const bookingData = {
-        serviceId,
-        serviceType,
-        date: formData.date,
-        time: formData.time,
-        guestCount: parseInt(formData.guestCount),
-        contactPerson: formData.contactPerson,
-        contactPhone: formData.contactPhone,
-        contactEmail: formData.contactEmail,
-        // For backward compatibility with old API
-        venueId: serviceType === 'venue' ? serviceId : undefined
-      };
-
-      await apiClient.post('/bookings', bookingData);
+      // If we have multiple dates, we need to create a grouped booking
+      if (formData.dates.length > 1) {
+        // Validate that all dates are properly formatted
+        const validDates = formData.dates.filter(date => date && !isNaN(Date.parse(date)));
+        if (validDates.length !== formData.dates.length) {
+          throw new Error('One or more dates are invalid');
+        }
       
-      toast.success('Booking request submitted successfully! You can view it in "My Bookings".');
+        const bookingData = {
+          serviceId,
+          serviceType,
+          dates: validDates, // Send array of dates
+          time: formData.time,
+          guestCount: parseInt(formData.guestCount),
+          contactPerson: formData.contactPerson,
+          contactPhone: formData.contactPhone,
+          contactEmail: formData.contactEmail,
+          // For backward compatibility with old API
+          venueId: serviceType === 'venue' ? serviceId : undefined
+        };
+      
+        console.log('Sending multiple dates booking:', bookingData); // Debug log
+        await apiClient.post('/bookings', bookingData);
+      
+        toast.success(`Successfully booked ${formData.dates.length} date(s)! You can view them in "My Bookings".`);
+      } else {
+        // Single booking
+        const dateToUse = formData.dates.length === 1 ? formData.dates[0] : formData.date;
+      
+        // Validate the date
+        if (!dateToUse || isNaN(Date.parse(dateToUse))) {
+          throw new Error('Invalid date format');
+        }
+      
+        const bookingData = {
+          serviceId,
+          serviceType,
+          date: dateToUse,
+          time: formData.time,
+          guestCount: parseInt(formData.guestCount),
+          contactPerson: formData.contactPerson,
+          contactPhone: formData.contactPhone,
+          contactEmail: formData.contactEmail,
+          // For backward compatibility with old API
+          venueId: serviceType === 'venue' ? serviceId : undefined
+        };
+      
+        console.log('Sending single date booking:', bookingData); // Debug log
+        await apiClient.post('/bookings', bookingData);
+      
+        toast.success('Booking request submitted successfully! You can view it in "My Bookings".');
+      }
       
       // Reset form
       setFormData({
         date: '',
+        dates: [],
         time: '',
         guestCount: '',
         contactPerson: '',
@@ -164,9 +208,15 @@ export function BookingModal({
             <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">Book {serviceName}</h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  Fill in the details below to submit your booking request
-                </p>
+                {formData.dates.length > 1 ? (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Booking {formData.dates.length} dates
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-600 mt-1">
+                    Fill in the details below to submit your booking request
+                  </p>
+                )}
               </div>
               <button
                 onClick={onClose}
@@ -177,21 +227,41 @@ export function BookingModal({
             </div>
 
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Event Date and Time */}
+              {/* Event Date(s) and Time */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     <Calendar className="inline h-4 w-4 mr-1" />
-                    Event Date *
+                    {formData.dates.length > 1 ? 'Event Dates' : 'Event Date'} *
                   </label>
-                  <Input
-                    type="date"
-                    required
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="w-full"
-                  />
+                  {formData.dates.length > 1 ? (
+                    <div className="border border-gray-300 rounded-lg p-3 bg-gray-50 max-h-32 overflow-y-auto">
+                      <ul className="space-y-1">
+                        {formData.dates.map((date, index) => (
+                          <li key={index} className="text-sm text-gray-700 flex items-center">
+                            <span className="w-6 h-6 flex items-center justify-center bg-pink-100 text-pink-800 rounded-full text-xs mr-2">
+                              {index + 1}
+                            </span>
+                            {new Date(date).toLocaleDateString('en-US', { 
+                              weekday: 'short', 
+                              year: 'numeric', 
+                              month: 'short', 
+                              day: 'numeric' 
+                            })}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <Input
+                      type="date"
+                      required
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full"
+                    />
+                  )}
                 </div>
 
                 <div>
@@ -281,13 +351,19 @@ export function BookingModal({
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Price Summary</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-gray-700">
-                    <span>Base Price:</span>
+                    <span>Base Price{formData.dates.length > 1 ? ` (${formData.dates.length} dates)` : ''}:</span>
                     <span>₹{basePrice.toLocaleString('en-IN')}</span>
                   </div>
                   {pricePerGuest > 0 && formData.guestCount && (
                     <div className="flex justify-between text-gray-700">
                       <span>Price per Guest ({formData.guestCount} guests):</span>
                       <span>₹{(pricePerGuest * parseInt(formData.guestCount || '0')).toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {formData.dates.length > 1 && (
+                    <div className="flex justify-between text-gray-700">
+                      <span>Number of Dates:</span>
+                      <span>{formData.dates.length}</span>
                     </div>
                   )}
                   <div className="border-t border-gray-300 pt-2 mt-2">
@@ -314,7 +390,7 @@ export function BookingModal({
                   disabled={loading}
                   className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700"
                 >
-                  {loading ? 'Submitting...' : 'Submit Booking Request'}
+                  {loading ? 'Submitting...' : `Submit Booking${formData.dates.length > 1 ? ` (${formData.dates.length} dates)` : ''}`}
                 </Button>
               </div>
             </form>
