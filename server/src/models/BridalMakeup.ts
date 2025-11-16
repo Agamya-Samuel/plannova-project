@@ -49,6 +49,9 @@ export interface IBridalMakeup extends Document {
   rating: number;
   reviewCount: number;
   status: ApprovalStatus;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   isActive: boolean;
   pendingEdits?: Partial<IBridalMakeup>;
   pendingEditSubmittedAt?: Date;
@@ -242,7 +245,17 @@ const BridalMakeupSchema = new Schema<IBridalMakeup>({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  }
 }, {
   timestamps: true
 });

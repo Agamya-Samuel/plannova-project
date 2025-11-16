@@ -10,6 +10,7 @@ const router = Router();
 
 interface IVideographyFilter {
   isActive: boolean;
+  isDeleted?: {[key: string]: unknown};
   status?: string | {[key: string]: unknown};
   $or?: Array<{[key: string]: unknown}>;
 }
@@ -34,7 +35,8 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const videographies = await Videography.find({ 
       status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }  // Exclude soft deleted services
     })
     .select('+images') // Explicitly select images field
     .populate('provider', 'firstName lastName email phone')
@@ -68,7 +70,11 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       return res.status(403).json({ error: 'User is not registered as a videography provider' });
     }
 
-    const videographies = await Videography.find({ provider: req.user.id, isActive: true })
+    const videographies = await Videography.find({ 
+      provider: req.user.id, 
+      isActive: true,
+      isDeleted: { $ne: true }  // Exclude soft deleted services
+    })
       .select('+images') // Explicitly select images field
       .sort({ createdAt: -1 });
 
@@ -353,9 +359,9 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
-    // Check if user is a provider
-    if (req.user.role !== UserRole.PROVIDER) {
-      return res.status(403).json({ error: 'Only providers can delete videography services' });
+    // Check if user is a provider, staff, or admin
+    if (![UserRole.PROVIDER, UserRole.STAFF, UserRole.ADMIN].includes(req.user.role!)) {
+      return res.status(403).json({ error: 'Only providers, staff, or admins can delete videography services' });
     }
 
     const videography = await Videography.findById(id);
@@ -364,44 +370,23 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
       return res.status(404).json({ error: 'Videography service not found' });
     }
 
-    // Check if user is the owner of this service
-    if (videography.provider.toString() !== req.user.id) {
-      return res.status(403).json({ error: 'You can only delete your own services' });
-    }
-
-    // Delete associated images from S3
-    if (videography.images && videography.images.length > 0) {
-      try {
-        // Import the S3 delete function and URL extraction utility
-        const { deleteFromS3 } = await import('../services/uploadService.js');
-        const { extractS3Key } = await import('../utils/s3.js');
-        
-        // Delete each image from S3
-        for (const image of videography.images) {
-          if (image.url) {
-            try {
-              const key = extractS3Key(image.url);
-              if (key) {
-                await deleteFromS3(key);
-                console.log(`Deleted image from S3: ${key}`);
-              }
-            } catch (s3Error) {
-              console.error(`Failed to delete image from S3: ${image.url}`, s3Error);
-              // Continue with other images even if one fails
-            }
-          }
-        }
-      } catch (imageDeleteError) {
-        console.error('Error deleting images from S3:', imageDeleteError);
-        // Don't fail the entire operation if image deletion fails
+    // Check permissions
+    if (req.user.role === UserRole.PROVIDER) {
+      // Providers can only delete their own services
+      if (videography.provider.toString() !== req.user.id) {
+        return res.status(403).json({ error: 'You can only delete your own services' });
       }
     }
+    // Staff and Admin can delete any service
 
-    // Actually delete the service from the database
-    await Videography.findByIdAndDelete(id);
+    // Soft delete the service instead of hard deleting
+    videography.isDeleted = true;
+    videography.deletedAt = new Date();
+    await videography.save();
 
     res.json({
-      message: 'Videography service deleted successfully'
+      message: 'Videography service moved to trash successfully',
+      data: videography
     });
   } catch (error) {
     console.error('Error deleting videography service:', error);
@@ -424,7 +409,8 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
     const { status, page = 1, limit = 10, search } = req.query;
 
     const filter: IVideographyFilter = {
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }
     };
     
     if (status && status !== 'ALL') {
@@ -559,39 +545,14 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
       return res.status(404).json({ error: 'Videography service not found' });
     }
 
-    // Delete associated images from S3
-    if (videography.images && videography.images.length > 0) {
-      try {
-        // Import the S3 delete function and URL extraction utility
-        const { deleteFromS3 } = await import('../services/uploadService.js');
-        const { extractS3Key } = await import('../utils/s3.js');
-        
-        // Delete each image from S3
-        for (const image of videography.images) {
-          if (image.url) {
-            try {
-              const key = extractS3Key(image.url);
-              if (key) {
-                await deleteFromS3(key);
-                console.log(`Deleted image from S3: ${key}`);
-              }
-            } catch (s3Error) {
-              console.error(`Failed to delete image from S3: ${image.url}`, s3Error);
-              // Continue with other images even if one fails
-            }
-          }
-        }
-      } catch (imageDeleteError) {
-        console.error('Error deleting images from S3:', imageDeleteError);
-        // Don't fail the entire operation if image deletion fails
-      }
-    }
-
-    // Actually delete the service from the database
-    await Videography.findByIdAndDelete(id);
+    // Soft delete the service instead of hard deleting
+    videography.isDeleted = true;
+    videography.deletedAt = new Date();
+    await videography.save();
 
     res.json({
-      message: 'Videography service deleted successfully'
+      message: 'Videography service moved to trash successfully',
+      data: videography
     });
   } catch (error) {
     console.error('Error deleting videography service:', error);
@@ -614,23 +575,27 @@ router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Resp
     // Get counts for each status
     const pendingCount = await Videography.countDocuments({ 
       status: ApprovalStatus.PENDING,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
     
     const approvedCount = await Videography.countDocuments({ 
       status: ApprovalStatus.APPROVED,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
     
     const rejectedCount = await Videography.countDocuments({ 
       status: ApprovalStatus.REJECTED,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
 
     // Get count of services with pending edits
     const pendingEditCount = await Videography.countDocuments({ 
       status: ApprovalStatus.PENDING_EDIT,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
 
     res.json({
@@ -867,3 +832,7 @@ router.delete('/:id/blocked-dates', authenticateToken, requireVideographyProvide
 });
 
 export default router;
+
+
+
+

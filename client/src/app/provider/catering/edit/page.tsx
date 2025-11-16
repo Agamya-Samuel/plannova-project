@@ -27,6 +27,7 @@ import {
 import { ImageUpload } from '../../../../components/upload';
 import apiClient from '../../../../lib/api';
 import LocationInput from '@/components/ui/LocationInput';
+import { toast } from 'sonner';
 
 interface CateringService {
   _id: string;
@@ -396,7 +397,7 @@ function EditCateringServiceContent() {
     
     // Confirm deletion
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${serviceName}"? This action cannot be undone and all associated images will be permanently deleted.`
+      `Are you sure you want to delete "${serviceName}"? This action will move the service to the trash where it can be restored later.`
     );
     
     if (!confirmed) return;
@@ -405,12 +406,16 @@ function EditCateringServiceContent() {
       setLoading(true);
       await apiClient.delete(`/catering/${serviceId}`);
       
+      // Show success message
+      toast.success('Service moved to trash successfully');
+      
       // Redirect to services list after successful deletion
       router.push('/provider/catering');
       router.refresh(); // Refresh the page to update the list
     } catch (err: unknown) {
       console.error('Error deleting catering service:', err);
       setError('Failed to delete catering service');
+      toast.error('Failed to delete catering service');
     } finally {
       setLoading(false);
     }

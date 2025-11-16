@@ -33,6 +33,8 @@ export interface IUser extends Document {
   provider?: string; // Authentication provider (email, google.com, etc.)
   photoURL?: string; // Profile picture URL
   favorites?: mongoose.Types.ObjectId[]; // Array of favorite venue IDs
+  isDeleted: boolean;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -101,7 +103,16 @@ const UserSchema: Schema<IUser> = new Schema({
   favorites: [{
     type: Schema.Types.ObjectId,
     ref: 'Venue'
-  }]
+  }],
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  }
 }, {
   timestamps: true, // This adds createdAt and updatedAt automatically
   collection: 'users'

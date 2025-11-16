@@ -33,7 +33,7 @@ export interface IBooking extends Document {
   customerId: mongoose.Types.ObjectId;
   providerId: mongoose.Types.ObjectId;
   serviceType: ServiceType;
-  serviceId: mongoose.Types.ObjectId; // ID of the specific service (venue, catering, etc.)
+  serviceId: mongoose.Types.ObjectId; // ID of the specific service (venue, casing, etc.)
   date: Date;
   time: string;
   status: BookingStatus;
@@ -48,6 +48,9 @@ export interface IBooking extends Document {
   specialRequests?: string;
   // Group ID for related bookings (e.g., multiple dates for the same service)
   bookingGroupId?: string;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   // Deprecated fields (for backward compatibility)
   venueId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -142,6 +145,16 @@ const BookingSchema: Schema<IBooking> = new Schema({
   bookingGroupId: {
     type: String,
     index: true
+  },
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
