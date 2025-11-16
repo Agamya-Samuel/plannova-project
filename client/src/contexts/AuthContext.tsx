@@ -41,9 +41,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         try {
           const response = await apiClient.get('/auth/profile');
           lastProfileFetchRef.current = Date.now();
+          if (process.env.NODE_ENV === 'development') {
+            console.log('👤 Profile fetched successfully:', response.data);
+          }
           return response.data as User;
         } catch (err: unknown) {
           const status = (err as { response?: { status?: number } })?.response?.status;
+          if (process.env.NODE_ENV === 'development') {
+            console.error('👤 Profile fetch error:', {
+              attempt,
+              status,
+              error: err,
+              message: (err as Error)?.message
+            });
+          }
           if (status === 429 || status === 503) {
             const delay = baseDelay * Math.pow(2, attempt);
             await new Promise(r => setTimeout(r, delay));
@@ -65,13 +76,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👤 Initializing auth...');
+      }
       const token = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👤 Auth data from localStorage:', { token: !!token, storedUser: !!storedUser });
+      }
 
       if (token && storedUser) {
         try {
           const user = JSON.parse(storedUser);
           setUser(user);
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log('👤 Setting user from localStorage:', user);
+          }
           
           // Verify token is still valid by fetching profile (with retry + throttle)
           const responseData = await fetchProfileWithRetryThrottled();
@@ -185,6 +207,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔑 Got Firebase ID token, sending to backend...');
         console.log('🌐 API URL:', apiClient.defaults.baseURL);
         console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+        console.log('🔐 ID Token length:', idToken?.length);
       }
       
       // Test API connectivity first
@@ -295,6 +318,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         switch (status) {
           case 401:
             errorMessage = 'Authentication failed. Please try again.';
+            break;
+          case 403:
+            errorMessage = 'Access forbidden. Your account may not have the required permissions.';
             break;
           case 429:
             errorMessage = 'Too many requests. Please wait a moment and try again.';

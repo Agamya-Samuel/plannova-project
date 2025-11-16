@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText } from 'lucide-react';
+import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
 import apiClient from '@/lib/api';
@@ -1136,6 +1136,15 @@ function AdminDashboard() {
           href="/admin/settings"
           stats="All Systems OK"
           color="gray"
+        />
+        <DashboardCard
+          title="Trash Management"
+          description="Manage deleted items and restore or permanently delete them"
+          icon={<Trash2 className="h-8 w-8 text-red-600" />}
+          action="Manage Trash"
+          href="/admin/trash"
+          stats="View Deleted Items"
+          color="red"
         />
       </div>
     </div>

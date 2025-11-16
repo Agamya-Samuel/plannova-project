@@ -155,11 +155,14 @@ router.post('/login', loginValidation, async (req: Request, res: Response) => {
 // Get current user profile
 router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
+    console.log('Profile endpoint called with user:', req.user);
     if (!req.user) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
     const user = await User.findById(req.user.id).select('-password');
+
+    console.log('User lookup result:', user ? 'Found' : 'Not found');
 
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -181,6 +184,8 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
+
+    console.log('Profile response:', userResponse);
 
     res.json(userResponse);
   } catch (error) {

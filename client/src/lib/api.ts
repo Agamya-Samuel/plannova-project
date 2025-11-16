@@ -24,6 +24,14 @@ const apiClient = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
+  if (process.env.NODE_ENV === 'development') {
+    console.log('📡 API Request:', {
+      url: config.url,
+      method: config.method,
+      headers: config.headers,
+      hasToken: !!token
+    });
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -32,8 +40,27 @@ apiClient.interceptors.request.use((config) => {
 
 // Response interceptor to handle auth errors
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📡 API Response:', {
+        status: response.status,
+        url: response.config?.url,
+        data: response.data
+      });
+    }
+    return response;
+  },
   async (error) => {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('📡 API Error:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        url: error.config?.url,
+        config: error.config
+      });
+    }
+    
     if (error.response?.status === 401) {
       if (process.env.NODE_ENV === 'development') {
         console.log('🔍 401 Unauthorized error detected, clearing auth data');

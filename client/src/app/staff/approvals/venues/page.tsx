@@ -288,14 +288,14 @@ export default function StaffVenueApprovalsPage() {
   };
 
   const handleDeleteVenue = async (venueId: string) => {
-    const confirmed = await sonnerConfirm('Are you sure you want to delete this venue? This action cannot be undone.');
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this venue? The venue will be moved to the trash where it can be restored later.');
     if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.delete(`/venues/staff/${venueId}`);
-      toast.success('Venue deleted successfully!');
+      toast.success('Venue moved to trash successfully!');
       fetchVenues(currentPage, statusFilter, searchTerm);
     } catch (err: unknown) {
       console.error('Error deleting venue:', err);
