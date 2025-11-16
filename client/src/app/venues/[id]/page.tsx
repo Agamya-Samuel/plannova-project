@@ -112,8 +112,10 @@ export default function VenueDetailsPage() {
   const [error, setError] = useState('');
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [favorite, setFavorite] = useState(false);
-  const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+  const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Redirect to login if not authenticated (prevents direct URL access)
   useEffect(() => {
@@ -217,9 +219,18 @@ export default function VenueDetailsPage() {
     }
   };
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowBookingModal(true);
+  const handleDateSelect = (date: string | string[]) => {
+    if (typeof date === 'string') {
+      // Single date selection
+      setSelectedDate(date);
+      setSelectedDates([date]); // Also set the array for consistency
+      setShowBookingModal(true);
+    } else if (date.length > 0) {
+      // Multiple dates selection
+      setSelectedDates(date);
+      setSelectedDate(date[0]); // Set first date as primary
+      setShowBookingModal(true);
+    }
   };
 
   if (loading) {
@@ -720,6 +731,9 @@ export default function VenueDetailsPage() {
               serviceType="venue"
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Card */}
@@ -733,6 +747,22 @@ export default function VenueDetailsPage() {
                 </div>
                 <p className="text-gray-600">per event</p>
               </div>
+
+              {selectedDate ? (
+                <button
+                  onClick={() => setShowBookingModal(true)}
+                  className="w-full px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-lg transition-colors mb-4"
+                >
+                  {selectedDates.length > 1 
+                    ? `Book for ${selectedDates.length} dates` 
+                    : `Book for ${selectedDate}`}
+                </button>
+              ) : (
+                <div className="text-center mb-4">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              )}
 
               {/* Instruction to use calendar */}
               <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 mb-4">
@@ -834,6 +864,7 @@ export default function VenueDetailsPage() {
           basePrice={venue.basePrice}
           pricePerGuest={0}
           preselectedDate={selectedDate}
+          preselectedDates={selectedDates}
         />
       )}
     </div>
