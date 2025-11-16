@@ -40,13 +40,13 @@ router.get('/providers', authenticateToken, requireStaffOrAdmin, async (req: Aut
     const providersWithCounts = await Promise.all(
       providers.map(async (u) => {
         const [venueCount, cateringCount, photoCount, videoCount, decoCount, entCount, makeupCount] = await Promise.all([
-          Venue.countDocuments({ providerId: u._id }),
-          Catering.countDocuments({ provider: u._id }),
-          Photography.countDocuments({ provider: u._id }),
-          Videography.countDocuments({ provider: u._id }),
-          Decoration.countDocuments({ provider: u._id }),
-          Entertainment.countDocuments({ provider: u._id }),
-          BridalMakeup.countDocuments({ provider: u._id }),
+          Venue.countDocuments({ providerId: u._id, isDeleted: { $ne: true } }),
+          Catering.countDocuments({ provider: u._id, isDeleted: { $ne: true } }),
+          Photography.countDocuments({ provider: u._id, isDeleted: { $ne: true } }),
+          Videography.countDocuments({ provider: u._id, isDeleted: { $ne: true } }),
+          Decoration.countDocuments({ provider: u._id, isDeleted: { $ne: true } }),
+          Entertainment.countDocuments({ provider: u._id, isDeleted: { $ne: true } }),
+          BridalMakeup.countDocuments({ provider: u._id, isDeleted: { $ne: true } }),
         ]);
         return {
           ...u.toObject(),
@@ -77,13 +77,13 @@ router.get('/providers/:id', authenticateToken, requireStaffOrAdmin, async (req:
     }
 
     const [venues, catering, photography, videography, decoration, entertainment, bridalMakeup] = await Promise.all([
-      Venue.find({ providerId: provider._id }).select('name status images createdAt'),
-      Catering.find({ provider: provider._id }).select('name status images createdAt'),
-      Photography.find({ provider: provider._id }).select('name status images createdAt'),
-      Videography.find({ provider: provider._id }).select('name status images createdAt'),
-      Decoration.find({ provider: provider._id }).select('name status images createdAt'),
-      Entertainment.find({ provider: provider._id }).select('name status images createdAt'),
-      BridalMakeup.find({ provider: provider._id }).select('name status images createdAt'),
+      Venue.find({ providerId: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
+      Catering.find({ provider: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
+      Photography.find({ provider: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
+      Videography.find({ provider: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
+      Decoration.find({ provider: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
+      Entertainment.find({ provider: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
+      BridalMakeup.find({ provider: provider._id, isDeleted: { $ne: true } }).select('name status images createdAt'),
     ]);
 
     res.json({ provider, works: { venues, catering, photography, videography, decoration, entertainment, bridalMakeup } });
@@ -94,5 +94,7 @@ router.get('/providers/:id', authenticateToken, requireStaffOrAdmin, async (req:
 });
 
 export default router;
+
+
 
 

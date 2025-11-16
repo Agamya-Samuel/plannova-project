@@ -516,7 +516,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Background Image */}
-      <div className="relative min-h-[80vh] bg-gradient-to-r from-pink-600 to-purple-600 overflow-hidden">
+      <div className="relative min-h-[80vh] bg-gradient-to-r from-primary to-secondary overflow-hidden">
         {/* Background Image Overlay */}
         {/* Select appropriate image array based on device type, with fallback to legacy images */}
         {(() => {
@@ -568,11 +568,11 @@ export default function Home() {
             ) : null}
             
             {/* Search Bar */}
-            <div className="bg-white rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8">
+            <div className="bg-background rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8 border border-border">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-700">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5" />
+                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background">
                     <option>Select city</option>
                     <option>Mumbai</option>
                     <option>Delhi</option>
@@ -583,8 +583,8 @@ export default function Home() {
                 </div>
                 
                 <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-700">
+                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5" />
+                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background">
                     <option>Select venue type</option>
                     {/* Only show venue types available in the creation form */}
                     {VENUE_TYPES.map(type => (
@@ -595,7 +595,7 @@ export default function Home() {
                 
                 <Button 
                   size="lg" 
-                  className="bg-pink-600 hover:bg-pink-700 text-white py-3 px-8 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105"
+                  className="bg-gradient-to-r from-primary to-secondary hover:from-primary-dark hover:to-secondary-dark text-white py-3 px-8 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   <Search className="mr-2 h-5 w-5" />
                   Get Started

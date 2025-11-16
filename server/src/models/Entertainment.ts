@@ -51,6 +51,9 @@ export interface IEntertainment extends Document {
     reason?: string;
     blockedAt: Date;
   }>;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -103,6 +106,9 @@ const EntertainmentSchema: Schema<IEntertainment> = new Schema({
     reason: { type: String, default: 'Offline booking' },
     blockedAt: { type: Date, default: Date.now }
   }],
+  // Soft Delete Fields
+  isDeleted: { type: Boolean, default: false, index: true },
+  deletedAt: { type: Date, default: null },
   isActive: { type: Boolean, default: true }
 }, {
   timestamps: true,
@@ -111,5 +117,7 @@ const EntertainmentSchema: Schema<IEntertainment> = new Schema({
 
 export const Entertainment = mongoose.model<IEntertainment>('Entertainment', EntertainmentSchema);
 export default Entertainment;
+
+
 
 
