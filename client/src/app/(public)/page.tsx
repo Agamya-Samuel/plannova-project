@@ -608,7 +608,94 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Popular Venue Categories */}
+      {/* Popular Venues Section - Shows actual venue cards */}
+      <div className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+              Popular Venues
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Explore our hand-picked selection of top-rated venues
+            </p>
+          </div>
+
+          {/* Filter venues to only show those with images */}
+          {loadingVenues ? (
+            <div className="text-center py-12">
+              <p className="text-gray-600">Loading venues...</p>
+            </div>
+          ) : (
+            <>
+              {/* Filter venues to only show those with at least one image */}
+              {(() => {
+                const venuesWithImages = venues.filter(venue => 
+                  venue.images && venue.images.length > 0
+                ).slice(0, 6); // Show top 6 venues with images
+                
+                if (venuesWithImages.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <p className="text-gray-600">No venues available at the moment.</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {venuesWithImages.map((venue) => {
+                      const primaryImage = venue.images?.find(img => img.isPrimary)?.url || venue.images?.[0]?.url || '';
+                      
+                      return (
+                        <div 
+                          key={venue._id} 
+                          className="group cursor-pointer"
+                          onClick={() => router.push(`/venues/${venue._id}`)}
+                        >
+                          <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+                            <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
+                              <Image 
+                                src={primaryImage}
+                                alt={venue.name}
+                                width={800}
+                                height={256}
+                                className="w-full h-64 object-cover"
+                                unoptimized={primaryImage.includes('s3.tebi.io') || primaryImage.includes('s3.')}
+                              />
+                            </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                            <div className="absolute bottom-6 left-6 text-white">
+                              <h3 className="text-2xl font-bold mb-2">{venue.name}</h3>
+                              {venue.type && (
+                                <p className="text-pink-200 font-medium mb-1">{venue.type}</p>
+                              )}
+                              {venue.address && (
+                                <p className="text-sm text-gray-300">
+                                  <MapPin className="h-4 w-4 inline mr-1" />
+                                  {venue.address.city || ''}{venue.address.state ? `, ${venue.address.state}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+              
+              {/* Browse more venues button */}
+              <div className="mt-10 flex justify-center">
+                <Link href="/venues">
+                  <Button className="px-6">Browse more venues</Button>
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Popular Venue Categories - Only show categories with images */}
       <div className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
@@ -620,42 +707,53 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {categoryCards.slice(0, 6).map((category, index) => {
-              const currentIndex = imageIndices[category.title] || 0;
-              
+          {/* Filter category cards to only show those with images */}
+          {(() => {
+            // Filter to only show categories that have images
+            const categoriesWithImages = categoryCards.filter(category => category.hasImage);
+            
+            if (categoriesWithImages.length === 0) {
               return (
-                <div 
-                  key={index} 
-                  className="group cursor-pointer"
-                  onClick={() => handleCategoryClick(category.title)}
-                >
-                  <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                    {category.hasImage ? (
-                      <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
-                        <SwipeImageCarousel 
-                          images={category.images} 
-                          alt={category.title} 
-                          priority={index === 0}
-                          currentIndex={currentIndex}
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-full h-64 bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-600 font-semibold">No image available</span>
-                      </div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                    <div className="absolute bottom-6 left-6 text-white">
-                      <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
-                      <p className="text-pink-200 font-medium">{loadingVenues ? 'Loading…' : category.venuesText}</p>
-                      <p className="text-sm text-gray-300">{category.location}</p>
-                    </div>
-                  </div>
+                <div className="text-center py-12">
+                  <p className="text-gray-600">No venue categories available at the moment.</p>
                 </div>
               );
-            })}
-          </div>
+            }
+            
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {categoriesWithImages.map((category, index) => {
+                  const currentIndex = imageIndices[category.title] || 0;
+                  
+                  return (
+                    <div 
+                      key={index} 
+                      className="group cursor-pointer"
+                      onClick={() => handleCategoryClick(category.title)}
+                    >
+                      <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
+                        <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
+                          <SwipeImageCarousel 
+                            images={category.images} 
+                            alt={category.title} 
+                            priority={index === 0}
+                            currentIndex={currentIndex}
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+                        <div className="absolute bottom-6 left-6 text-white">
+                          <h3 className="text-2xl font-bold mb-2">{category.title}</h3>
+                          <p className="text-pink-200 font-medium">{category.venuesText}</p>
+                          <p className="text-sm text-gray-300">{category.location}</p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          
           {/* Browse more venues button - navigates to full venues page */}
           <div className="mt-10 flex justify-center">
             <Link href="/venues">
