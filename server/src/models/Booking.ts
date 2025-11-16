@@ -46,6 +46,8 @@ export interface IBooking extends Document {
   contactPhone: string;
   contactEmail: string;
   specialRequests?: string;
+  // Group ID for related bookings (e.g., multiple dates for the same service)
+  bookingGroupId?: string;
   // Deprecated fields (for backward compatibility)
   venueId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -135,6 +137,11 @@ const BookingSchema: Schema<IBooking> = new Schema({
   specialRequests: {
     type: String,
     trim: true
+  },
+  // Group ID for related bookings (e.g., multiple dates for the same service)
+  bookingGroupId: {
+    type: String,
+    index: true
   }
 }, {
   timestamps: true

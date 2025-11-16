@@ -84,6 +84,8 @@ export default function VideographyDetailPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
 
   useEffect(() => {
     if (params.id) {
@@ -124,9 +126,18 @@ export default function VideographyDetailPage() {
     }
   };
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowBookingModal(true);
+  const handleDateSelect = (date: string | string[]) => {
+    if (typeof date === 'string') {
+      // Single date selection
+      setSelectedDate(date);
+      setSelectedDates([date]); // Also set the array for consistency
+      setShowBookingModal(true);
+    } else if (date.length > 0) {
+      // Multiple dates selection
+      setSelectedDates(date);
+      setSelectedDate(date[0]); // Set first date as primary
+      setShowBookingModal(true);
+    }
   };
 
   if (loading) {
@@ -352,6 +363,9 @@ export default function VideographyDetailPage() {
               serviceType="videography"
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Card */}
@@ -368,7 +382,9 @@ export default function VideographyDetailPage() {
                   onClick={() => setShowBookingModal(true)}
                   className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-colors mb-4"
                 >
-                  Book for {selectedDate}
+                  {selectedDates.length > 1 
+                    ? `Book for ${selectedDates.length} dates` 
+                    : `Book for ${selectedDate}`}
                 </button>
               ) : (
                 <div className="text-center mb-4">
@@ -471,6 +487,7 @@ export default function VideographyDetailPage() {
           basePrice={service.basePrice}
           pricePerGuest={0}
           preselectedDate={selectedDate}
+          preselectedDates={selectedDates}
         />
       </div>
     </div>
