@@ -59,6 +59,9 @@ export interface IPhotography extends Document {
     reason?: string;
     blockedAt: Date;
   }>;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -233,6 +236,16 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
       default: Date.now
     }
   }],
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
   isActive: {
     type: Boolean,
     default: true

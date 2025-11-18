@@ -26,7 +26,7 @@ export default function FloatingNavDock() {
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
-      
+
       // Show dock when scrolled down more than 150px
       // Hide when near the top (less than 100px from top)
       if (currentScrollY > 150) {
@@ -51,9 +51,9 @@ export default function FloatingNavDock() {
 
     // Initial check on mount
     handleScroll();
-    
+
     window.addEventListener('scroll', throttledHandleScroll, { passive: true });
-    
+
     return () => {
       window.removeEventListener('scroll', throttledHandleScroll);
     };
@@ -71,11 +71,9 @@ export default function FloatingNavDock() {
   // For now, show all items but we can filter based on roles later
   const filteredItems = dockItems;
 
-  // Don't show on certain pages (like auth pages, admin pages)
-  const shouldHide = pathname?.startsWith('/auth') || 
-                     pathname?.startsWith('/admin') || 
-                     pathname?.startsWith('/provider') ||
-                     pathname?.startsWith('/staff');
+  // Only hide on auth pages - show dock on all other pages (provider, staff, admin, customer)
+  // This keeps the dock style consistent across all sites
+  const shouldHide = pathname?.startsWith('/auth');
 
   if (shouldHide) {
     return null;
@@ -83,11 +81,10 @@ export default function FloatingNavDock() {
 
   return (
     <div
-      className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-in-out ${
-        isVisible
+      className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-in-out md:hidden ${isVisible
           ? 'opacity-100 translate-y-0'
           : 'opacity-0 translate-y-4 pointer-events-none'
-      }`}
+        }`}
     >
       {/* Floating navigation dock container */}
       <nav className="bg-white/95 backdrop-blur-md shadow-2xl rounded-2xl px-2 py-2 border border-gray-200/50">
@@ -95,7 +92,7 @@ export default function FloatingNavDock() {
           {filteredItems.map((item) => {
             const Icon = item.icon;
             const isActive = isActiveRoute(item.href);
-            
+
             return (
               <Link
                 key={item.href}
@@ -104,10 +101,9 @@ export default function FloatingNavDock() {
                   flex flex-col items-center justify-center
                   px-4 py-2 rounded-xl
                   min-w-[60px] transition-all duration-200
-                  ${
-                    isActive
-                      ? 'bg-pink-50 text-pink-600'
-                      : 'text-gray-600 hover:text-pink-600 hover:bg-pink-50/50'
+                  ${isActive
+                    ? 'bg-pink-50 text-pink-600'
+                    : 'text-gray-600 hover:text-pink-600 hover:bg-pink-50/50'
                   }
                 `}
                 title={item.label}
@@ -119,7 +115,7 @@ export default function FloatingNavDock() {
               </Link>
             );
           })}
-          
+
           {/* Add My Bookings for authenticated customers */}
           {isAuthenticated && user?.role === 'CUSTOMER' && (
             <Link
@@ -128,10 +124,9 @@ export default function FloatingNavDock() {
                 flex flex-col items-center justify-center
                 px-4 py-2 rounded-xl
                 min-w-[60px] transition-all duration-200
-                ${
-                  isActiveRoute('/bookings')
-                    ? 'bg-pink-50 text-pink-600'
-                    : 'text-gray-600 hover:text-pink-600 hover:bg-pink-50/50'
+                ${isActiveRoute('/bookings')
+                  ? 'bg-pink-50 text-pink-600'
+                  : 'text-gray-600 hover:text-pink-600 hover:bg-pink-50/50'
                 }
               `}
               title="My Bookings"

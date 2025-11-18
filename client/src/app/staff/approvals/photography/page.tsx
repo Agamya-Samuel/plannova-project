@@ -265,14 +265,14 @@ export default function StaffPhotographyApprovalsPage() {
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    const confirmed = await sonnerConfirm('Are you sure you want to delete this photography service? This action cannot be undone.');
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this photography service? The service will be moved to the trash where it can be restored later.');
     if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.delete(`/photography/staff/${serviceId}`);
-      toast.success('Photography service deleted successfully!');
+      toast.success('Photography service moved to trash successfully!');
       fetchPhotographyServices(statusFilter, searchTerm);
     } catch (err: unknown) {
       console.error('Error deleting photography service:', err);
