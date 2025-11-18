@@ -11,6 +11,7 @@ const router = Router();
 
 interface IEntertainmentFilter {
   isActive: boolean;
+  isDeleted?: { [key: string]: unknown };
   status?: string | { [key: string]: unknown };
   $or?: Array<{ [key: string]: unknown }>;
 }
@@ -34,7 +35,8 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const services = await Entertainment.find({
       status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }  // Exclude soft deleted services
     })
       .select('+images')
       .populate('provider', 'firstName lastName email phone')
@@ -59,7 +61,11 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       return res.status(403).json({ error: 'User is not registered as an entertainment provider' });
     }
 
-    const services = await Entertainment.find({ provider: req.user.id, isActive: true })
+    const services = await Entertainment.find({ 
+      provider: req.user.id, 
+      isActive: true,
+      isDeleted: { $ne: true }  // Exclude soft deleted services
+    })
       .select('+images')
       .sort({ createdAt: -1 });
 
@@ -224,43 +230,48 @@ router.put('/:id', authenticateToken, createEntertainmentValidation, async (req:
   }
 });
 
-// Delete
+// DELETE /api/entertainment/:id - Delete an entertainment service
 router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
-    if (!req.user) return res.status(401).json({ error: 'User not authenticated' });
-    if (req.user.role !== UserRole.PROVIDER) {
-      return res.status(403).json({ error: 'Only providers can delete entertainment services' });
-    }
-    const service = await Entertainment.findById(id);
-    if (!service) return res.status(404).json({ error: 'Entertainment service not found' });
-    if (service.provider.toString() !== req.user.id) {
-      return res.status(403).json({ error: 'You can only delete your own services' });
+
+    if (!Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid entertainment service ID' });
     }
 
-    // Best-effort S3 cleanup, mirroring photography implementation
-    if (service.images && service.images.length > 0) {
-      try {
-        const { deleteFromS3 } = await import('../services/uploadService.js');
-        const { extractS3Key } = await import('../utils/s3.js');
-        for (const image of service.images) {
-          if (image.url) {
-            try {
-              const key = extractS3Key(image.url);
-              if (key) await deleteFromS3(key);
-            } catch (s3Error) {
-              console.error('Failed to delete image from S3:', image.url, s3Error);
-            }
-          }
-        }
-      } catch (e) {
-        console.error('Error deleting images from S3:', e);
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // Check if user is a provider, staff, or admin
+    if (![UserRole.PROVIDER, UserRole.STAFF, UserRole.ADMIN].includes(req.user.role!)) {
+      return res.status(403).json({ error: 'Only providers, staff, or admins can delete entertainment services' });
+    }
+
+    const entertainment = await Entertainment.findById(id);
+
+    if (!entertainment) {
+      return res.status(404).json({ error: 'Entertainment service not found' });
+    }
+
+    // Check permissions
+    if (req.user.role === UserRole.PROVIDER) {
+      // Providers can only delete their own services
+      if (entertainment.provider.toString() !== req.user.id) {
+        return res.status(403).json({ error: 'You can only delete your own services' });
       }
     }
+    // Staff and Admin can delete any service
 
-    await Entertainment.findByIdAndDelete(id);
-    res.json({ message: 'Entertainment service deleted successfully' });
+    // Soft delete the service instead of hard deleting
+    entertainment.isDeleted = true;
+    entertainment.deletedAt = new Date();
+    await entertainment.save();
+
+    res.json({
+      message: 'Entertainment service moved to trash successfully',
+      data: entertainment
+    });
   } catch (error) {
     console.error('Error deleting entertainment service:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -283,17 +294,20 @@ router.get('/staff/stats', authenticateToken, async (req: AuthRequest, res: Resp
     // Get counts for each status
     const pendingCount = await Entertainment.countDocuments({ 
       status: ApprovalStatus.PENDING,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
     
     const approvedCount = await Entertainment.countDocuments({ 
       status: ApprovalStatus.APPROVED,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
     
     const rejectedCount = await Entertainment.countDocuments({ 
       status: ApprovalStatus.REJECTED,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
 
     res.json({
@@ -318,7 +332,7 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
     }
 
     const { status, page = 1, limit = 10, search } = req.query;
-    const filter: IEntertainmentFilter = { isActive: true };
+    const filter: IEntertainmentFilter = { isActive: true, isDeleted: { $ne: true } };
     if (status && status !== 'ALL') filter.status = status as string;
     else filter.status = { $in: ['PENDING', 'APPROVED', 'REJECTED', 'PENDING_EDIT'] };
 
@@ -480,7 +494,7 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
   }
 });
 
-// DELETE /api/entertainment/staff/:id - Delete entertainment service (Staff only)
+// DELETE /api/entertainment/staff/:id - Delete entertainment service (Staff/Admin only)
 router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -489,45 +503,20 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
       return res.status(400).json({ error: 'Invalid entertainment service ID' });
     }
 
-    const service = await Entertainment.findById(id);
+    const entertainment = await Entertainment.findById(id);
 
-    if (!service) {
+    if (!entertainment) {
       return res.status(404).json({ error: 'Entertainment service not found' });
     }
 
-    // Delete associated images from S3
-    if (service.images && service.images.length > 0) {
-      try {
-        // Import the S3 delete function and URL extraction utility
-        const { deleteFromS3 } = await import('../services/uploadService.js');
-        const { extractS3Key } = await import('../utils/s3.js');
-        
-        // Delete each image from S3
-        for (const image of service.images) {
-          if (image.url) {
-            try {
-              const key = extractS3Key(image.url);
-              if (key) {
-                await deleteFromS3(key);
-                console.log(`Deleted image from S3: ${key}`);
-              }
-            } catch (s3Error) {
-              console.error(`Failed to delete image from S3: ${image.url}`, s3Error);
-              // Continue with other images even if one fails
-            }
-          }
-        }
-      } catch (imageDeleteError) {
-        console.error('Error deleting images from S3:', imageDeleteError);
-        // Don't fail the entire operation if image deletion fails
-      }
-    }
-
-    // Actually delete the service from the database
-    await Entertainment.findByIdAndDelete(id);
+    // Soft delete the service instead of hard deleting
+    entertainment.isDeleted = true;
+    entertainment.deletedAt = new Date();
+    await entertainment.save();
 
     res.json({
-      message: 'Entertainment service deleted successfully'
+      message: 'Entertainment service moved to trash successfully',
+      data: entertainment
     });
   } catch (error) {
     console.error('Error deleting entertainment service:', error);
@@ -608,5 +597,9 @@ router.delete('/:id/blocked-dates', authenticateToken, requireEntertainmentProvi
 });
 
 export default router;
+
+
+
+
 
 

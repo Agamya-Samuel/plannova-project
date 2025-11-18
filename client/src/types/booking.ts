@@ -18,6 +18,16 @@ export interface Booking {
   contactEmail: string;
   providerId?: string;
   serviceId?: string;
+  // Group booking fields
+  isGroupBooking?: boolean;
+  bookingGroupId?: string;
+  dates?: string[];
+  individualBookings?: {
+    id: string;
+    date: string;
+    status: 'confirmed' | 'pending' | 'cancelled' | 'rejected' | 'completed';
+    totalPrice: number;
+  }[];
   // For provider view
   customer?: {
     name: string;
@@ -42,6 +52,7 @@ export interface CreateBookingRequest {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
+  dates?: string[]; // For multiple date bookings
 }
 
 export type BookingResponse = Booking;

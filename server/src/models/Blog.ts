@@ -16,6 +16,9 @@ export interface IBlog extends Document {
   content?: string;
   status: BlogStatus;
   author: mongoose.Types.ObjectId;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -82,6 +85,16 @@ const BlogSchema = new Schema<IBlog>({
     type: Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true, // This adds createdAt and updatedAt automatically

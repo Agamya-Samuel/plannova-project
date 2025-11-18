@@ -180,25 +180,43 @@ export default function TermsAndConditions() {
                   If you have any questions about these Terms & Conditions, please contact us at:
                 </p>
                 <p className="text-gray-700 mt-2">
-                  <strong>Email:</strong> support@plannova.in
+                  <strong>Merchant Legal Entity Name:</strong> DEEPAK KUMAR
                 </p>
                 <p className="text-gray-700 mt-1">
-                  <strong>Address:</strong> Plannova Inc., 123 Event Plaza, San Francisco, CA 94102
+                  <strong>Registered Address:</strong> Gram - Toderpur, Bansgaon, Azamgargh<br />Azamgarh UTTAR PRADESH 276126
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <strong>Operational Address:</strong> Gram - Toderpur, Bansgaon, Azamgargh<br />Azamgarh UTTAR PRADESH 276126
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <strong>Telephone:</strong> 6388850059
+                </p>
+                <p className="text-gray-700 mt-1">
+                  <strong>Email:</strong> support@plannova.in
                 </p>
               </section>
             </div>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-gray-200 flex flex-col sm:flex-row justify-between items-center">
-            <p className="text-gray-600 text-sm">
+          <div className="mt-10 pt-6 border-t border-gray-200">
+            <p className="text-gray-600 text-sm text-center mb-4">
               © {new Date().getFullYear()} Plannova. All rights reserved.
             </p>
-            <div className="mt-4 sm:mt-0">
-              <Link href="/privacy" className="text-pink-600 hover:text-pink-800 text-sm mr-4">
+            <div className="flex flex-wrap justify-center gap-4">
+              <Link href="/privacy" className="text-pink-600 hover:text-pink-800 text-sm">
                 Privacy Policy
               </Link>
               <Link href="/refund-policy" className="text-pink-600 hover:text-pink-800 text-sm">
                 Refund Policy
+              </Link>
+              <Link href="/cancellation-policy" className="text-pink-600 hover:text-pink-800 text-sm">
+                Cancellation Policy
+              </Link>
+              <Link href="/shipping" className="text-pink-600 hover:text-pink-800 text-sm">
+                Shipping & Delivery Policy
+              </Link>
+              <Link href="/contact" className="text-pink-600 hover:text-pink-800 text-sm">
+                Contact Us
               </Link>
             </div>
           </div>

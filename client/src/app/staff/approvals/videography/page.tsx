@@ -236,14 +236,14 @@ export default function StaffVideographyApprovalsPage() {
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    const confirmed = await sonnerConfirm('Are you sure you want to delete this videography service? This action cannot be undone.');
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this videography service? The service will be moved to the trash where it can be restored later.');
     if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.delete(`/videography/staff/${serviceId}`);
-      toast.success('Videography service deleted successfully!');
+      toast.success('Videography service moved to trash successfully!');
       fetchVideographyServices(statusFilter, searchTerm);
     } catch (err: unknown) {
       console.error('Error deleting videography service:', err);

@@ -174,6 +174,10 @@ export interface IVenue extends Document {
   pendingEdits?: Partial<IVenue>; // Store pending edits for approved venues
   pendingEditSubmittedAt?: Date; // When the pending edit was submitted
   
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
+  
   // Metadata
   isActive: boolean;
   isVerified: boolean;
@@ -366,6 +370,17 @@ const VenueSchema: Schema<IVenue> = new Schema({
   },
   pendingEditSubmittedAt: {
     type: Date
+  },
+  
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   },
   
   // Metadata
