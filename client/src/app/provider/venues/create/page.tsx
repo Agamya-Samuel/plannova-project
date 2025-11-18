@@ -227,7 +227,7 @@ export default function CreateVenuePage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -290,7 +290,7 @@ export default function CreateVenuePage() {
       console.log('Submitting cleaned form data:', cleanFormData);
       console.log('Full API endpoint:', `${apiClient.defaults.baseURL}/venues`);
 
-      const response = await apiClient.post('/venues', { ...cleanFormData, status: 'DRAFT' });
+      const response = await apiClient.post('/venues', { ...cleanFormData, status });
       
       // Set venue ID for future image uploads
       if (response.data.venue?._id) {
@@ -328,14 +328,12 @@ export default function CreateVenuePage() {
     }
   };
 
-  const handleManualSubmit = () => {
-    console.log('Manual submit button clicked');
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
+    console.log('Manual submit button clicked with status:', status);
     setIsExplicitSubmit(true);
-    // Trigger form submission after setting the flag
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (user?.role !== 'PROVIDER') {
@@ -1201,24 +1199,45 @@ export default function CreateVenuePage() {
                   </Button>
                   
                   {isLastTab ? (
-                    <Button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleManualSubmit}
-                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Creating...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Create Venue</span>
-                        </div>
-                      )}
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-600"></div>
+                            <span>Saving...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Save as Draft</span>
+                          </div>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       type="button"

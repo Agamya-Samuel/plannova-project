@@ -118,7 +118,7 @@ export default function CreateCateringServicePage() {
     }
   }, [user?.email, formData.contact.email]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -173,8 +173,8 @@ export default function CreateCateringServicePage() {
       
       console.log('Submitting catering service data:', cleanFormData);
       
-      // Send data to the backend API
-      const response = await apiClient.post('/catering', { ...cleanFormData, status: 'DRAFT' });
+      // Send data to the backend API with the specified status
+      const response = await apiClient.post('/catering', { ...cleanFormData, status });
       
       console.log('Catering service created successfully:', response.data);
       
@@ -195,14 +195,12 @@ export default function CreateCateringServicePage() {
     }
   };
 
-  const handleManualSubmit = () => {
-    console.log('Manual submit button clicked');
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
+    console.log('Manual submit button clicked with status:', status);
     setIsExplicitSubmit(true);
-    // Trigger form submission after setting the flag
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   const handleInputChange = (field: string, value: string | number | boolean | string[]) => {
@@ -996,7 +994,8 @@ export default function CreateCateringServicePage() {
                 loading={loading}
                 onPrevious={goToPreviousTab}
                 onNext={goToNextTab}
-                onSubmit={handleManualSubmit}
+                onSubmit={() => handleManualSubmit('PENDING')}
+                onSubmitDraft={() => handleManualSubmit('DRAFT')}
                 onCancel={() => router.back()}
                 serviceType="catering"
               />
