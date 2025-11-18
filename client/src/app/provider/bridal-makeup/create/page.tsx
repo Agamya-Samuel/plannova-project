@@ -211,7 +211,7 @@ export default function CreateBridalMakeupService() {
     return validationErrors.length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -226,7 +226,7 @@ export default function CreateBridalMakeupService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/bridal-makeup', { ...serviceData, status: 'DRAFT' });
+      await apiClient.post('/bridal-makeup', { ...serviceData, status });
       toast.success('Bridal makeup service created successfully!');
       router.push('/provider/bridal-makeup');
     } catch (err) {
@@ -245,12 +245,11 @@ export default function CreateBridalMakeupService() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
@@ -639,9 +638,27 @@ export default function CreateBridalMakeupService() {
                 <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                 
                 {isLastTab ? (
-                  <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                    {loading ? 'Creating…' : 'Create Service'}
-                  </Button>
+                  <div className="flex space-x-3">
+                    {/* Save as Draft Button */}
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      disabled={loading}
+                      onClick={() => handleManualSubmit('DRAFT')}
+                      className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                    >
+                      {loading ? 'Saving…' : 'Save as Draft'}
+                    </Button>
+                    {/* Submit for Approval Button */}
+                    <Button 
+                      type="button" 
+                      disabled={loading}
+                      onClick={() => handleManualSubmit('PENDING')}
+                      className="bg-gradient-to-r from-pink-600 to-purple-600 px-6"
+                    >
+                      {loading ? 'Submitting…' : 'Submit for Approval'}
+                    </Button>
+                  </div>
                 ) : (
                   <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                     <span>Next</span>

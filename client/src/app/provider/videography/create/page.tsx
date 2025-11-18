@@ -372,15 +372,14 @@ export default function CreateVideographyServicePage() {
     setFormData(prev => ({ ...prev, images: formattedImages }));
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     
     if (!isExplicitSubmit) {
@@ -410,7 +409,7 @@ export default function CreateVideographyServicePage() {
         images: formData.images
       };
 
-      await apiClient.post('/videography', { ...submitData, status: 'DRAFT' });
+      await apiClient.post('/videography', { ...submitData, status });
       
       toast.success('Videography service created successfully!');
       router.push('/provider/videography');
@@ -963,24 +962,47 @@ export default function CreateVideographyServicePage() {
               </Button>
                   
                   {isLastTab ? (
-              <Button
-                      type="button"
-                disabled={loading}
-                      onClick={handleManualSubmit}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Creating...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Create Service</span>
-                        </div>
-                )}
-              </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-purple-600 text-purple-600 hover:bg-purple-50 px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                            <span>Saving...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Save as Draft</span>
+                          </div>
+                        )}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       type="button"

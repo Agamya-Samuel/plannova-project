@@ -337,7 +337,7 @@ function EditVideographyServiceContent() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -353,7 +353,7 @@ function EditVideographyServiceContent() {
         basePrice: Number(formData.basePrice),
         minGuests: Number(formData.minGuests)
       };
-      await apiClient.put(`/videography/${serviceId}`, serviceData);
+      await apiClient.put(`/videography/${serviceId}`, { ...serviceData, status });
       toast.success('Videography service updated successfully!');
       router.push('/provider/videography');
     } catch (err: unknown) {
@@ -372,12 +372,11 @@ function EditVideographyServiceContent() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (fetching) {
@@ -652,9 +651,37 @@ function EditVideographyServiceContent() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-purple-600 to-blue-600">
-                      {loading ? 'Updating...' : 'Update Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-purple-600 text-purple-600 hover:bg-purple-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-purple-600 to-blue-600">
                       <span>Next</span>

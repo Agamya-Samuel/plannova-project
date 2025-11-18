@@ -275,7 +275,7 @@ function EditEntertainmentServiceContent() {
     setFormData(prev => ({ ...prev, images: formattedImages }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -290,7 +290,7 @@ function EditEntertainmentServiceContent() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({ ...a, price: Number(a.price) })),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.put(`/entertainment/${serviceId}`, serviceData);
+      await apiClient.put(`/entertainment/${serviceId}`, { ...serviceData, status });
       toast.success('Entertainment service updated successfully!');
       router.push('/provider/entertainment');
     } catch (err: unknown) {
@@ -309,12 +309,11 @@ function EditEntertainmentServiceContent() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (fetching) {
@@ -591,9 +590,37 @@ function EditEntertainmentServiceContent() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                      {loading ? 'Updating...' : 'Update Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                       <span>Next</span>
