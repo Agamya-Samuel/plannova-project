@@ -422,16 +422,21 @@ router.post('/', authenticateToken, requireProvider, createVenueValidation, asyn
       return res.status(400).json({ error: 'Maximum capacity must be greater than or equal to minimum capacity' });
     }
 
+    // Use the status from the request body if provided, otherwise default to DRAFT
+    const status = req.body.status && Object.values(VenueStatus).includes(req.body.status) 
+      ? req.body.status 
+      : VenueStatus.DRAFT;
+    
     const venueData = {
       ...req.body,
       providerId: req.user!.id,
-      status: VenueStatus.DRAFT
+      status
     };
 
     const venue = await Venue.create(venueData);
 
     res.status(201).json({
-      message: 'Venue created successfully',
+      message: `Venue created successfully with status ${status}`,
       venue
     });
   } catch (error) {
