@@ -28,17 +28,70 @@ import {
   FileCheck,
   FileClock,
   Heart,
-  Loader2
+  Loader2,
+  MapPin,
+  Utensils,
+  Camera,
+  Video,
+  Music,
+  Flower
 } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api';
+import { ServiceCategory } from '@/types/auth';
+
+// Service categories with icons and descriptions
+const serviceCategories = [
+  {
+    id: 'venue' as ServiceCategory,
+    name: 'Venue Service',
+    icon: MapPin,
+    description: 'Wedding venues, reception halls, and event spaces'
+  },
+  {
+    id: 'catering' as ServiceCategory,
+    name: 'Catering Service',
+    icon: Utensils,
+    description: 'Food services, catering packages, and culinary experiences'
+  },
+  {
+    id: 'photography' as ServiceCategory,
+    name: 'Photography Service',
+    icon: Camera,
+    description: 'Wedding photography, portrait sessions, and photo services'
+  },
+  {
+    id: 'videography' as ServiceCategory,
+    name: 'Videography Service',
+    icon: Video,
+    description: 'Wedding videography, highlight reels, and video services'
+  },
+  {
+    id: 'music' as ServiceCategory,
+    name: 'Music & Entertainment Service',
+    icon: Music,
+    description: 'DJ, bands, and entertainment services'
+  },
+  {
+    id: 'makeup' as ServiceCategory,
+    name: 'Bridal Makeup Service',
+    icon: Heart,
+    description: 'Bridal makeup, hair styling, and beauty services'
+  },
+  {
+    id: 'decoration' as ServiceCategory,
+    name: 'Decoration Service',
+    icon: Flower,
+    description: 'Event decoration and floral arrangements'
+  }
+];
 
 export default function AccountSettingsPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, updateServiceCategories } = useAuth();
   const router = useRouter();
   
   // Active section state
-  const [activeSection, setActiveSection] = useState<'security' | 'notifications' | 'privacy' | 'account' | 'blogs' | 'pastEvents'>('security');
+  const [activeSection, setActiveSection] = useState<'security' | 'notifications' | 'privacy' | 'account' | 'blogs' | 'pastEvents' | 'services'>('security');
   
   // Security settings
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -78,6 +131,11 @@ export default function AccountSettingsPage() {
     currency: 'INR'
   });
 
+  // Services management
+  const [selectedServiceCategories, setSelectedServiceCategories] = useState<ServiceCategory[]>([]);
+  const [isUpdatingServices, setIsUpdatingServices] = useState(false);
+  const [serviceError, setServiceError] = useState('');
+
   // Blog stats
   const [blogStats, setBlogStats] = useState<{ total: number; drafts: number; published: number; lastUpdated?: string | null }>({
     total: 0,
@@ -96,6 +154,13 @@ export default function AccountSettingsPage() {
   // Admin/Staff-only access for Past Events
   const canManagePastEventsBool = React.useMemo(() => {
     return Boolean(user && ['ADMIN', 'STAFF'].includes(user.role || ''));
+  }, [user]);
+
+  // Initialize selected services with user's current services
+  useEffect(() => {
+    if (user?.serviceCategories) {
+      setSelectedServiceCategories([...user.serviceCategories]);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -441,6 +506,22 @@ export default function AccountSettingsPage() {
     }
   };
 
+  // Handle service categories update
+  const handleUpdateServices = async () => {
+    setIsUpdatingServices(true);
+    setServiceError('');
+
+    try {
+      await updateServiceCategories(selectedServiceCategories);
+      toast.success('Service categories updated successfully!');
+    } catch (error: unknown) {
+      console.error('Error updating service categories:', error);
+      setServiceError(getApiErrorMessage(error) || 'Failed to update service categories. Please try again.');
+    } finally {
+      setIsUpdatingServices(false);
+    }
+  };
+
   function getApiErrorMessage(error: unknown): string | undefined {
     if (error instanceof Error) {
       return error.message;
@@ -505,6 +586,20 @@ export default function AccountSettingsPage() {
                     <Lock className="h-5 w-5 mr-3" />
                     Security
                   </button>
+                  
+                  {user?.role === 'PROVIDER' && (
+                    <button
+                      onClick={() => setActiveSection('services')}
+                      className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
+                        activeSection === 'services'
+                          ? 'bg-pink-100 text-pink-600 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <MapPin className="h-5 w-5 mr-3" />
+                      Services
+                    </button>
+                  )}
                   
                   {canManageBlogs() && (
                     <button
@@ -1308,6 +1403,70 @@ export default function AccountSettingsPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Services Section */}
+              {activeSection === 'services' && (
+                <div className="bg-white rounded-xl shadow-lg p-8">
+                  <div className="flex items-center mb-6">
+                    <MapPin className="h-6 w-6 text-pink-500 mr-3" />
+                    <h2 className="text-2xl font-bold text-gray-900">Services Management</h2>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {/* Service Categories */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Categories</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {serviceCategories.map(category => (
+                          <label key={category.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedServiceCategories.includes(category.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedServiceCategories([...selectedServiceCategories, category.id]);
+                                } else {
+                                  setSelectedServiceCategories(selectedServiceCategories.filter(cat => cat !== category.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-pink-500 focus:ring-pink-500 mr-3"
+                            />
+                            <div>
+                              <div className="font-medium text-gray-900">{category.name}</div>
+                              <div className="text-sm text-gray-500">{category.description}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Update Services Button */}
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleUpdateServices}
+                        disabled={isUpdatingServices}
+                        className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
+                      >
+                        {isUpdatingServices ? 'Updating...' : 'Update Services'}
+                      </Button>
+                    </div>
+
+                    {/* Error Message */}
+                    {serviceError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <AlertTriangle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-red-800">
+                              {serviceError}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
