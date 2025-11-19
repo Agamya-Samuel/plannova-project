@@ -2,10 +2,19 @@ import { Router, Response } from 'express';
 import { Types } from 'mongoose';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import Booking from '../models/Booking.js';
-import { createOrder, verifyPayment } from '../services/razorpayService.js';
+import { createOrder, verifyPayment, isConfigured } from '../services/razorpayService.js';
 import { PaymentStatus } from '../models/Booking.js';
 
 const router = Router();
+
+// Check if Razorpay is properly configured
+router.get('/config-status', (req, res) => {
+  const configured = isConfigured();
+  res.json({ 
+    configured,
+    message: configured ? 'Razorpay is properly configured' : 'Razorpay is not configured properly'
+  });
+});
 
 /**
  * Create a payment order for a booking
@@ -18,6 +27,11 @@ router.post('/create-order', authenticateToken, async (req: AuthRequest, res: Re
     // Validate booking ID
     if (!Types.ObjectId.isValid(bookingId)) {
       return res.status(400).json({ error: 'Invalid booking ID' });
+    }
+
+    // Check if Razorpay is configured
+    if (!isConfigured()) {
+      return res.status(500).json({ error: 'Payment gateway is not configured properly' });
     }
 
     // Find the booking
@@ -39,12 +53,20 @@ router.post('/create-order', authenticateToken, async (req: AuthRequest, res: Re
     // Convert amount to paise (smallest currency unit)
     const amountInPaise = Math.round(booking.totalPrice * 100);
     
-    // Create Razorpay order
+    // Create Razorpay order with additional notes
     const order = await createOrder(
       amountInPaise,
       'INR',
-      `booking_${bookingId}_${Date.now()}`
+      `booking_${bookingId}_${Date.now()}`,
+      {
+        bookingId: bookingId,
+        serviceType: booking.serviceType,
+        customerId: req.user!.id,
+        customerEmail: req.user!.email || ''
+      }
     );
+
+    console.log(`Payment order created for booking ${bookingId}: ${order.id}`);
 
     res.json({
       orderId: order.id,
@@ -54,7 +76,11 @@ router.post('/create-order', authenticateToken, async (req: AuthRequest, res: Re
     });
   } catch (error) {
     console.error('Error creating payment order:', error);
-    res.status(500).json({ error: 'Failed to create payment order' });
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message || 'Failed to create payment order' });
+    } else {
+      res.status(500).json({ error: 'Failed to create payment order' });
+    }
   }
 });
 
@@ -76,6 +102,11 @@ router.post('/verify-payment', authenticateToken, async (req: AuthRequest, res: 
       return res.status(400).json({ error: 'Invalid booking ID' });
     }
 
+    // Check if Razorpay is configured
+    if (!isConfigured()) {
+      return res.status(500).json({ error: 'Payment gateway is not configured properly' });
+    }
+
     // Find the booking
     const booking = await Booking.findById(bookingId);
     if (!booking) {
@@ -91,6 +122,7 @@ router.post('/verify-payment', authenticateToken, async (req: AuthRequest, res: 
     const isPaymentVerified = verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature);
     
     if (!isPaymentVerified) {
+      console.warn(`Payment verification failed for order: ${razorpay_order_id}`);
       return res.status(400).json({ error: 'Payment verification failed' });
     }
 
@@ -100,6 +132,8 @@ router.post('/verify-payment', authenticateToken, async (req: AuthRequest, res: 
     booking.remainingAmount = 0;
     await booking.save();
 
+    console.log(`Payment successful for booking ${bookingId}: ${razorpay_payment_id}`);
+
     res.json({
       message: 'Payment successful',
       bookingId: bookingId,
@@ -107,7 +141,11 @@ router.post('/verify-payment', authenticateToken, async (req: AuthRequest, res: 
     });
   } catch (error) {
     console.error('Error verifying payment:', error);
-    res.status(500).json({ error: 'Failed to verify payment' });
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message || 'Failed to verify payment' });
+    } else {
+      res.status(500).json({ error: 'Failed to verify payment' });
+    }
   }
 });
 
@@ -150,7 +188,11 @@ router.get('/status/:bookingId', authenticateToken, async (req: AuthRequest, res
     });
   } catch (error) {
     console.error('Error fetching payment status:', error);
-    res.status(500).json({ error: 'Failed to fetch payment status' });
+    if (error instanceof Error) {
+      res.status(500).json({ error: error.message || 'Failed to fetch payment status' });
+    } else {
+      res.status(500).json({ error: 'Failed to fetch payment status' });
+    }
   }
 });
 
