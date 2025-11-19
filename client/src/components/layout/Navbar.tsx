@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { UserRole, ServiceCategory } from '@/types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, Utensils, Video, Flower, Music } from 'lucide-react';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, Utensils, Video, Flower, Music, FileText } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
 import Image from 'next/image';
 
@@ -20,8 +20,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { label: 'Venues', href: '/venues', icon: <MapPin className="h-4 w-4" /> },
   { label: 'Vendors', href: '/vendors', icon: <Users className="h-4 w-4" /> },
-  { label: 'Photos', href: '/photos', icon: <Camera className="h-4 w-4" /> },
-  { label: 'Past Events', href: '/past-events', icon: <Heart className="h-4 w-4" /> },
+  { label: 'Blog', href: '/blog', icon: <FileText className="h-4 w-4" /> },
   { label: 'My Bookings', href: '/bookings', roles: ['CUSTOMER'], icon: <Calendar className="h-4 w-4" /> },
   // My Service dropdown will be added dynamically for providers
   // Approvals moved to Staff Dashboard card
@@ -99,6 +98,10 @@ export default function Navbar() {
   const isActiveRoute = (href: string) => {
     if (href === '/provider/venues') {
       return pathname.startsWith('/provider/venues');
+    }
+    // Blog route: active when on /blog or any blog sub-route
+    if (href === '/blog') {
+      return pathname.startsWith('/blog');
     }
     return pathname === href;
   };

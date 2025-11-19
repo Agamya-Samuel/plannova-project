@@ -40,11 +40,6 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/past-events" className="text-gray-300 hover:text-white transition-colors">
-                  Past Events
-                </Link>
-              </li>
-              <li>
                 <Link href="/about" className="text-gray-300 hover:text-white transition-colors">
                   About Us
                 </Link>
