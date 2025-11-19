@@ -29,6 +29,9 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface VideographyServiceFormData {
   name: string;
@@ -52,6 +55,7 @@ interface VideographyServiceFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -118,7 +122,8 @@ function EditVideographyServiceContent() {
     videographyTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchVideographyService = React.useCallback(async () => {
@@ -138,7 +143,8 @@ function EditVideographyServiceContent() {
         videographyTypes: service.videographyTypes,
         packages: service.packages.map((p: { price: { toString: () => string; }; }) => ({...p, price: p.price.toString()})),
         addons: service.addons.map((a: { price: { toString: () => string; }; }) => ({...a, price: a.price.toString()})),
-        images: service.images
+        images: service.images,
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
     } catch (err: unknown) {
       let errorMessage = 'Failed to fetch videography service';
@@ -353,7 +359,18 @@ function EditVideographyServiceContent() {
         basePrice: Number(formData.basePrice),
         minGuests: Number(formData.minGuests)
       };
-      await apiClient.put(`/videography/${serviceId}`, { ...serviceData, status });
+      const response = await apiClient.put(`/videography/${serviceId}`, { ...serviceData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+          serviceType: 'videography',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
+      
       toast.success('Videography service updated successfully!');
       router.push('/provider/videography');
     } catch (err: unknown) {
@@ -484,12 +501,30 @@ function EditVideographyServiceContent() {
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 25000" min="0" required className="text-black" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Guests</label>
-                    <Input type="number" value={formData.minGuests} onChange={(e) => handleInputChange('minGuests', Number(e.target.value))} placeholder="e.g., 50" min="0" className="text-black" />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Guests
+                    </label>
+                    <Input
+                      type="number"
+                      value={formData.minGuests}
+                      onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 0)}
+                      placeholder="Minimum number of guests"
+                      min="0"
+                      className="text-black"
+                    />
                   </div>
+                    
+                    {/* Payment Method Selector */}
+                    <div className="mt-8">
+                      <PaymentMethodSelector 
+                        value={formData.paymentMethod}
+                        onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                      />
+                    </div>
                 </div>
               )}
 
+              {/* Location Tab */}
               {activeTab === 'location' && (
                 <LocationInput
                   data={formData.serviceLocation}
@@ -497,6 +532,7 @@ function EditVideographyServiceContent() {
                 />
               )}
 
+              {/* Contact Tab */}
               {activeTab === 'contact' && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
@@ -529,6 +565,7 @@ function EditVideographyServiceContent() {
                 </div>
               )}
 
+              {/* Images Tab */}
               {activeTab === 'images' && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Images</h2>
@@ -543,6 +580,7 @@ function EditVideographyServiceContent() {
                 </div>
               )}
 
+              {/* Services Tab */}
               {activeTab === 'services' && (
                 <div className="space-y-8">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Services & Packages</h2>
@@ -593,6 +631,7 @@ function EditVideographyServiceContent() {
                 </div>
               )}
 
+              {/* Policies Tab */}
               {activeTab === 'policies' && (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
@@ -604,6 +643,7 @@ function EditVideographyServiceContent() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
                         <textarea value={formData.paymentTerms} onChange={(e) => handleInputChange('paymentTerms', e.target.value)} placeholder="Describe your payment terms..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
                     </div>
+                    {/* Payment Method Selector moved to services tab where pricing is set */}
                 </div>
               )}
 
@@ -616,7 +656,7 @@ function EditVideographyServiceContent() {
                       <p><strong>Service Name:</strong> {formData.name}</p>
                       <p><strong>Description:</strong> {formData.description}</p>
                       <p><strong>Base Price:</strong> ₹{formData.basePrice}</p>
-                      <p><strong>Min Guests:</strong> {formData.minGuests}</p>
+                      <p><strong>Payment Method:</strong> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>

@@ -26,6 +26,7 @@ import type { VenueImageWithUpload } from '@/types/upload';
 import BasicInfoInput from '@/components/ui/BasicInfoInput';
 import LocationInput from '@/components/ui/LocationInput';
 import ContactInput from '@/components/ui/ContactInput';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
@@ -52,6 +53,7 @@ interface PhotographyServiceFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -112,7 +114,8 @@ export default function CreatePhotographyService() {
     photographyTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   // Update email when user data becomes available
@@ -538,15 +541,32 @@ export default function CreatePhotographyService() {
 
               {activeTab === 'policies' && (
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Policy</label>
-                        <textarea value={formData.cancellationPolicy} onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)} placeholder="Describe your cancellation policy..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
-                        <textarea value={formData.paymentTerms} onChange={(e) => handleInputChange('paymentTerms', e.target.value)} placeholder="Describe your payment terms..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
-                    </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies (Optional)</h2>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-blue-800 text-sm">
+                      <strong>Note:</strong> These are optional. You can add your policies later from your dashboard.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Policy</label>
+                    <textarea
+                      value={formData.cancellationPolicy}
+                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
+                      placeholder="e.g., 50% refund if cancelled 7 days before..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
+                    <textarea
+                      value={formData.paymentTerms}
+                      onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
+                      placeholder="e.g., 50% advance booking, balance on service day..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
+                    />
+                  </div>
                 </div>
               )}
 

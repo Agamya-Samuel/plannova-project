@@ -28,6 +28,7 @@ import { ImageUpload } from '../../../../components/upload';
 import apiClient from '../../../../lib/api';
 import LocationInput from '@/components/ui/LocationInput';
 import { toast } from 'sonner';
+import { PaymentMethodSelector } from '../../../../components/provider/PaymentMethodSelector';
 
 interface CateringService {
   _id: string;
@@ -53,6 +54,8 @@ interface CateringService {
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
+  // Add payment method field
+  paymentMethod?: 'CASH' | 'ONLINE_CASH';
 }
 
 // Create a separate component for the main content that uses useSearchParams
@@ -106,6 +109,15 @@ function EditCateringServiceContent() {
         const response = await apiClient.get(`/catering/${serviceId}`);
         const service: CateringService = response.data.data;
         
+        // Fetch payment method configuration
+        let paymentMethod: 'CASH' | 'ONLINE_CASH' = 'ONLINE_CASH';
+        try {
+          const paymentConfigResponse = await apiClient.get(`/vendor-service-config/catering`);
+          paymentMethod = paymentConfigResponse.data.paymentMode || 'ONLINE_CASH';
+        } catch (paymentConfigError) {
+          console.log('No payment configuration found, using default');
+        }
+        
         setFormData({
           name: service.name,
           description: service.description,
@@ -119,7 +131,8 @@ function EditCateringServiceContent() {
           basePrice: service.basePrice,
           minGuests: service.minGuests,
           cancellationPolicy: service.cancellationPolicy,
-          paymentTerms: service.paymentTerms
+          paymentTerms: service.paymentTerms,
+          paymentMethod: paymentMethod
         });
       } catch (err: unknown) {
         console.error('Error fetching catering service:', err);
@@ -287,6 +300,20 @@ function EditCateringServiceContent() {
       const response = await apiClient.put(`/catering/${serviceId}`, { ...cleanFormData, status });
       
       console.log('Catering service updated successfully:', response.data);
+      
+      // Save payment method configuration
+      if (formData.paymentMethod) {
+        try {
+          await apiClient.post('/vendor-service-config', {
+            serviceType: 'catering',
+            paymentMode: formData.paymentMethod
+          });
+          console.log('Payment method configuration saved successfully');
+        } catch (paymentError) {
+          console.error('Error saving payment method configuration:', paymentError);
+          // Don't fail the whole process if payment config fails
+        }
+      }
       
       // Redirect back to service view
       router.push(`/provider/catering/${serviceId}`);
@@ -616,6 +643,14 @@ function EditCateringServiceContent() {
                         />
                         <p className="text-xs text-gray-500 mt-1">Minimum number of guests for this package</p>
                       </div>
+                    </div>
+                    
+                    {/* Payment Method Selector */}
+                    <div className="mt-8">
+                      <PaymentMethodSelector 
+                        value={formData.paymentMethod || 'ONLINE_CASH'}
+                        onChange={(value) => handleInputChange('paymentMethod', value)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -964,6 +999,19 @@ function EditCateringServiceContent() {
                       <h3 className="font-semibold text-gray-900 mb-2">Additional Details</h3>
                       <p><strong>Dietary Options:</strong> <span className="text-gray-600">{formData.dietaryOptions.join(', ') || 'None'}</span></p>
                       <p><strong>Add-ons:</strong> <span className="text-gray-600">{formData.addons.length} addon(s) configured</span></p>
+                      {/* Payment Method Information */}
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <p><strong>Payment Options:</strong> 
+                          <span className={`ml-2 font-medium ${formData.paymentMethod === 'CASH' ? 'text-blue-600' : 'text-green-600'}`}>
+                            {formData.paymentMethod === 'CASH' ? 'Cash Payment Only' : 'Online + Cash Payment'}
+                          </span>
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formData.paymentMethod === 'CASH' 
+                            ? 'Customers can only pay in cash directly to the service provider' 
+                            : 'Customers can choose to pay online through Razorpay or in cash'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

@@ -27,6 +27,7 @@ import LocationInput from '../../../../components/ui/LocationInput';
 import ContactInput from '../../../../components/ui/ContactInput';
 import PolicyInput from '../../../../components/ui/PolicyInput';
 import FormNavigation from '../../../../components/ui/FormNavigation';
+import { PaymentMethodSelector } from '../../../../components/provider/PaymentMethodSelector';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 
 interface CateringServiceFormData {
@@ -52,6 +53,7 @@ interface CateringServiceFormData {
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
+  paymentMethod?: 'CASH' | 'ONLINE_CASH';
 }
 
 
@@ -100,7 +102,8 @@ export default function CreateCateringServicePage() {
     basePrice: 1500,
     minGuests: 20,
     cancellationPolicy: 'Cancellation allowed up to 7 days before the event with 50% refund. No refund for cancellations within 7 days of the event.',
-    paymentTerms: '50% advance payment required at the time of booking. Remaining 50% to be paid 3 days before the event.'
+    paymentTerms: '50% advance payment required at the time of booking. Remaining 50% to be paid 3 days before the event.',
+    paymentMethod: 'ONLINE_CASH'
   });
   const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
@@ -168,7 +171,8 @@ export default function CreateCateringServicePage() {
         basePrice: formData.basePrice || 0,
         minGuests: formData.minGuests || 20,
         cancellationPolicy: formData.cancellationPolicy || '',
-        paymentTerms: formData.paymentTerms || ''
+        paymentTerms: formData.paymentTerms || '',
+        // Exclude paymentMethod from the catering service data as it will be saved separately
       };
       
       console.log('Submitting catering service data:', cleanFormData);
@@ -177,6 +181,20 @@ export default function CreateCateringServicePage() {
       const response = await apiClient.post('/catering', { ...cleanFormData, status });
       
       console.log('Catering service created successfully:', response.data);
+      
+      // Save payment method configuration
+      if (formData.paymentMethod && response.data._id) {
+        try {
+          await apiClient.post('/vendor-service-config', {
+            serviceType: 'catering',
+            paymentMode: formData.paymentMethod
+          });
+          console.log('Payment method configuration saved successfully');
+        } catch (paymentError) {
+          console.error('Error saving payment method configuration:', paymentError);
+          // Don't fail the whole process if payment config fails
+        }
+      }
       
       // Redirect to provider dashboard or catering services list
       router.push('/provider/catering');
@@ -529,22 +547,97 @@ export default function CreateCateringServicePage() {
             <div className="bg-white rounded-xl shadow-lg p-8">
               {/* Basic Info Tab */}
               {activeTab === 'basic' && (
-                <BasicInfoInput
-                  data={{
-                    name: formData.name,
-                    description: formData.description,
-                    basePrice: formData.basePrice
-                  }}
-                  onChange={(data) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      name: data.name,
-                      description: data.description,
-                      basePrice: data.basePrice || prev.basePrice
-                    }));
-                  }}
-                  serviceType="Catering"
-                />
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Basic Information</h2>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Service Name *
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => handleInputChange('name', e.target.value)}
+                      placeholder="Enter service name"
+                      required
+                      className="text-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <textarea
+                      value={formData.description}
+                      onChange={(e) => handleInputChange('description', e.target.value)}
+                      placeholder="Describe your catering services..."
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
+                      required
+                      minLength={10}
+                      maxLength={2000}
+                    />
+                    <div className="flex justify-between text-sm text-black mt-1">
+                      <span>Minimum 10 characters required</span>
+                      <span className={`${formData.description.length > 2000 ? 'text-red-600 font-medium' : 'text-black'}`}>
+                        {formData.description.length}/2000
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Base Price per Plate (₹) *
+                      </label>
+                      <Input
+                        type="number"
+                        value={formData.basePrice || 0}
+                        onChange={(e) => handleInputChange('basePrice', parseFloat(e.target.value) || 0)}
+                        placeholder="1500"
+                        min="0"
+                        required
+                        className="text-black"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">This is your starting price per plate - you can adjust for different packages</p>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Minimum Guests Required
+                      </label>
+                      <Input
+                        type="number"
+                        value={formData.minGuests || 20}
+                        onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 20)}
+                        placeholder="20"
+                        min="1"
+                        className="text-black"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Minimum number of guests for this package</p>
+                    </div>
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod || 'ONLINE_CASH'}
+                      onChange={(value) => handleInputChange('paymentMethod', value)}
+                    />
+                  </div>
+                  
+                  <PolicyInput
+                    data={{
+                      cancellationPolicy: formData.cancellationPolicy || '',
+                      paymentTerms: formData.paymentTerms || ''
+                    }}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellationPolicy: data.cancellationPolicy,
+                        paymentTerms: data.paymentTerms
+                      }));
+                    }}
+                  />
+                </div>
               )}
 
               {/* Location Tab */}
@@ -959,28 +1052,23 @@ export default function CreateCateringServicePage() {
                       </div>
                     </div>
                     
+                    {/* Payment Method Summary */}
                     <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Media</h3>
+                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Payment Method</h3>
                       <div className="space-y-2 text-sm text-gray-700">
-                        <p><span className="font-medium">Images Uploaded:</span> {formData.images.length} image(s)</p>
-                        <p><span className="font-medium">Addon Services:</span> {formData.addons.length} service(s) added</p>
-                      </div>
-                    </div>
-                    
-                    <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                      <h3 className="font-semibold text-gray-900 mb-3 pb-2 border-b border-gray-300">Add-on Services</h3>
-                      <div className="space-y-2 text-sm text-gray-700">
-                        {formData.addons.length > 0 ? (
-                          formData.addons.map((addon, index) => (
-                            <div key={index} className="border-b border-gray-200 pb-2 last:border-0 last:pb-0">
-                              <p className="font-medium">{addon.name || 'Unnamed Addon'}</p>
-                              <p className="text-gray-600 text-xs mt-1">{addon.description || 'No description'}</p>
-                              <p className="font-medium mt-1">₹{addon.price?.toLocaleString() || '0'}</p>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-gray-500">No add-on services added</p>
-                        )}
+                        <p>
+                          <span className="font-medium">Payment Options:</span>{' '}
+                          {formData.paymentMethod === 'CASH' ? (
+                            <span className="text-blue-600 font-medium">Cash Payment Only</span>
+                          ) : (
+                            <span className="text-green-600 font-medium">Online + Cash Payment</span>
+                          )}
+                        </p>
+                        <p className="text-gray-600 text-xs mt-1">
+                          {formData.paymentMethod === 'CASH' 
+                            ? 'Customers can only pay in cash directly to the service provider' 
+                            : 'Customers can choose to pay online through Razorpay or in cash'}
+                        </p>
                       </div>
                     </div>
                   </div>

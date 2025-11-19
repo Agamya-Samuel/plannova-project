@@ -32,6 +32,7 @@ import 'react-phone-number-input/style.css';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import ContactInput from '@/components/ui/ContactInput';
 import PolicyInput from '@/components/ui/PolicyInput';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 interface VideographyFormData {
   name: string;
@@ -66,6 +67,7 @@ interface VideographyFormData {
   cancellationPolicy: string;
   paymentTerms: string;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 const initialFormData: VideographyFormData = {
@@ -96,7 +98,8 @@ const initialFormData: VideographyFormData = {
   minGuests: 0,
   cancellationPolicy: '',
   paymentTerms: '',
-  images: []
+  images: [],
+  paymentMethod: 'ONLINE_CASH'
 };
 
 const videographyTypeOptions = [
@@ -406,10 +409,23 @@ export default function CreateVideographyServicePage() {
         minGuests: formData.minGuests,
         cancellationPolicy: formData.cancellationPolicy,
         paymentTerms: formData.paymentTerms,
-        images: formData.images
+        images: formData.images,
+        paymentMethod: formData.paymentMethod
       };
 
-      await apiClient.post('/videography', { ...submitData, status });
+      const response = await apiClient.post('/videography', { ...submitData, status });
+      
+      // Save payment configuration
+      if (response.data?.data?._id) {
+        try {
+          await apiClient.post(`/vendor-service-config/${response.data.data._id}`, {
+            serviceType: 'videography',
+            paymentMode: formData.paymentMethod
+          });
+        } catch (configError) {
+          console.error('Failed to save payment configuration:', configError);
+        }
+      }
       
       toast.success('Videography service created successfully!');
       router.push('/provider/videography');
@@ -603,6 +619,14 @@ export default function CreateVideographyServicePage() {
                 />
               </div>
             </div>
+            
+            {/* Payment Method Selector */}
+            <div className="mt-8">
+              <PaymentMethodSelector 
+                value={formData.paymentMethod}
+                onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+              />
+            </div>
                 </div>
               )}
 
@@ -694,116 +718,24 @@ export default function CreateVideographyServicePage() {
                 <div className="space-y-6">
                   <div className="flex justify-between items-center">
                     <h2 className="text-2xl font-bold text-gray-900">Packages & Pricing</h2>
-                <Button
-                  type="button"
-                  onClick={addPackage}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Package
-                </Button>
-              </div>
+                    <Button
+                      type="button"
+                      onClick={addPackage}
+                      className="bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Package
+                    </Button>
+                  </div>
 
-              {formData.packages.map((pkg, index) => (
+                  {formData.packages.map((pkg, index) => (
                     <div key={index} className="border border-gray-200 rounded-xl p-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900">Package {index + 1}</h3>
-                    {formData.packages.length > 1 && (
-                      <Button
-                        type="button"
-                        onClick={() => removePackage(index)}
-                        className="text-red-600 hover:text-red-700"
-                        variant="outline"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Package Name *
-                      </label>
-                          <Input
-                        type="text"
-                        value={pkg.name}
-                        onChange={(e) => updatePackage(index, 'name', e.target.value)}
-                        placeholder="Enter package name"
-                            className="text-black"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Price (₹) *
-                      </label>
-                          <Input
-                        type="number"
-                        value={pkg.price}
-                        onChange={(e) => updatePackage(index, 'price', parseFloat(e.target.value) || 0)}
-                        placeholder="Enter package price"
-                        min="0"
-                            className="text-black"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Description
-                    </label>
-                    <textarea
-                      value={pkg.description}
-                      onChange={(e) => updatePackage(index, 'description', e.target.value)}
-                      rows={3}
-                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
-                      placeholder="Describe what's included in this package"
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Duration
-                    </label>
-                        <Input
-                      type="text"
-                      value={pkg.duration}
-                      onChange={(e) => updatePackage(index, 'duration', e.target.value)}
-                      placeholder="e.g., 8 hours, Full day, etc."
-                          className="text-black"
-                    />
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="flex justify-between items-center mb-4">
-                      <label className="block text-sm font-medium text-gray-700">
-                        What&apos;s Included
-                      </label>
-                      <Button
-                        type="button"
-                        onClick={() => addPackageInclude(index)}
-                        className="text-purple-600 hover:text-purple-700"
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Item
-                      </Button>
-                    </div>
-                    {pkg.includes.map((include, includeIndex) => (
-                      <div key={includeIndex} className="flex items-center space-x-2 mb-2">
-                            <Input
-                          type="text"
-                          value={include}
-                          onChange={(e) => updatePackageIncludes(index, includeIndex, e.target.value)}
-                              className="flex-1 text-black"
-                          placeholder="Enter what's included"
-                        />
-                        {pkg.includes.length > 1 && (
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900">Package {index + 1}</h3>
+                        {formData.packages.length > 1 && (
                           <Button
                             type="button"
-                            onClick={() => removePackageInclude(index, includeIndex)}
+                            onClick={() => removePackage(index)}
                             className="text-red-600 hover:text-red-700"
                             variant="outline"
                           >
@@ -811,23 +743,115 @@ export default function CreateVideographyServicePage() {
                           </Button>
                         )}
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="mt-6">
-                    <label className="flex items-center space-x-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={pkg.isPopular}
-                        onChange={(e) => updatePackage(index, 'isPopular', e.target.checked)}
-                        className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
-                      />
-                      <span className="text-sm text-gray-700">Mark as Popular Package</span>
-                    </label>
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Package Name *
+                          </label>
+                          <Input
+                            type="text"
+                            value={pkg.name}
+                            onChange={(e) => updatePackage(index, 'name', e.target.value)}
+                            placeholder="Enter package name"
+                            className="text-black"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Price (₹) *
+                          </label>
+                          <Input
+                            type="number"
+                            value={pkg.price}
+                            onChange={(e) => updatePackage(index, 'price', parseFloat(e.target.value) || 0)}
+                            placeholder="Enter package price"
+                            min="0"
+                            className="text-black"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="mt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Description
+                        </label>
+                        <textarea
+                          value={pkg.description}
+                          onChange={(e) => updatePackage(index, 'description', e.target.value)}
+                          rows={3}
+                          className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent text-black placeholder-gray-400"
+                          placeholder="Describe what's included in this package"
+                        />
+                      </div>
+
+                      <div className="mt-6">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Duration
+                        </label>
+                        <Input
+                          type="text"
+                          value={pkg.duration}
+                          onChange={(e) => updatePackage(index, 'duration', e.target.value)}
+                          placeholder="e.g., 8 hours, Full day, etc."
+                          className="text-black"
+                        />
+                      </div>
+
+                      <div className="mt-6">
+                        <div className="flex justify-between items-center mb-4">
+                          <label className="block text-sm font-medium text-gray-700">
+                            What&apos;s Included
+                          </label>
+                          <Button
+                            type="button"
+                            onClick={() => addPackageInclude(index)}
+                            className="text-purple-600 hover:text-purple-700"
+                            variant="outline"
+                            size="sm"
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Add Item
+                          </Button>
+                        </div>
+                        {pkg.includes.map((include, includeIndex) => (
+                          <div key={includeIndex} className="flex items-center space-x-2 mb-2">
+                            <Input
+                              type="text"
+                              value={include}
+                              onChange={(e) => updatePackageIncludes(index, includeIndex, e.target.value)}
+                              className="flex-1 text-black"
+                              placeholder="Enter what's included"
+                            />
+                            {pkg.includes.length > 1 && (
+                              <Button
+                                type="button"
+                                onClick={() => removePackageInclude(index, includeIndex)}
+                                className="text-red-600 hover:text-red-700"
+                                variant="outline"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-6">
+                        <label className="flex items-center space-x-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={pkg.isPopular}
+                            onChange={(e) => updatePackage(index, 'isPopular', e.target.checked)}
+                            className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                          />
+                          <span className="text-sm text-gray-700">Mark as Popular Package</span>
+                        </label>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
               )}
 
               {/* Policies Tab */}
@@ -835,20 +859,20 @@ export default function CreateVideographyServicePage() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
                   
-                <PolicyInput
-                  data={{
-                    cancellationPolicy: formData.cancellationPolicy || '',
-                    paymentTerms: formData.paymentTerms || ''
-                  }}
-                  onChange={(data) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      cancellationPolicy: data.cancellationPolicy,
-                      paymentTerms: data.paymentTerms
-                    }));
-                  }}
-                />
-              </div>
+                  <PolicyInput
+                    data={{
+                      cancellationPolicy: formData.cancellationPolicy || '',
+                      paymentTerms: formData.paymentTerms || ''
+                    }}
+                    onChange={(data) => {
+                      setFormData(prev => ({
+                        ...prev,
+                        cancellationPolicy: data.cancellationPolicy,
+                        paymentTerms: data.paymentTerms
+                      }));
+                    }}
+                  />
+                </div>
               )}
 
               {/* Review Tab */}
@@ -880,6 +904,7 @@ export default function CreateVideographyServicePage() {
                         </div>
                         <p><span className="font-medium">Base Price:</span> ₹{formData.basePrice?.toLocaleString() || '0'}</p>
                         <p><span className="font-medium">Minimum Guests:</span> {formData.minGuests || 'Not specified'}</p>
+                        <p><span className="font-medium">Payment Method:</span> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                       </div>
                     </div>
                     

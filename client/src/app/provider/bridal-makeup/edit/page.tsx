@@ -29,6 +29,9 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface BridalMakeupFormData {
   name: string;
@@ -52,6 +55,7 @@ interface BridalMakeupFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -117,7 +121,8 @@ function EditBridalMakeupServiceContent() {
     makeupTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchBridalMakeupService = React.useCallback(async () => {
@@ -137,7 +142,8 @@ function EditBridalMakeupServiceContent() {
         makeupTypes: service.makeupTypes,
         packages: service.packages.map((p: { price: number; }) => ({...p, price: p.price})),
         addons: service.addons.map((a: { price: number; }) => ({...a, price: a.price})),
-        images: service.images
+        images: service.images,
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
       
       // Mark all tabs as visited in edit mode for free navigation
@@ -353,7 +359,18 @@ function EditBridalMakeupServiceContent() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.put(`/bridal-makeup/${serviceId}`, { ...serviceData, status });
+      const response = await apiClient.put(`/bridal-makeup/${serviceId}`, { ...serviceData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+          serviceType: 'bridal-makeup',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
+      
       toast.success('Bridal makeup service updated successfully!');
       router.push('/provider/bridal-makeup');
     } catch (err: unknown) {
@@ -482,6 +499,14 @@ function EditBridalMakeupServiceContent() {
                    <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Base Price (₹) *</label>
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 15000" min="0" required className="text-black" />
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
                   </div>
                 </div>
               )}
@@ -612,6 +637,7 @@ function EditBridalMakeupServiceContent() {
                       <p><strong>Service Name:</strong> <span className="text-gray-600">{formData.name}</span></p>
                       <p><strong>Description:</strong> <span className="text-gray-600">{formData.description}</span></p>
                       <p><strong>Base Price:</strong> <span className="text-gray-600">₹{formData.basePrice}</span></p>
+                      <p><strong>Payment Method:</strong> <span className="text-gray-600">{formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</span></p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>
