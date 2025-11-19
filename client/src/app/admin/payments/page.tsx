@@ -38,6 +38,8 @@ export default function AdminPaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('all');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [totalPayments, setTotalPayments] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,12 +48,16 @@ export default function AdminPaymentsPage() {
   const [cashRevenue, setCashRevenue] = useState(0);
 
   // Fetch payments from API
-  const fetchPayments = useCallback(async (status: string = 'all', search: string = '') => {
+  const fetchPayments = useCallback(async (status: string = 'all', paymentMode: string = 'all', serviceType: string = 'all', search: string = '') => {
     try {
       setLoading(true);
       
-      // Fetch payments
-      const response = await apiClient.get('/admin/payments');
+      // Fetch payments with filters
+      const params = new URLSearchParams();
+      if (paymentMode !== 'all') params.append('paymentMode', paymentMode);
+      if (serviceType !== 'all') params.append('serviceType', serviceType);
+      
+      const response = await apiClient.get(`/admin/payments?${params.toString()}`);
       const apiPayments: Payment[] = response.data.payments || [];
       
       // Fetch revenue statistics
@@ -62,7 +68,7 @@ export default function AdminPaymentsPage() {
       setOnlineRevenue(revenueData.summary.totalOnlineRevenue || 0);
       setCashRevenue(revenueData.summary.totalCashRevenue || 0);
 
-      // Apply filters
+      // Apply filters on frontend as well (for consistency)
       let filteredPayments = apiPayments;
       
       if (status !== 'all') {
@@ -91,20 +97,32 @@ export default function AdminPaymentsPage() {
 
   useEffect(() => {
     if (currentUser?.role === 'ADMIN') {
-      fetchPayments(statusFilter, searchTerm);
+      fetchPayments(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm);
     }
-  }, [statusFilter, currentUser, searchTerm, fetchPayments]);
+  }, [statusFilter, paymentModeFilter, serviceTypeFilter, currentUser, searchTerm, fetchPayments]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchPayments(statusFilter, value);
+    fetchPayments(statusFilter, paymentModeFilter, serviceTypeFilter, value);
   };
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
-    fetchPayments(value, searchTerm);
+    fetchPayments(value, paymentModeFilter, serviceTypeFilter, searchTerm);
+  };
+
+  const handlePaymentModeFilterChange = (value: string) => {
+    setPaymentModeFilter(value);
+    setCurrentPage(1);
+    fetchPayments(statusFilter, value, serviceTypeFilter, searchTerm);
+  };
+
+  const handleServiceTypeFilterChange = (value: string) => {
+    setServiceTypeFilter(value);
+    setCurrentPage(1);
+    fetchPayments(statusFilter, paymentModeFilter, value, searchTerm);
   };
 
   const getStatusIcon = (status: string) => {
@@ -311,6 +329,39 @@ export default function AdminPaymentsPage() {
                   </select>
                 </div>
                 
+                {/* Payment Mode Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={paymentModeFilter}
+                    onChange={(e) => handlePaymentModeFilterChange(e.target.value)}
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="all">All Payment Modes</option>
+                    <option value="ONLINE">Online</option>
+                    <option value="CASH">Cash</option>
+                  </select>
+                </div>
+                
+                {/* Service Type Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={serviceTypeFilter}
+                    onChange={(e) => handleServiceTypeFilterChange(e.target.value)}
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="all">All Services</option>
+                    <option value="venue">Venues</option>
+                    <option value="catering">Catering</option>
+                    <option value="photography">Photography</option>
+                    <option value="videography">Videography</option>
+                    <option value="bridal-makeup">Bridal Makeup</option>
+                    <option value="decoration">Decoration</option>
+                    <option value="entertainment">Entertainment</option>
+                  </select>
+                </div>
+                
                 {/* Export Button */}
                 <div>
                   <Button 
@@ -326,7 +377,7 @@ export default function AdminPaymentsPage() {
           </div>
 
           {/* Search Results Info */}
-          {!loading && !error && (searchTerm || statusFilter !== 'all') && (
+          {!loading && !error && (searchTerm || statusFilter !== 'all' || paymentModeFilter !== 'all' || serviceTypeFilter !== 'all') && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -335,14 +386,18 @@ export default function AdminPaymentsPage() {
                     {payments.length} payment{payments.length !== 1 ? 's' : ''} found
                     {searchTerm && ` for "${searchTerm}"`}
                     {statusFilter !== 'all' && ` with status "${getStatusText(statusFilter)}"`}
+                    {paymentModeFilter !== 'all' && ` with payment mode "${paymentModeFilter === 'ONLINE' ? 'Online' : 'Cash'}"`}
+                    {serviceTypeFilter !== 'all' && ` for service type "${getServiceTypeLabel(serviceTypeFilter)}"`}
                   </span>
                 </div>
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setStatusFilter('all');
+                    setPaymentModeFilter('all');
+                    setServiceTypeFilter('all');
                     setCurrentPage(1);
-                    fetchPayments('all', '');
+                    fetchPayments('all', 'all', 'all', '');
                   }}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                 >

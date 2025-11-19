@@ -848,10 +848,26 @@ router.get('/bookings', authenticateToken, requireAdmin, async (req: AuthRequest
 // GET /api/admin/payments - Get all payments for admin (Admin only)
 router.get('/payments', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    // Get all bookings with populated service details
-    const bookings = await Booking.find({ 
-      paymentStatus: { $ne: PaymentStatus.PENDING } 
-    })
+    // Get query parameters for filtering
+    const { paymentMode, serviceType } = req.query;
+
+    // Build filter object
+    const filter: Record<string, unknown> = {
+      paymentStatus: { $ne: PaymentStatus.PENDING }
+    };
+
+    // Add payment mode filter if provided
+    if (paymentMode && paymentMode !== 'all') {
+      filter.paymentMode = paymentMode;
+    }
+
+    // Add service type filter if provided
+    if (serviceType && serviceType !== 'all') {
+      filter.serviceType = serviceType;
+    }
+
+    // Get all bookings with populated service details and filters applied
+    const bookings = await Booking.find(filter)
     .populate('customerId', 'firstName lastName')
     .populate('providerId', 'firstName lastName')
     .sort({ createdAt: -1 });
