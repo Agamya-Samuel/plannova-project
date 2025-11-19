@@ -13,10 +13,12 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  IndianRupee
+  IndianRupee,
+  ChevronDown
 } from 'lucide-react';
 import type { Booking } from '@/types/booking';
 import apiClient from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function AdminBookingsPage() {
   const { user: currentUser, isLoading } = useAuth();
@@ -27,6 +29,7 @@ export default function AdminBookingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [totalBookings, setTotalBookings] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
 
   // Fetch bookings from API instead of mock data
   // Memoized to satisfy react-hooks exhaustive-deps and avoid unnecessary re-creations
@@ -190,6 +193,95 @@ export default function AdminBookingsPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+
+  const handlePaymentStatusUpdate = async (bookingId: string, newStatus: string) => {
+    try {
+      const response = await apiClient.put(`/admin/bookings/${bookingId}/payment-status`, {
+        paymentStatus: newStatus
+      });
+      
+      // Update the booking in the state
+      setBookings(prevBookings => 
+        prevBookings.map(booking => 
+          booking.id === bookingId 
+            ? { ...booking, paymentStatus: response.data.booking.paymentStatus } 
+            : booking
+        )
+      );
+      
+      toast.success('Payment status updated successfully');
+      setEditingPaymentStatus(null);
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      toast.error('Failed to update payment status');
+    }
+  };
+
+  const renderPaymentStatusCell = (booking: Booking) => {
+    const paymentStatusOptions = [
+      { value: 'pending', label: 'Pending' },
+      { value: 'paid', label: 'Paid' },
+      { value: 'failed', label: 'Failed' },
+      { value: 'refunded', label: 'Refunded' }
+    ];
+    
+    const paymentStatus = booking.paymentStatus || 'pending';
+    
+    return (
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center space-x-2">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(paymentStatus)}`}>
+            {getStatusIcon(paymentStatus)}
+            <span className="ml-1">{getStatusText(paymentStatus)}</span>
+          </span>
+          <div className="relative">
+            <button 
+              className="text-gray-400 hover:text-gray-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingPaymentStatus(
+                  editingPaymentStatus === booking.id ? null : booking.id
+                );
+              }}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            
+            {editingPaymentStatus === booking.id && (
+              <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
+                {paymentStatusOptions.map(option => (
+                  <button
+                    key={option.value}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePaymentStatusUpdate(booking.id, option.value);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+    );
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editingPaymentStatus && !(event.target as Element).closest('.relative')) {
+        setEditingPaymentStatus(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [editingPaymentStatus]);
 
   if (!isLoading && !(currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF')) {
     return <div>Your session timed out. Please log in again.</div>;
@@ -408,16 +500,17 @@ export default function AdminBookingsPage() {
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               <Image 
-                                src={booking.venueImage} 
-                                alt={booking.venueName}
+                                src={booking.venueImage || booking.serviceImage || '/placeholder-image.png'} 
+                                alt={booking.venueName || booking.serviceName || 'Unknown Service'}
                                 width={40}
                                 height={40}
                                 className="rounded-full object-cover"
+                                style={{ width: 'auto', height: 'auto' }}
                               />
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {booking.venueName}
+                                {booking.venueName || booking.serviceName || 'Unknown Service'}
                               </div>
                               <div className="text-sm text-gray-500">
                                 ID: {booking.id}
@@ -464,13 +557,7 @@ export default function AdminBookingsPage() {
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {booking.paymentStatus && (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.paymentStatus)}`}>
-                              {getStatusText(booking.paymentStatus)}
-                            </span>
-                          )}
-                        </td>
+                        {renderPaymentStatusCell(booking)}
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
                             {booking.provider?.name || '—'}

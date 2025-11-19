@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import User, { UserRole, IUser } from '../models/User.js';
 import Venue from '../models/Venue.js';
 import Catering from '../models/Catering.js';
@@ -1162,7 +1162,142 @@ router.get('/revenue', authenticateToken, requireAdmin, async (req: AuthRequest,
   }
 });
 
+// PUT /api/admin/bookings/:id/payment-status - Update booking payment status (Admin only)
+router.put('/bookings/:id/payment-status', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus } = req.body;
+
+    // Validate payment status
+    if (!Object.values(PaymentStatus).includes(paymentStatus)) {
+      return res.status(400).json({ error: 'Invalid payment status' });
+    }
+
+    // Find the booking
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Store previous status for response
+    const previousStatus = booking.paymentStatus;
+
+    // Update payment status
+    booking.paymentStatus = paymentStatus;
+    booking.updatedAt = new Date();
+    
+    // If payment is marked as paid, also update advance and remaining amounts
+    if (paymentStatus === PaymentStatus.PAID) {
+      booking.advanceAmount = booking.totalPrice;
+      booking.remainingAmount = 0;
+    }
+    
+    await booking.save();
+
+    // Populate related data for response
+    const populatedBooking = await Booking.findById(id)
+      .populate('customerId', 'firstName lastName email phone')
+      .populate('providerId', 'firstName lastName email phone')
+      .lean();
+
+    // Get service details
+    let serviceName = 'Unknown Service';
+    let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+    let providerContact = {
+      name: 'Provider',
+      email: '',
+      phone: ''
+    };
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let service: any = null;
+      switch (booking.serviceType) {
+        case ServiceType.VENUE:
+          service = await Venue.findById(booking.serviceId);
+          break;
+        case ServiceType.CATERING:
+          service = await Catering.findById(booking.serviceId);
+          break;
+        case ServiceType.PHOTOGRAPHY:
+          service = await Photography.findById(booking.serviceId);
+          break;
+        case ServiceType.VIDEOGRAPHY:
+          service = await Videography.findById(booking.serviceId);
+          break;
+        case ServiceType.BRIDAL_MAKEUP:
+          service = await BridalMakeup.findById(booking.serviceId);
+          break;
+        case ServiceType.DECORATION:
+          service = await Decoration.findById(booking.serviceId);
+          break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
+      }
+
+      if (service) {
+        serviceName = service.name;
+        serviceImage = service.images?.[0]?.url || serviceImage;
+
+        if (service.contact) {
+          providerContact = {
+            name: service.contact.name || serviceName,
+            email: service.contact.email || '',
+            phone: service.contact.phone || ''
+          };
+        }
+      }
+
+      // Fallback to populated provider user if service lacks contact
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const provider = (populatedBooking as any)?.providerId;
+      if (provider && !providerContact.email) {
+        providerContact = {
+          name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+          email: provider.email || '',
+          phone: provider.phone || ''
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching service/provider details (admin/bookings/payment-status):', error);
+    }
+
+    const transformedBooking = {
+      id: (populatedBooking?._id as mongoose.Types.ObjectId).toString(),
+      serviceId: populatedBooking?.serviceId?.toString(),
+      serviceType: populatedBooking?.serviceType,
+      serviceName,
+      serviceImage,
+      date: populatedBooking?.date,
+      time: populatedBooking?.time,
+      status: populatedBooking?.status,
+      paymentStatus: populatedBooking?.paymentStatus,
+      bookingType: populatedBooking?.bookingType,
+      paymentMode: populatedBooking?.paymentMode,
+      totalPrice: populatedBooking?.totalPrice,
+      guestCount: populatedBooking?.guestCount,
+      contactPerson: populatedBooking?.contactPerson,
+      contactPhone: populatedBooking?.contactPhone,
+      contactEmail: populatedBooking?.contactEmail,
+      specialRequests: populatedBooking?.specialRequests,
+      provider: providerContact,
+      createdAt: populatedBooking?.createdAt
+    };
+
+    res.json({
+      message: `Payment status updated from ${previousStatus} to ${paymentStatus}`,
+      booking: transformedBooking
+    });
+  } catch (error) {
+    console.error('Error updating booking payment status:', error);
+    res.status(500).json({ error: 'Failed to update booking payment status' });
+  }
+});
+
 export default router;
+
+
 
 
 
