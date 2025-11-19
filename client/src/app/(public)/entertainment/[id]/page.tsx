@@ -24,6 +24,7 @@ interface EntertainmentService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -483,7 +484,7 @@ export default function EntertainmentDetailPage({ params }: { params: Promise<{ 
           serviceName={service.name}
           serviceType="entertainment"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />
