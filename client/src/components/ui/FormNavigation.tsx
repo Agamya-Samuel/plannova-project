@@ -14,12 +14,14 @@ interface FormNavigationProps {
   onPrevious: () => void;
   onNext: () => void;
   onSubmit: () => void;
+  onSubmitDraft?: () => void; // New handler for draft submission
   onCancel: () => void;
   
   // Button customization
   nextText?: string;
   previousText?: string;
   submitText?: string;
+  submitDraftText?: string; // New text for draft submission
   cancelText?: string;
   
   // Service type for styling
@@ -36,10 +38,12 @@ export default function FormNavigation({
   onPrevious,
   onNext,
   onSubmit,
+  onSubmitDraft, // New prop
   onCancel,
   nextText = 'Next',
   previousText = 'Previous',
-  submitText = 'Create Service',
+  submitText = 'Submit for Approval',
+  submitDraftText = 'Save as Draft', // New prop
   cancelText = 'Cancel',
   serviceType = 'catering',
   className = ''
@@ -74,14 +78,27 @@ export default function FormNavigation({
         
         {/* Next/Submit Button */}
         {isLastTab ? (
-          <SubmitButton
-            action="create"
-            loading={loading}
-            onClick={onSubmit}
-            createText={submitText}
-            serviceType={serviceType}
-            className="px-8"
-          />
+          <div className="flex space-x-3">
+            {/* Save as Draft Button */}
+            <SubmitButton
+              action="create"
+              loading={loading}
+              onClick={onSubmitDraft || onSubmit} // Use onSubmitDraft if provided, otherwise fallback to onSubmit
+              createText={submitDraftText}
+              serviceType={serviceType}
+              variant="outline"
+              className="px-6 border-pink-600 text-pink-600 hover:bg-pink-50"
+            />
+            {/* Submit for Approval Button */}
+            <SubmitButton
+              action="create"
+              loading={loading}
+              onClick={onSubmit}
+              createText={submitText}
+              serviceType={serviceType}
+              className="px-6"
+            />
+          </div>
         ) : (
           <SubmitButton
             action="next"

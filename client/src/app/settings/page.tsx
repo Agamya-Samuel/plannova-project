@@ -8,37 +8,85 @@ import { Button } from '@/components/ui/button';
 import { 
   Settings,
   Save,
-  Shield,
-  Bell,
   Lock,
   Eye,
   EyeOff,
   FileText,
   User,
   Trash2,
-  Mail,
-  Smartphone,
   BookOpen,
   AlertTriangle,
   CheckCircle,
   Edit,
   ExternalLink,
-  Calendar,
   BarChart3,
   FileCheck,
   FileClock,
   Heart,
-  Loader2
+  Loader2,
+  MapPin,
+  Utensils,
+  Camera,
+  Video,
+  Music,
+  Flower
 } from 'lucide-react';
 import { toast } from 'sonner';
 import apiClient from '@/lib/api';
+import { ServiceCategory } from '@/types/auth';
+
+// Service categories with icons and descriptions
+const serviceCategories = [
+  {
+    id: 'venue' as ServiceCategory,
+    name: 'Venue Service',
+    icon: MapPin,
+    description: 'Wedding venues, reception halls, and event spaces'
+  },
+  {
+    id: 'catering' as ServiceCategory,
+    name: 'Catering Service',
+    icon: Utensils,
+    description: 'Food services, catering packages, and culinary experiences'
+  },
+  {
+    id: 'photography' as ServiceCategory,
+    name: 'Photography Service',
+    icon: Camera,
+    description: 'Wedding photography, portrait sessions, and photo services'
+  },
+  {
+    id: 'videography' as ServiceCategory,
+    name: 'Videography Service',
+    icon: Video,
+    description: 'Wedding videography, highlight reels, and video services'
+  },
+  {
+    id: 'music' as ServiceCategory,
+    name: 'Music & Entertainment Service',
+    icon: Music,
+    description: 'DJ, bands, and entertainment services'
+  },
+  {
+    id: 'makeup' as ServiceCategory,
+    name: 'Bridal Makeup Service',
+    icon: Heart,
+    description: 'Bridal makeup, hair styling, and beauty services'
+  },
+  {
+    id: 'decoration' as ServiceCategory,
+    name: 'Decoration Service',
+    icon: Flower,
+    description: 'Event decoration and floral arrangements'
+  }
+];
 
 export default function AccountSettingsPage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, updateServiceCategories } = useAuth();
   const router = useRouter();
   
-  // Active section state
-  const [activeSection, setActiveSection] = useState<'security' | 'notifications' | 'privacy' | 'account' | 'blogs' | 'pastEvents'>('security');
+  // Active section state - default to 'account' as it's now first
+  const [activeSection, setActiveSection] = useState<'security' | 'account' | 'blogs' | 'services'>('account');
   
   // Security settings
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -51,24 +99,6 @@ export default function AccountSettingsPage() {
   });
   const [changingPassword, setChangingPassword] = useState(false);
   
-  // Notification preferences
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    smsNotifications: false,
-    pushNotifications: true,
-    bookingUpdates: true,
-    marketingEmails: false,
-    newsletter: false
-  });
-  
-  // Privacy settings
-  const [privacy, setPrivacy] = useState({
-    profileVisibility: 'public', // public, private, friends
-    showEmail: false,
-    showPhone: false,
-    allowSearch: true,
-    dataSharing: false
-  });
   
   // Account preferences
   const [preferences, setPreferences] = useState({
@@ -77,6 +107,11 @@ export default function AccountSettingsPage() {
     dateFormat: 'DD/MM/YYYY',
     currency: 'INR'
   });
+
+  // Services management
+  const [selectedServiceCategories, setSelectedServiceCategories] = useState<ServiceCategory[]>([]);
+  const [isUpdatingServices, setIsUpdatingServices] = useState(false);
+  const [serviceError, setServiceError] = useState('');
 
   // Blog stats
   const [blogStats, setBlogStats] = useState<{ total: number; drafts: number; published: number; lastUpdated?: string | null }>({
@@ -93,9 +128,12 @@ export default function AccountSettingsPage() {
     return Boolean(user && ['ADMIN', 'STAFF', 'PROVIDER', 'CUSTOMER'].includes(user.role || ''));
   }, [user]);
 
-  // Admin/Staff-only access for Past Events
-  const canManagePastEventsBool = React.useMemo(() => {
-    return Boolean(user && ['ADMIN', 'STAFF'].includes(user.role || ''));
+
+  // Initialize selected services with user's current services
+  useEffect(() => {
+    if (user?.serviceCategories) {
+      setSelectedServiceCategories([...user.serviceCategories]);
+    }
   }, [user]);
 
   useEffect(() => {
@@ -323,24 +361,8 @@ export default function AccountSettingsPage() {
     }
   };
 
-  // Past Events management URL based on role
-  const getPastEventsManagementUrl = () => {
-    if (!user) return '#';
-    switch (user.role) {
-      case 'ADMIN':
-        return '/admin/past-events';
-      case 'STAFF':
-        return '/staff/past-events';
-      default:
-        return null;
-    }
-  };
-
   // Check if user can manage blogs (for rendering conditions)
   const canManageBlogs = () => canManageBlogsBool;
-
-  // Check if user can manage past events
-  const canManagePastEvents = () => canManagePastEventsBool;
 
   // Handle password change
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -381,30 +403,6 @@ export default function AccountSettingsPage() {
     }
   };
 
-  // Handle notification settings save
-  const handleSaveNotifications = async () => {
-    try {
-      // TODO: Implement save notification preferences API
-      await apiClient.put('/user/notifications', notifications);
-      toast.success('Notification preferences saved!');
-    } catch (error: unknown) {
-      console.error('Error saving notifications:', error);
-      toast.error(getApiErrorMessage(error) || 'Failed to save notification preferences');
-    }
-  };
-
-  // Handle privacy settings save
-  const handleSavePrivacy = async () => {
-    try {
-      // TODO: Implement save privacy settings API
-      await apiClient.put('/user/privacy', privacy);
-      toast.success('Privacy settings saved!');
-    } catch (error: unknown) {
-      console.error('Error saving privacy settings:', error);
-      toast.error(getApiErrorMessage(error) || 'Failed to save privacy settings');
-    }
-  };
-
   // Handle account preferences save
   const handleSavePreferences = async () => {
     try {
@@ -438,6 +436,22 @@ export default function AccountSettingsPage() {
     } catch (error: unknown) {
       console.error('Error deleting account:', error);
       toast.error(getApiErrorMessage(error) || 'Failed to delete account. Please contact support.');
+    }
+  };
+
+  // Handle service categories update
+  const handleUpdateServices = async () => {
+    setIsUpdatingServices(true);
+    setServiceError('');
+
+    try {
+      await updateServiceCategories(selectedServiceCategories);
+      toast.success('Service categories updated successfully!');
+    } catch (error: unknown) {
+      console.error('Error updating service categories:', error);
+      setServiceError(getApiErrorMessage(error) || 'Failed to update service categories. Please try again.');
+    } finally {
+      setIsUpdatingServices(false);
     }
   };
 
@@ -495,15 +509,15 @@ export default function AccountSettingsPage() {
               <div className="bg-white rounded-xl shadow-lg p-4 sticky top-4">
                 <nav className="space-y-2">
                   <button
-                    onClick={() => setActiveSection('security')}
+                    onClick={() => setActiveSection('account')}
                     className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                      activeSection === 'security'
+                      activeSection === 'account'
                         ? 'bg-pink-100 text-pink-600 font-medium'
                         : 'text-gray-700 hover:bg-gray-50'
                     }`}
                   >
-                    <Lock className="h-5 w-5 mr-3" />
-                    Security
+                    <User className="h-5 w-5 mr-3" />
+                    Account
                   </button>
                   
                   {canManageBlogs() && (
@@ -519,56 +533,32 @@ export default function AccountSettingsPage() {
                       Manage Blogs
                     </button>
                   )}
-
-                  {canManagePastEvents() && (
+                  
+                  <button
+                    onClick={() => setActiveSection('security')}
+                    className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
+                      activeSection === 'security'
+                        ? 'bg-pink-100 text-pink-600 font-medium'
+                        : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <Lock className="h-5 w-5 mr-3" />
+                    Security
+                  </button>
+                  
+                  {user?.role === 'PROVIDER' && (
                     <button
-                      onClick={() => setActiveSection('pastEvents')}
+                      onClick={() => setActiveSection('services')}
                       className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                        activeSection === 'pastEvents'
+                        activeSection === 'services'
                           ? 'bg-pink-100 text-pink-600 font-medium'
                           : 'text-gray-700 hover:bg-gray-50'
                       }`}
                     >
-                      <Heart className="h-5 w-5 mr-3" />
-                      Manage Past Events
+                      <MapPin className="h-5 w-5 mr-3" />
+                      Services
                     </button>
                   )}
-                  
-                  <button
-                    onClick={() => setActiveSection('notifications')}
-                    className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                      activeSection === 'notifications'
-                        ? 'bg-pink-100 text-pink-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Bell className="h-5 w-5 mr-3" />
-                    Notifications
-                  </button>
-                  
-                  <button
-                    onClick={() => setActiveSection('privacy')}
-                    className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                      activeSection === 'privacy'
-                        ? 'bg-pink-100 text-pink-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Shield className="h-5 w-5 mr-3" />
-                    Privacy
-                  </button>
-                  
-                  <button
-                    onClick={() => setActiveSection('account')}
-                    className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                      activeSection === 'account'
-                        ? 'bg-pink-100 text-pink-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <User className="h-5 w-5 mr-3" />
-                    Account
-                  </button>
                 </nav>
               </div>
             </div>
@@ -694,63 +684,6 @@ export default function AccountSettingsPage() {
                 </div>
               )}
 
-              {/* Manage Past Events Section (Admin/Staff only) */}
-              {activeSection === 'pastEvents' && canManagePastEvents() && (
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6">
-                    <div className="flex items-center">
-                      <Heart className="h-6 w-6 text-pink-500 mr-3" />
-                      <h2 className="text-2xl font-bold text-gray-900">Manage Past Events</h2>
-                    </div>
-                    <Button
-                      onClick={() => router.push(getPastEventsManagementUrl() || '#')}
-                      className="w-full sm:w-auto bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
-                    >
-                      <Edit className="h-4 w-4 mr-2" />
-                      Go to Past Events Management
-                      <ExternalLink className="h-4 w-4 ml-2" />
-                    </Button>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-lg p-6 border border-pink-200">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">Past Events Management Portal</h3>
-                      <p className="text-gray-600 mb-4">
-                        Create, edit, and publish past event showcases. Manage photo galleries, event details, and visibility.
-                      </p>
-                      <ul className="space-y-2 text-sm text-gray-700">
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Add and edit past events with photos and descriptions</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Manage event galleries and featured images</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Publish, unpublish, and control visibility</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Showcase real wedding photography and event details</span>
-                        </li>
-                      </ul>
-                    </div>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <AlertTriangle className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="text-sm text-blue-800">
-                            <strong>Note:</strong> Only Admin and Staff can access the Past Events management interface. Click the button above to navigate to the full management portal.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Manage Blogs Section */}
               {activeSection === 'blogs' && canManageBlogs() && (
@@ -943,251 +876,6 @@ export default function AccountSettingsPage() {
                 </div>
               )}
 
-              {/* Notifications Section */}
-              {activeSection === 'notifications' && (
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <Bell className="h-6 w-6 text-pink-500 mr-3" />
-                      <h2 className="text-2xl font-bold text-gray-900">Notification Preferences</h2>
-                    </div>
-                    <Button
-                      onClick={handleSaveNotifications}
-                      className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Preferences
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Notifications</h3>
-                      <div className="space-y-4">
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center">
-                            <Mail className="h-5 w-5 text-pink-500 mr-3" />
-                            <div>
-                              <div className="font-medium text-gray-900">Email Notifications</div>
-                              <div className="text-sm text-gray-500">Receive notifications via email</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={notifications.emailNotifications}
-                            onChange={(e) => setNotifications({...notifications, emailNotifications: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                        
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center">
-                            <Calendar className="h-5 w-5 text-pink-500 mr-3" />
-                            <div>
-                              <div className="font-medium text-gray-900">Booking Updates</div>
-                              <div className="text-sm text-gray-500">Get notified about booking status changes</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={notifications.bookingUpdates}
-                            onChange={(e) => setNotifications({...notifications, bookingUpdates: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                        
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center">
-                            <Mail className="h-5 w-5 text-pink-500 mr-3" />
-                            <div>
-                              <div className="font-medium text-gray-900">Marketing Emails</div>
-                              <div className="text-sm text-gray-500">Receive promotional offers and updates</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={notifications.marketingEmails}
-                            onChange={(e) => setNotifications({...notifications, marketingEmails: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                        
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center">
-                            <FileText className="h-5 w-5 text-pink-500 mr-3" />
-                            <div>
-                              <div className="font-medium text-gray-900">Newsletter</div>
-                              <div className="text-sm text-gray-500">Subscribe to our monthly newsletter</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={notifications.newsletter}
-                            onChange={(e) => setNotifications({...notifications, newsletter: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-gray-200 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Other Notifications</h3>
-                      <div className="space-y-4">
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center">
-                            <Smartphone className="h-5 w-5 text-pink-500 mr-3" />
-                            <div>
-                              <div className="font-medium text-gray-900">SMS Notifications</div>
-                              <div className="text-sm text-gray-500">Receive text message notifications</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={notifications.smsNotifications}
-                            onChange={(e) => setNotifications({...notifications, smsNotifications: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                        
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div className="flex items-center">
-                            <Bell className="h-5 w-5 text-pink-500 mr-3" />
-                            <div>
-                              <div className="font-medium text-gray-900">Push Notifications</div>
-                              <div className="text-sm text-gray-500">Receive browser push notifications</div>
-                            </div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={notifications.pushNotifications}
-                            onChange={(e) => setNotifications({...notifications, pushNotifications: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Privacy Section */}
-              {activeSection === 'privacy' && (
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <Shield className="h-6 w-6 text-pink-500 mr-3" />
-                      <h2 className="text-2xl font-bold text-gray-900">Privacy Settings</h2>
-                    </div>
-                    <Button
-                      onClick={handleSavePrivacy}
-                      className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
-                    >
-                      <Save className="h-4 w-4 mr-2" />
-                      Save Settings
-                    </Button>
-                  </div>
-                  
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Visibility</h3>
-                      <div className="space-y-3">
-                        <label className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="profileVisibility"
-                            value="public"
-                            checked={privacy.profileVisibility === 'public'}
-                            onChange={(e) => setPrivacy({...privacy, profileVisibility: e.target.value})}
-                            className="w-4 h-4 text-pink-500 focus:ring-pink-500 mr-3"
-                          />
-                          <div>
-                            <div className="font-medium text-gray-900">Public</div>
-                            <div className="text-sm text-gray-500">Everyone can see your profile</div>
-                          </div>
-                        </label>
-                        
-                        <label className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <input
-                            type="radio"
-                            name="profileVisibility"
-                            value="private"
-                            checked={privacy.profileVisibility === 'private'}
-                            onChange={(e) => setPrivacy({...privacy, profileVisibility: e.target.value})}
-                            className="w-4 h-4 text-pink-500 focus:ring-pink-500 mr-3"
-                          />
-                          <div>
-                            <div className="font-medium text-gray-900">Private</div>
-                            <div className="text-sm text-gray-500">Only you can see your profile</div>
-                          </div>
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-gray-200 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-                      <div className="space-y-4">
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div>
-                            <div className="font-medium text-gray-900">Show Email Address</div>
-                            <div className="text-sm text-gray-500">Display your email on your profile</div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={privacy.showEmail}
-                            onChange={(e) => setPrivacy({...privacy, showEmail: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                        
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div>
-                            <div className="font-medium text-gray-900">Show Phone Number</div>
-                            <div className="text-sm text-gray-500">Display your phone number on your profile</div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={privacy.showPhone}
-                            onChange={(e) => setPrivacy({...privacy, showPhone: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    
-                    <div className="border-t border-gray-200 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Other Privacy Settings</h3>
-                      <div className="space-y-4">
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div>
-                            <div className="font-medium text-gray-900">Allow Search Engines</div>
-                            <div className="text-sm text-gray-500">Allow your profile to appear in search results</div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={privacy.allowSearch}
-                            onChange={(e) => setPrivacy({...privacy, allowSearch: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                        
-                        <label className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
-                          <div>
-                            <div className="font-medium text-gray-900">Data Sharing</div>
-                            <div className="text-sm text-gray-500">Allow us to use your data for analytics (anonymized)</div>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={privacy.dataSharing}
-                            onChange={(e) => setPrivacy({...privacy, dataSharing: e.target.checked})}
-                            className="w-5 h-5 text-pink-500 rounded focus:ring-pink-500"
-                          />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Account Section */}
               {activeSection === 'account' && (
                 <div className="bg-white rounded-xl shadow-lg p-8">
@@ -1308,6 +996,70 @@ export default function AccountSettingsPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Services Section */}
+              {activeSection === 'services' && (
+                <div className="bg-white rounded-xl shadow-lg p-8">
+                  <div className="flex items-center mb-6">
+                    <MapPin className="h-6 w-6 text-pink-500 mr-3" />
+                    <h2 className="text-2xl font-bold text-gray-900">Services Management</h2>
+                  </div>
+                  
+                  <div className="space-y-6">
+                    {/* Service Categories */}
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Service Categories</h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {serviceCategories.map(category => (
+                          <label key={category.id} className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedServiceCategories.includes(category.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedServiceCategories([...selectedServiceCategories, category.id]);
+                                } else {
+                                  setSelectedServiceCategories(selectedServiceCategories.filter(cat => cat !== category.id));
+                                }
+                              }}
+                              className="w-4 h-4 text-pink-500 focus:ring-pink-500 mr-3"
+                            />
+                            <div>
+                              <div className="font-medium text-gray-900">{category.name}</div>
+                              <div className="text-sm text-gray-500">{category.description}</div>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Update Services Button */}
+                    <div className="flex justify-end">
+                      <Button
+                        onClick={handleUpdateServices}
+                        disabled={isUpdatingServices}
+                        className="bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
+                      >
+                        {isUpdatingServices ? 'Updating...' : 'Update Services'}
+                      </Button>
+                    </div>
+
+                    {/* Error Message */}
+                    {serviceError && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-start">
+                          <AlertTriangle className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-red-800">
+                              {serviceError}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

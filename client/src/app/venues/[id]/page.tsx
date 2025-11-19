@@ -295,7 +295,7 @@ export default function VenueDetailsPage() {
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="relative">
                 <Image 
-                  src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : 'https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} 
+                  src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : ''} 
                   alt={venue.name}
                   width={1170}
                   height={600}
@@ -748,7 +748,8 @@ export default function VenueDetailsPage() {
                 <p className="text-gray-600">per event</p>
               </div>
 
-              {selectedDate ? (
+              {/* Only show booking button if user is not a provider - providers can only view, not book */}
+              {user?.role !== 'PROVIDER' && selectedDate ? (
                 <button
                   onClick={() => setShowBookingModal(true)}
                   className="w-full px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-lg transition-colors mb-4"
@@ -757,10 +758,15 @@ export default function VenueDetailsPage() {
                     ? `Book for ${selectedDates.length} dates` 
                     : `Book for ${selectedDate}`}
                 </button>
-              ) : (
+              ) : user?.role !== 'PROVIDER' ? (
                 <div className="text-center mb-4">
                   <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              ) : (
+                <div className="text-center mb-4">
+                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
                 </div>
               )}
 

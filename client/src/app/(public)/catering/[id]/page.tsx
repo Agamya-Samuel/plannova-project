@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CateringService {
   _id: string;
@@ -55,6 +56,7 @@ interface CateringService {
 
 export default function CateringDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<CateringService | null>(null);
@@ -391,7 +393,8 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
               onSelectionModeChange={setSelectionMode}
             />
 
-            {selectedDate ? (
+            {/* Only show booking button if user is not a provider - providers can only view, not book */}
+            {user?.role !== 'PROVIDER' && selectedDate ? (
               <Button
                 onClick={() => setShowBookingModal(true)}
                 className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
@@ -400,10 +403,15 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
                   ? `Book for ${selectedDates.length} dates` 
                   : `Book for ${selectedDate}`}
               </Button>
-            ) : (
+            ) : user?.role !== 'PROVIDER' ? (
               <div className="text-center">
                 <Utensils className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                 <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <Utensils className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
               </div>
             )}
 

@@ -400,7 +400,7 @@ function VendorsPageInner() {
     rating: service.rating,
     reviews: service.reviewCount,
     startingPrice: `₹${service.basePrice.toLocaleString()}/plate`,
-    image: service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+    image: service.images.find(img => img.isPrimary)?.url || service.images[0]?.url || '',
     services: service.cuisineTypes.slice(0, 3),
     isVerified: true
   }));
@@ -416,7 +416,7 @@ function VendorsPageInner() {
     startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
     image: service.images && service.images.length > 0 
       ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
-      : 'https://images.unsplash.com/photo-1519741497674-611481863552?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      : '',
     services: service.photographyTypes ? service.photographyTypes.slice(0, 3) : [],
     isVerified: true
   }));
@@ -432,7 +432,7 @@ function VendorsPageInner() {
     startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
     image: service.images && service.images.length > 0 
       ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
-      : 'https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      : '',
     services: service.videographyTypes ? service.videographyTypes.slice(0, 3) : [],
     isVerified: true
   }));
@@ -448,7 +448,7 @@ function VendorsPageInner() {
     startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
     image: service.images && service.images.length > 0 
       ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
-      : 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      : '',
     services: service.makeupTypes ? service.makeupTypes.slice(0, 3) : [],
     isVerified: true
   }));
@@ -464,7 +464,7 @@ function VendorsPageInner() {
     startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
     image: service.images && service.images.length > 0 
       ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
-      : 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+      : '',
     services: service.decorationTypes ? service.decorationTypes.slice(0, 3) : [],
     isVerified: true
   }));
@@ -482,7 +482,7 @@ function VendorsPageInner() {
       startingPrice: `₹${service.basePrice ? service.basePrice.toLocaleString() : '0'}`,
       image: service.images && service.images.length > 0 
         ? (service.images.find(img => img.isPrimary)?.url || service.images[0]?.url) 
-        : 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+        : '',
       services: service.entertainmentTypes ? service.entertainmentTypes.slice(0, 3) : [],
       isVerified: true
     }));

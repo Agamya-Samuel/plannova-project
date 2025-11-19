@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Navbar from "@/components/layout/Navbar";
 import FloatingNavDock from "@/components/layout/FloatingNavDock";
+import FloatingViewBookingsButton from "@/components/layout/FloatingViewBookingsButton";
 import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
 import { UMAMI_WEBSITE_ID, UMAMI_SCRIPT_URL } from "@/constants/umami";
@@ -47,6 +48,7 @@ export default function RootLayout({
           <Navbar />
           <main className="bg-white min-h-screen" style={{ backgroundColor: '#ffffff' }}>{children}</main>
           <FloatingNavDock />
+          <FloatingViewBookingsButton />
           <Toaster />
         </AuthProvider>
       </body>
