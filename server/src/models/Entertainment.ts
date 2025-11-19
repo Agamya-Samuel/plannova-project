@@ -38,6 +38,7 @@ export interface IEntertainment extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -93,6 +94,7 @@ const EntertainmentSchema: Schema<IEntertainment> = new Schema({
     price: { type: Number, required: true, min: 0 }
   }],
   basePrice: { type: Number, required: true, min: 0 },
+  pricePerGuest: { type: Number, min: 0 },
   minGuests: { type: Number, min: 1 },
   cancellationPolicy: { type: String, trim: true },
   paymentTerms: { type: String, trim: true },
@@ -117,6 +119,10 @@ const EntertainmentSchema: Schema<IEntertainment> = new Schema({
 
 export const Entertainment = mongoose.model<IEntertainment>('Entertainment', EntertainmentSchema);
 export default Entertainment;
+
+
+
+
 
 
 

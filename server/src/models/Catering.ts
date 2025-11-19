@@ -54,6 +54,7 @@ export interface ICatering extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number; // Add this line
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -172,6 +173,10 @@ const CateringSchema: Schema<ICatering> = new Schema({
     required: true,
     min: 0
   },
+  pricePerGuest: {  // Add this block
+    type: Number,
+    min: 0
+  },
   minGuests: {
     type: Number,
     min: 1
@@ -244,3 +249,6 @@ const CateringSchema: Schema<ICatering> = new Schema({
 // Create and export the Catering model
 export const Catering = mongoose.model<ICatering>('Catering', CateringSchema);
 export default Catering;
+
+
+
