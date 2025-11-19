@@ -1102,42 +1102,48 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
           service = await Catering.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.PHOTOGRAPHY:
           service = await Photography.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.VIDEOGRAPHY:
           service = await Videography.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.BRIDAL_MAKEUP:
           service = await BridalMakeup.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.DECORATION:
           service = await Decoration.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.ENTERTAINMENT:
           service = await Entertainment.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
       }
