@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Booking, { BookingStatus, IBooking, ServiceType } from '../models/Booking.js';
+import Booking, { BookingStatus, IBooking, ServiceType, BookingType, PaymentMode, PaymentStatus } from '../models/Booking.js';
 import { authenticateToken, AuthRequest, requireProvider, requireStaffOrAdmin } from '../middleware/auth.js';
 import Venue, { IVenue } from '../models/Venue.js';
 import Catering from '../models/Catering.js';
@@ -643,6 +643,8 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
         time: primaryBooking.time,
         status: primaryBooking.status,
         paymentStatus: primaryBooking.paymentStatus,
+        bookingType: primaryBooking.bookingType,
+        paymentMode: primaryBooking.paymentMode,
         totalPrice,
         guestCount: primaryBooking.guestCount,
         contactPerson: primaryBooking.contactPerson,
@@ -655,6 +657,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
           id: (b._id as Types.ObjectId).toString(),
           date: b.date.toISOString().split('T')[0],
           status: b.status,
+          paymentStatus: b.paymentStatus,
+          bookingType: b.bookingType,
+          paymentMode: b.paymentMode,
           totalPrice: b.totalPrice
         }))
       };
@@ -676,6 +681,8 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
       time: booking.time,
       status: booking.status,
       paymentStatus: booking.paymentStatus,
+      bookingType: booking.bookingType,
+      paymentMode: booking.paymentMode,
       totalPrice: booking.totalPrice,
       guestCount: booking.guestCount,
       contactPerson: booking.contactPerson,
@@ -1066,7 +1073,7 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { venueId, serviceId, serviceType, date, time, guestCount, contactPerson, contactPhone, contactEmail, specialRequests, dates } = req.body;
+    const { venueId, serviceId, serviceType, date, time, guestCount, contactPerson, contactPhone, contactEmail, specialRequests, dates, paymentMode } = req.body;
 
     // Support both old (venueId) and new (serviceId + serviceType) formats
     const actualServiceId = serviceId || venueId;
@@ -1147,6 +1154,15 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
       return res.status(400).json({ error: 'Providers cannot book their own services' });
     }
 
+    // Validate payment mode
+    let bookingPaymentMode = PaymentMode.ONLINE;
+    let bookingType = BookingType.ONLINE;
+    
+    if (paymentMode === 'CASH') {
+      bookingPaymentMode = PaymentMode.CASH;
+      bookingType = BookingType.CASH;
+    }
+
     // Handle multiple dates - create a booking group
     if (dates && Array.isArray(dates) && dates.length > 1) {
       // Generate a unique booking group ID
@@ -1169,7 +1185,11 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
           contactPhone,
           contactEmail,
           specialRequests,
-          bookingGroupId // Group all related bookings together
+          bookingGroupId, // Group all related bookings together
+          paymentMode: bookingPaymentMode,
+          bookingType: bookingType,
+          // For cash bookings, set payment status to pending
+          paymentStatus: paymentMode === 'CASH' ? PaymentStatus.PENDING : PaymentStatus.PENDING
         };
         
         return Booking.create(bookingData);
@@ -1189,6 +1209,9 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
           date: booking.date.toISOString().split('T')[0],
           time: booking.time,
           status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          bookingType: booking.bookingType,
+          paymentMode: booking.paymentMode,
           totalPrice: booking.totalPrice,
           guestCount: booking.guestCount,
           contactPerson: booking.contactPerson,
@@ -1212,7 +1235,11 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
         contactPerson,
         contactPhone,
         contactEmail,
-        specialRequests
+        specialRequests,
+        paymentMode: bookingPaymentMode,
+        bookingType: bookingType,
+        // For cash bookings, set payment status to pending
+        paymentStatus: paymentMode === 'CASH' ? PaymentStatus.PENDING : PaymentStatus.PENDING
       });
 
       // Return success response
@@ -1223,6 +1250,9 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
         date: booking.date.toISOString().split('T')[0],
         time: booking.time,
         status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        bookingType: booking.bookingType,
+        paymentMode: booking.paymentMode,
         totalPrice: booking.totalPrice,
         guestCount: booking.guestCount,
         contactPerson: booking.contactPerson,
