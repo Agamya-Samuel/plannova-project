@@ -40,6 +40,13 @@ export const createOrder = async (amount: number, currency: string, receipt: str
       throw new Error('Receipt is required');
     }
 
+    // Validate receipt length (Razorpay has limits on receipt length)
+    if (receipt.length > 40) {
+      // Truncate receipt to 40 characters to comply with Razorpay limits
+      receipt = receipt.substring(0, 40);
+      console.log(`[Razorpay] Receipt truncated to comply with limits: ${receipt}`);
+    }
+
     const options = {
       amount: amount, // amount in the smallest currency unit
       currency: currency,
@@ -51,15 +58,39 @@ export const createOrder = async (amount: number, currency: string, receipt: str
     console.log(`[Razorpay] Order created successfully: ${order.id}`);
     return order;
   } catch (error) {
-    const razorpayError = error as RazorpayError;
-    const errorMessage = razorpayError.message;
-    const errorData = razorpayError.response?.data;
+    // Log the raw error for better debugging
+    console.error('[Razorpay] Raw error object:', error);
+    console.error('[Razorpay] Error object keys:', error ? Object.keys(error) : 'No error object');
+    
+    // Handle different types of errors
+    let errorMessage = 'Unknown error occurred';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message || errorMessage;
+    } else if (error && typeof error === 'object') {
+      // Try to extract error message from different possible properties
+      const objError = error as Record<string, unknown>;
+      errorMessage = (objError.message as string) || 
+                    (objError.description as string) || 
+                    (objError.error as string) || 
+                    JSON.stringify(error);
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error === null || error === undefined) {
+      errorMessage = 'No error information provided';
+    }
+    
+    const errorObj = error as Record<string, unknown>;
+    const errorData = errorObj?.response ? (errorObj.response as Record<string, unknown>)?.data : undefined;
+    
     console.error(`[Razorpay] Error creating order: ${errorMessage}`, { 
       amount, 
       currency, 
       receipt,
       error: errorData || errorMessage
     });
+    
+    // Throw a more descriptive error
     throw new Error(`Failed to create payment order: ${errorMessage}`);
   }
 };
@@ -79,17 +110,35 @@ export const verifyPayment = (orderId: string, paymentId: string, signature: str
       return false;
     }
 
+    // Check if Razorpay key secret is configured
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      console.error('[Razorpay] Key secret not configured for payment verification');
+      return false;
+    }
+
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+      .createHmac('sha256', keySecret)
       .update(orderId + '|' + paymentId)
       .digest('hex');
 
     const isValid = expectedSignature === signature;
     console.log(`[Razorpay] Payment verification ${isValid ? 'successful' : 'failed'} for order: ${orderId}`);
+    
+    if (!isValid) {
+      console.error('[Razorpay] Payment signature verification failed', {
+        orderId,
+        paymentId,
+        receivedSignature: signature,
+        expectedSignature,
+        match: isValid
+      });
+    }
+    
     return isValid;
   } catch (error) {
     const errorMessage = (error as Error).message;
-    console.error(`[Razorpay] Error verifying payment: ${errorMessage}`, { orderId, paymentId });
+    console.error(`[Razorpay] Error verifying payment: ${errorMessage}`, { orderId, paymentId, error });
     return false;
   }
 };
