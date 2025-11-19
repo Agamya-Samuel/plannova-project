@@ -283,7 +283,7 @@ export default function AdminBookingsPage() {
         </div>
       </td>
     );
-  }, [editingPaymentStatus, handlePaymentStatusUpdate]);
+  }, [editingPaymentStatus, getStatusColor, getStatusIcon, getStatusText]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

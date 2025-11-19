@@ -15,7 +15,6 @@ import {
   Calendar,
   Download
 } from 'lucide-react';
-import type { Booking } from '@/types/booking';
 import apiClient from '@/lib/api';
 
 interface Payment {
