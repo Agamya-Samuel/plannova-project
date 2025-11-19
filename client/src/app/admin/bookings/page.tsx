@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
@@ -31,6 +31,19 @@ export default function AdminBookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
 
+  // Memoize expensive calculations
+  const pendingBookingsCount = useMemo(() => {
+    return bookings.filter(b => b.status === 'pending').length;
+  }, [bookings]);
+
+  const confirmedBookingsCount = useMemo(() => {
+    return bookings.filter(b => b.status === 'confirmed').length;
+  }, [bookings]);
+
+  const totalRevenue = useMemo(() => {
+    return bookings.reduce((sum, b) => sum + b.totalPrice, 0);
+  }, [bookings]);
+
   // Fetch bookings from API instead of mock data
   // Memoized to satisfy react-hooks exhaustive-deps and avoid unnecessary re-creations
   const fetchBookings = useCallback(async (status: string = 'all', search: string = '') => {
@@ -48,10 +61,13 @@ export default function AdminBookingsPage() {
       const response = await apiClient.get(endpoint);
       const apiBookings: Booking[] = response.data.bookings || [];
 
-      // Apply filters
+      // Apply filters on the server side when possible
+      // Only apply client-side filters if needed
       let filteredBookings = apiBookings;
       
       if (status !== 'all') {
+        // This filter is now redundant since we're passing status to the API
+        // But keeping it for safety in case API doesn't filter properly
         filteredBookings = filteredBookings.filter(booking => booking.status.toLowerCase() === status.toLowerCase());
       }
       
@@ -81,19 +97,19 @@ export default function AdminBookingsPage() {
     }
   }, [statusFilter, currentUser, searchTerm, fetchBookings]);
 
-  const handleSearchTermChange = (value: string) => {
+  const handleSearchTermChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
     fetchBookings(statusFilter, value);
-  };
+  }, [statusFilter, fetchBookings]);
 
-  const handleStatusFilterChange = (value: string) => {
+  const handleStatusFilterChange = useCallback((value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
     fetchBookings(value, searchTerm);
-  };
+  }, [searchTerm, fetchBookings]);
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = useCallback((status: string) => {
     switch (status) {
       case 'PENDING':
       case 'pending':
@@ -110,9 +126,9 @@ export default function AdminBookingsPage() {
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'PENDING':
       case 'pending':
@@ -129,9 +145,9 @@ export default function AdminBookingsPage() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
-  const getStatusText = (status: string) => {
+  const getStatusText = useCallback((status: string) => {
     switch (status) {
       case 'PENDING':
       case 'pending':
@@ -148,9 +164,9 @@ export default function AdminBookingsPage() {
       default:
         return status;
     }
-  };
+  }, []);
 
-  const getPaymentModeText = (paymentMode?: string) => {
+  const getPaymentModeText = useCallback((paymentMode?: string) => {
     switch (paymentMode) {
       case 'CASH':
         return 'Cash';
@@ -159,9 +175,9 @@ export default function AdminBookingsPage() {
       default:
         return 'Not specified';
     }
-  };
+  }, []);
 
-  const getPaymentModeClass = (paymentMode?: string) => {
+  const getPaymentModeClass = useCallback((paymentMode?: string) => {
     switch (paymentMode) {
       case 'CASH':
         return 'bg-blue-100 text-blue-800';
@@ -170,9 +186,9 @@ export default function AdminBookingsPage() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
-  const getBookingTypeText = (bookingType?: string) => {
+  const getBookingTypeText = useCallback((bookingType?: string) => {
     switch (bookingType) {
       case 'CASH':
         return 'Cash Booking';
@@ -181,9 +197,9 @@ export default function AdminBookingsPage() {
       default:
         return 'Not specified';
     }
-  };
+  }, []);
 
-  const getBookingTypeClass = (bookingType?: string) => {
+  const getBookingTypeClass = useCallback((bookingType?: string) => {
     switch (bookingType) {
       case 'CASH':
         return 'bg-blue-100 text-blue-800';
@@ -192,7 +208,7 @@ export default function AdminBookingsPage() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
   const handlePaymentStatusUpdate = async (bookingId: string, newStatus: string) => {
     try {
@@ -200,7 +216,7 @@ export default function AdminBookingsPage() {
         paymentStatus: newStatus
       });
       
-      // Update the booking in the state
+      // Update the booking in the state more efficiently
       setBookings(prevBookings => 
         prevBookings.map(booking => 
           booking.id === bookingId 
@@ -217,7 +233,7 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const renderPaymentStatusCell = (booking: Booking) => {
+  const renderPaymentStatusCell = useCallback((booking: Booking) => {
     const paymentStatusOptions = [
       { value: 'pending', label: 'Pending' },
       { value: 'paid', label: 'Paid' },
@@ -267,7 +283,7 @@ export default function AdminBookingsPage() {
         </div>
       </td>
     );
-  };
+  }, [editingPaymentStatus, handlePaymentStatusUpdate]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -333,7 +349,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {bookings.filter(b => b.status === 'pending').length}
+                    {pendingBookingsCount}
                   </p>
                 </div>
               </div>
@@ -347,7 +363,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Confirmed</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {bookings.filter(b => b.status === 'confirmed').length}
+                    {confirmedBookingsCount}
                   </p>
                 </div>
               </div>
@@ -361,7 +377,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Revenue</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    ₹{bookings.reduce((sum, b) => sum + b.totalPrice, 0).toLocaleString()}
+                    ₹{totalRevenue.toLocaleString()}
                   </p>
                 </div>
               </div>
