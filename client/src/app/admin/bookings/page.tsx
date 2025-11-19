@@ -40,10 +40,10 @@ export default function AdminBookingsPage() {
         endpoint = '/bookings/provider/incoming';
       } else if (role === 'STAFF' || role === 'ADMIN') {
         const params = new URLSearchParams({ page: '1', limit: '200', status });
-        endpoint = `/bookings/staff/all?${params.toString()}`;
+        endpoint = `/admin/bookings?${params.toString()}`;
       }
       const response = await apiClient.get(endpoint);
-      const apiBookings: Booking[] = response.data || [];
+      const apiBookings: Booking[] = response.data.bookings || [];
 
       // Apply filters
       let filteredBookings = apiBookings;
@@ -144,6 +144,50 @@ export default function AdminBookingsPage() {
         return 'Rejected';
       default:
         return status;
+    }
+  };
+
+  const getPaymentModeText = (paymentMode?: string) => {
+    switch (paymentMode) {
+      case 'CASH':
+        return 'Cash';
+      case 'ONLINE':
+        return 'Online';
+      default:
+        return 'Not specified';
+    }
+  };
+
+  const getPaymentModeClass = (paymentMode?: string) => {
+    switch (paymentMode) {
+      case 'CASH':
+        return 'bg-blue-100 text-blue-800';
+      case 'ONLINE':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getBookingTypeText = (bookingType?: string) => {
+    switch (bookingType) {
+      case 'CASH':
+        return 'Cash Booking';
+      case 'ONLINE':
+        return 'Online Booking';
+      default:
+        return 'Not specified';
+    }
+  };
+
+  const getBookingTypeClass = (bookingType?: string) => {
+    switch (bookingType) {
+      case 'CASH':
+        return 'bg-blue-100 text-blue-800';
+      case 'ONLINE':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
     }
   };
 
@@ -338,6 +382,15 @@ export default function AdminBookingsPage() {
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Mode
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Booking Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Provider
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -396,6 +449,27 @@ export default function AdminBookingsPage() {
                             {getStatusIcon(booking.status)}
                             <span className="ml-1">{getStatusText(booking.status)}</span>
                           </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {booking.paymentMode && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentModeClass(booking.paymentMode)}`}>
+                              {getPaymentModeText(booking.paymentMode)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {booking.bookingType && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBookingTypeClass(booking.bookingType)}`}>
+                              {getBookingTypeText(booking.bookingType)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {booking.paymentStatus && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.paymentStatus)}`}>
+                              {getStatusText(booking.paymentStatus)}
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
