@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X, CreditCard } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { Booking } from '@/types/booking';
@@ -285,13 +285,55 @@ export default function BookingsPage() {
                       
                       {/* Provider Information */}
                       <div className="mt-6 pt-6 border-t border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Provider Information</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Booking Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="flex items-center text-gray-600">
                             <User className="h-5 w-5 mr-3 text-pink-600" />
                             <div>
                               <p className="text-sm text-gray-500">Provider</p>
                               <p className="font-medium text-gray-900">{booking.provider?.name || 'Provider'}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-600">
+                            <CheckCircle className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-sm text-gray-500">Provider Status</p>
+                              <p className="font-medium text-gray-900">
+                                {booking.status === 'confirmed' ? 'Approved' : 
+                                 booking.status === 'pending' ? 'Pending Approval' : 
+                                 booking.status === 'rejected' ? 'Rejected' : 
+                                 'Cancelled'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-600">
+                            <IndianRupee className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-sm text-gray-500">Payment Mode</p>
+                              <p className="font-medium text-gray-900">
+                                {booking.paymentMode === 'ONLINE' ? 'Online Payment' : 
+                                 booking.paymentMode === 'CASH' ? 'Cash Payment' : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-600">
+                            <CreditCard className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-sm text-gray-500">Payment Status</p>
+                              <p className={`font-medium ${
+                                booking.paymentStatus === 'paid' ? 'text-green-600' : 
+                                booking.paymentStatus === 'pending' ? 'text-yellow-600' : 
+                                booking.paymentStatus === 'failed' ? 'text-red-600' : 
+                                'text-gray-900'
+                              }`}>
+                                {booking.paymentStatus === 'paid' ? 'Paid' : 
+                                 booking.paymentStatus === 'pending' ? 'Pending' : 
+                                 booking.paymentStatus === 'failed' ? 'Failed' : 
+                                 booking.paymentStatus === 'refunded' ? 'Refunded' : 'N/A'}
+                              </p>
                             </div>
                           </div>
                           

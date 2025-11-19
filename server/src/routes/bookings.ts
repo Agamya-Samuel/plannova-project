@@ -173,6 +173,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         time: primaryBooking.time,
         status: primaryBooking.status,
         paymentStatus: primaryBooking.paymentStatus,
+        paymentMode: primaryBooking.paymentMode,
+        bookingType: primaryBooking.bookingType,
         totalPrice,
         guestCount: primaryBooking.guestCount,
         contactPerson: primaryBooking.contactPerson,
@@ -186,6 +188,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           id: (b._id as Types.ObjectId).toString(),
           date: b.date.toISOString().split('T')[0],
           status: b.status,
+          paymentStatus: b.paymentStatus,
+          paymentMode: b.paymentMode,
+          bookingType: b.bookingType,
           totalPrice: b.totalPrice
         }))
       };
@@ -270,6 +275,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         time: booking.time,
         status: booking.status,
         paymentStatus: booking.paymentStatus,
+        paymentMode: booking.paymentMode,
+        bookingType: booking.bookingType,
         totalPrice: booking.totalPrice,
         guestCount: booking.guestCount,
         contactPerson: booking.contactPerson,
@@ -445,6 +452,8 @@ router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: Aut
           time: booking.time,
           status: booking.status,
           paymentStatus: booking.paymentStatus,
+          paymentMode: booking.paymentMode,
+          bookingType: booking.bookingType,
           totalPrice: booking.totalPrice,
           guestCount: booking.guestCount,
           contactPerson: booking.contactPerson,
