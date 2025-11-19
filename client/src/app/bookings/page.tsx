@@ -8,7 +8,8 @@ import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { Booking } from '@/types/booking';
 import { useRouter } from 'next/navigation';
-
+import PaymentButton from '@/components/booking/PaymentButton';
+import { toast } from 'sonner';
 
 export default function BookingsPage() {
   const { user } = useAuth();
@@ -366,6 +367,29 @@ export default function BookingsPage() {
                           >
                             Cancel Booking
                           </button>
+                        )}
+                        
+                        {/* Pay Now Button for Pending Online Payments */}
+                        {booking.paymentMode === 'ONLINE' && booking.paymentStatus === 'pending' && (
+                          <div className="w-full md:w-auto">
+                            <PaymentButton
+                              bookingId={booking.id}
+                              amount={booking.totalPrice}
+                              customerName={booking.contactPerson}
+                              customerEmail={booking.contactEmail}
+                              customerPhone={booking.contactPhone}
+                              onPaymentSuccess={async () => {
+                                // Refresh bookings after successful payment
+                                try {
+                                  const response = await apiClient.get<Booking[]>('/bookings');
+                                  setBookings(response.data);
+                                } catch (err) {
+                                  console.error('Error refreshing bookings:', err);
+                                  toast.error('Payment successful but failed to refresh booking status. Please refresh the page.');
+                                }
+                              }}
+                            />
+                          </div>
                         )}
                         
                         <button 
