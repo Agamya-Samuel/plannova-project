@@ -13,8 +13,10 @@ export const generateToken = (userId: string): string => {
     throw new Error('JWT_SECRET environment variable is not set');
   }
   
+  // Set token expiration to 30 days (approximately 1 month)
+  // This applies to all user types: customer, provider, staff, and admin
   return jwt.sign({ userId }, secret, {
-    expiresIn: '7d',
+    expiresIn: '30d',
   });
 };
 
