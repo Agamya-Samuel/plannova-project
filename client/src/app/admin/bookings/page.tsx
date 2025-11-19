@@ -26,12 +26,14 @@ export default function AdminBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('all');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [totalBookings, setTotalBookings] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
-  const [itemsPerPage] = useState(20); // Set items per page
+  const [itemsPerPage] = useState(10); // Set items per page
 
   // Memoize expensive calculations
   const pendingBookingsCount = useMemo(() => {
@@ -48,7 +50,13 @@ export default function AdminBookingsPage() {
 
   // Fetch bookings from API instead of mock data
   // Memoized to satisfy react-hooks exhaustive-deps and avoid unnecessary re-creations
-  const fetchBookings = useCallback(async (status: string = 'all', search: string = '', page: number = 1) => {
+  const fetchBookings = useCallback(async (
+    status: string = 'all', 
+    paymentMode: string = 'all',
+    serviceType: string = 'all',
+    search: string = '', 
+    page: string = '1'
+  ) => {
     try {
       setLoading(true);
       // Determine endpoint by role
@@ -58,13 +66,16 @@ export default function AdminBookingsPage() {
         endpoint = '/bookings/provider/incoming';
       } else if (role === 'STAFF' || role === 'ADMIN') {
         const params = new URLSearchParams({ 
-          page: page.toString(), 
-          limit: itemsPerPage.toString(), 
-          status 
+          page, 
+          limit: itemsPerPage.toString()
         });
-        if (search) {
-          params.append('search', search);
-        }
+        
+        // Add filters to params
+        if (status !== 'all') params.append('paymentStatus', status);
+        if (paymentMode !== 'all') params.append('paymentType', paymentMode);
+        if (serviceType !== 'all') params.append('serviceType', serviceType);
+        if (search) params.append('search', search);
+        
         endpoint = `/admin/bookings?${params.toString()}`;
       }
       const response = await apiClient.get(endpoint);
@@ -85,21 +96,33 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     if (currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') {
-      fetchBookings(statusFilter, searchTerm, currentPage);
+      fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm, currentPage.toString());
     }
-  }, [statusFilter, currentUser, searchTerm, fetchBookings, currentPage]);
+  }, [statusFilter, paymentModeFilter, serviceTypeFilter, currentUser, searchTerm, fetchBookings, currentPage]);
 
   const handleSearchTermChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchBookings(statusFilter, value, 1);
-  }, [statusFilter, fetchBookings]);
+    fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, value, '1');
+  }, [statusFilter, paymentModeFilter, serviceTypeFilter, fetchBookings]);
 
   const handleStatusFilterChange = useCallback((value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
-    fetchBookings(value, searchTerm, 1);
-  }, [searchTerm, fetchBookings]);
+    fetchBookings(value, paymentModeFilter, serviceTypeFilter, searchTerm, '1');
+  }, [paymentModeFilter, serviceTypeFilter, searchTerm, fetchBookings]);
+
+  const handlePaymentModeFilterChange = useCallback((value: string) => {
+    setPaymentModeFilter(value);
+    setCurrentPage(1);
+    fetchBookings(statusFilter, value, serviceTypeFilter, searchTerm, '1');
+  }, [statusFilter, serviceTypeFilter, searchTerm, fetchBookings]);
+
+  const handleServiceTypeFilterChange = useCallback((value: string) => {
+    setServiceTypeFilter(value);
+    setCurrentPage(1);
+    fetchBookings(statusFilter, paymentModeFilter, value, searchTerm, '1');
+  }, [statusFilter, paymentModeFilter, searchTerm, fetchBookings]);
 
   const getStatusIcon = useCallback((status: string) => {
     switch (status) {
@@ -199,6 +222,27 @@ export default function AdminBookingsPage() {
         return 'bg-green-100 text-green-800';
       default:
         return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getServiceTypeLabel = useCallback((serviceType: string) => {
+    switch (serviceType) {
+      case 'venue':
+        return 'Venue';
+      case 'catering':
+        return 'Catering';
+      case 'photography':
+        return 'Photography';
+      case 'videography':
+        return 'Videography';
+      case 'bridal-makeup':
+        return 'Bridal Makeup';
+      case 'decoration':
+        return 'Decoration';
+      case 'entertainment':
+        return 'Entertainment';
+      default:
+        return serviceType;
     }
   }, []);
 
@@ -417,12 +461,45 @@ export default function AdminBookingsPage() {
                     <option value="rejected">Rejected</option>
                   </select>
                 </div>
+                
+                {/* Payment Mode Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={paymentModeFilter}
+                    onChange={(e) => handlePaymentModeFilterChange(e.target.value)}
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="all">All Payment Modes</option>
+                    <option value="ONLINE">Online</option>
+                    <option value="CASH">Cash</option>
+                  </select>
+                </div>
+                
+                {/* Service Type Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={serviceTypeFilter}
+                    onChange={(e) => handleServiceTypeFilterChange(e.target.value)}
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="all">All Services</option>
+                    <option value="venue">Venues</option>
+                    <option value="catering">Catering</option>
+                    <option value="photography">Photography</option>
+                    <option value="videography">Videography</option>
+                    <option value="bridal-makeup">Bridal Makeup</option>
+                    <option value="decoration">Decoration</option>
+                    <option value="entertainment">Entertainment</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Search Results Info */}
-          {!loading && !error && (searchTerm || statusFilter !== 'all') && (
+          {!loading && !error && (searchTerm || statusFilter !== 'all' || paymentModeFilter !== 'all' || serviceTypeFilter !== 'all') && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -431,14 +508,18 @@ export default function AdminBookingsPage() {
                     {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
                     {searchTerm && ` for "${searchTerm}"`}
                     {statusFilter !== 'all' && ` with status "${getStatusText(statusFilter)}"`}
+                    {paymentModeFilter !== 'all' && ` with payment mode "${paymentModeFilter === 'ONLINE' ? 'Online' : 'Cash'}"`}
+                    {serviceTypeFilter !== 'all' && ` for service type "${getServiceTypeLabel(serviceTypeFilter)}"`}
                   </span>
                 </div>
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setStatusFilter('all');
+                    setPaymentModeFilter('all');
+                    setServiceTypeFilter('all');
                     setCurrentPage(1);
-                    fetchBookings('all', '');
+                    fetchBookings('all', 'all', 'all', '', '1');
                   }}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                 >
