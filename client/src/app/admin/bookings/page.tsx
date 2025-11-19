@@ -29,7 +29,9 @@ export default function AdminBookingsPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [totalBookings, setTotalBookings] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
+  const [itemsPerPage] = useState(20); // Set items per page
 
   // Memoize expensive calculations
   const pendingBookingsCount = useMemo(() => {
@@ -46,7 +48,7 @@ export default function AdminBookingsPage() {
 
   // Fetch bookings from API instead of mock data
   // Memoized to satisfy react-hooks exhaustive-deps and avoid unnecessary re-creations
-  const fetchBookings = useCallback(async (status: string = 'all', search: string = '') => {
+  const fetchBookings = useCallback(async (status: string = 'all', search: string = '', page: number = 1) => {
     try {
       setLoading(true);
       // Determine endpoint by role
@@ -55,33 +57,23 @@ export default function AdminBookingsPage() {
       if (role === 'PROVIDER') {
         endpoint = '/bookings/provider/incoming';
       } else if (role === 'STAFF' || role === 'ADMIN') {
-        const params = new URLSearchParams({ page: '1', limit: '200', status });
+        const params = new URLSearchParams({ 
+          page: page.toString(), 
+          limit: itemsPerPage.toString(), 
+          status 
+        });
+        if (search) {
+          params.append('search', search);
+        }
         endpoint = `/admin/bookings?${params.toString()}`;
       }
       const response = await apiClient.get(endpoint);
       const apiBookings: Booking[] = response.data.bookings || [];
+      const pagination = response.data.pagination || { total: 0, pages: 1 };
 
-      // Apply filters on the server side when possible
-      // Only apply client-side filters if needed
-      let filteredBookings = apiBookings;
-      
-      if (status !== 'all') {
-        // This filter is now redundant since we're passing status to the API
-        // But keeping it for safety in case API doesn't filter properly
-        filteredBookings = filteredBookings.filter(booking => booking.status.toLowerCase() === status.toLowerCase());
-      }
-      
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filteredBookings = filteredBookings.filter(booking => 
-          booking.venueName.toLowerCase().includes(searchLower) ||
-          booking.contactPerson.toLowerCase().includes(searchLower) ||
-          booking.contactEmail.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      setBookings(filteredBookings);
-      setTotalBookings(filteredBookings.length);
+      setBookings(apiBookings);
+      setTotalBookings(pagination.total);
+      setTotalPages(pagination.pages);
       setError('');
     } catch (err) {
       console.error('Error fetching bookings:', err);
@@ -89,24 +81,24 @@ export default function AdminBookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, itemsPerPage]);
 
   useEffect(() => {
     if (currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') {
-      fetchBookings(statusFilter, searchTerm);
+      fetchBookings(statusFilter, searchTerm, currentPage);
     }
-  }, [statusFilter, currentUser, searchTerm, fetchBookings]);
+  }, [statusFilter, currentUser, searchTerm, fetchBookings, currentPage]);
 
   const handleSearchTermChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchBookings(statusFilter, value);
+    fetchBookings(statusFilter, value, 1);
   }, [statusFilter, fetchBookings]);
 
   const handleStatusFilterChange = useCallback((value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
-    fetchBookings(value, searchTerm);
+    fetchBookings(value, searchTerm, 1);
   }, [searchTerm, fetchBookings]);
 
   const getStatusIcon = useCallback((status: string) => {
@@ -603,15 +595,15 @@ export default function AdminBookingsPage() {
                   <div className="flex-1 flex justify-between sm:hidden">
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPage(currentPage - 1)}
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
                     >
                       Previous
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={true} // For mock data
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
                     >
                       Next
                     </Button>
@@ -619,28 +611,57 @@ export default function AdminBookingsPage() {
                   <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">1</span> to{' '}
-                        <span className="font-medium">{bookings.length}</span> of{' '}
-                        <span className="font-medium">{bookings.length}</span> results
+                        Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalBookings)}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalBookings)}</span> of{' '}
+                        <span className="font-medium">{totalBookings}</span> results
                       </p>
                     </div>
                     <div>
                       <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentPage(currentPage - 1)}
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                           disabled={currentPage === 1}
                           className="relative inline-flex items-center px-2 py-2 rounded-l-md"
                         >
                           Previous
                         </Button>
-                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                          Page 1 of 1
-                        </span>
+                        {[...Array(totalPages)].map((_, i) => {
+                          const pageNum = i + 1;
+                          // Only show first, last, current, and nearby pages
+                          if (pageNum === 1 || pageNum === totalPages || 
+                              (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={currentPage === pageNum ? "default" : "outline"}
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
+                                  currentPage === pageNum 
+                                    ? 'z-10 bg-red-600 text-white border-red-600' 
+                                    : 'border-gray-300'
+                                }`}
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                            // Show ellipsis for skipped pages
+                            return (
+                              <span 
+                                key={`ellipsis-${pageNum}`}
+                                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700"
+                              >
+                                ...
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentPage(currentPage + 1)}
-                          disabled={true} // For mock data
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
                           className="relative inline-flex items-center px-2 py-2 rounded-r-md"
                         >
                           Next
