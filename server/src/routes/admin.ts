@@ -845,156 +845,97 @@ router.get('/bookings', authenticateToken, requireAdmin, async (req: AuthRequest
   }
 });
 
-// GET /api/admin/payments - Get all online payments with filters (Admin only)
+// GET /api/admin/payments - Get all payments for admin (Admin only)
 router.get('/payments', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    const { 
-      page = '1', 
-      limit = '20', 
-      vendor, 
-      serviceType, 
-      status,
-      dateFrom, 
-      dateTo
-    } = req.query as { 
-      page?: string; 
-      limit?: string; 
-      vendor?: string; 
-      serviceType?: string; 
-      status?: string; 
-      dateFrom?: string; 
-      dateTo?: string;
-    };
+    // Get all bookings with populated service details
+    const bookings = await Booking.find({ 
+      paymentStatus: { $ne: PaymentStatus.PENDING } 
+    })
+    .populate('customerId', 'firstName lastName')
+    .populate('providerId', 'firstName lastName')
+    .sort({ createdAt: -1 });
 
-    const pageNum = Math.max(parseInt(page || '1', 10), 1);
-    const limitNum = Math.min(Math.max(parseInt(limit || '20', 10), 1), 100);
+    // Transform bookings to payment objects
+    const payments = await Promise.all(bookings.map(async (booking) => {
+      // Get service details
+      let serviceName = 'Unknown Service';
+      let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+      let providerName = 'Unknown Provider';
+      let customerName = 'Unknown Customer';
 
-    // Find bookings with online payment type and filter by criteria
-    const filter: Record<string, unknown> = {
-      bookingType: BookingType.ONLINE
-    };
-
-    // Apply vendor filter
-    if (vendor && Types.ObjectId.isValid(vendor)) {
-      filter.providerId = new Types.ObjectId(vendor);
-    }
-
-    // Apply service type filter
-    if (serviceType && Object.values(ServiceType).includes(serviceType as ServiceType)) {
-      filter.serviceType = serviceType;
-    }
-
-    // Apply payment status filter
-    if (status && Object.values(PaymentStatus).includes(status as PaymentStatus)) {
-      filter.paymentStatus = status;
-    }
-
-    // Apply date range filter
-    if (dateFrom || dateTo) {
-      filter.createdAt = {};
-      if (dateFrom) {
-        (filter.createdAt as Record<string, unknown>).$gte = new Date(dateFrom);
-      }
-      if (dateTo) {
-        (filter.createdAt as Record<string, unknown>).$lte = new Date(dateTo);
-      }
-    }
-
-    const bookings = await Booking.find(filter)
-      .sort({ createdAt: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .populate('customerId', 'firstName lastName email phone')
-      .populate('providerId', 'firstName lastName email phone')
-      .lean();
-
-    // Build rich response including service details
-    const transformed = await Promise.all(
-      bookings.map(async (booking) => {
-        let serviceName = 'Unknown Service';
-        let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
-        let providerName = 'Unknown Provider';
-        let customerName = 'Unknown Customer';
-
-        try {
-          // Get service name and image
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          let service: any = null;
-          switch (booking.serviceType) {
-            case ServiceType.VENUE:
-              service = await Venue.findById(booking.serviceId);
-              break;
-            case ServiceType.CATERING:
-              service = await Catering.findById(booking.serviceId);
-              break;
-            case ServiceType.PHOTOGRAPHY:
-              service = await Photography.findById(booking.serviceId);
-              break;
-            case ServiceType.VIDEOGRAPHY:
-              service = await Videography.findById(booking.serviceId);
-              break;
-            case ServiceType.BRIDAL_MAKEUP:
-              service = await BridalMakeup.findById(booking.serviceId);
-              break;
-            case ServiceType.DECORATION:
-              service = await Decoration.findById(booking.serviceId);
-              break;
-            case ServiceType.ENTERTAINMENT:
-              service = await Entertainment.findById(booking.serviceId);
-              break;
-          }
-
-          if (service) {
-            serviceName = service.name;
-            serviceImage = service.images?.[0]?.url || serviceImage;
-          }
-
-          // Get provider name
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const provider = (booking as any).providerId;
-          if (provider) {
-            providerName = `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider';
-          }
-
-          // Get customer name
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const customer = (booking as any).customerId;
-          if (customer) {
-            customerName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer';
-          }
-        } catch (error) {
-          console.error('Error fetching service/provider details (admin/payments):', error);
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let service: any = null;
+        switch (booking.serviceType) {
+          case ServiceType.VENUE:
+            service = await Venue.findById(booking.serviceId);
+            break;
+          case ServiceType.CATERING:
+            service = await Catering.findById(booking.serviceId);
+            break;
+          case ServiceType.PHOTOGRAPHY:
+            service = await Photography.findById(booking.serviceId);
+            break;
+          case ServiceType.VIDEOGRAPHY:
+            service = await Videography.findById(booking.serviceId);
+            break;
+          case ServiceType.BRIDAL_MAKEUP:
+            service = await BridalMakeup.findById(booking.serviceId);
+            break;
+          case ServiceType.DECORATION:
+            service = await Decoration.findById(booking.serviceId);
+            break;
+          case ServiceType.ENTERTAINMENT:
+            service = await Entertainment.findById(booking.serviceId);
+            break;
         }
 
-        return {
-          id: (booking._id as Types.ObjectId).toString(),
-          paymentId: booking._id?.toString(), // Using booking ID as payment ID for now
-          orderId: `order_${booking._id?.toString()}`, // Generate order ID
-          serviceType: booking.serviceType,
-          serviceName,
-          serviceImage,
-          providerName,
-          customerName,
-          amount: booking.totalPrice,
-          status: booking.paymentStatus,
-          date: booking.createdAt
-        };
-      })
-    );
+        if (service) {
+          serviceName = service.name;
+          serviceImage = service.images?.[0]?.url || serviceImage;
+        }
+      } catch (error) {
+        console.error('Error fetching service details:', error);
+      }
 
-    const total = await Booking.countDocuments(filter);
+      // Get provider and customer names
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const provider = booking.providerId as any;
+        if (provider && provider.firstName) {
+          providerName = `${provider.firstName} ${provider.lastName || ''}`.trim();
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const customer = booking.customerId as any;
+        if (customer && customer.firstName) {
+          customerName = `${customer.firstName} ${customer.lastName || ''}`.trim();
+        }
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+      }
+
+      return {
+        id: booking._id,
+        paymentId: booking._id, // Using booking ID as payment ID
+        orderId: booking._id, // Using booking ID as order ID
+        serviceType: booking.serviceType,
+        serviceName,
+        serviceImage,
+        providerName,
+        customerName,
+        amount: booking.totalPrice,
+        status: booking.paymentStatus,
+        date: booking.createdAt
+      };
+    }));
 
     res.json({
-      payments: transformed,
-      pagination: {
-        page: pageNum,
-        limit: limitNum,
-        total,
-        pages: Math.ceil(total / limitNum)
-      }
+      payments
     });
   } catch (error) {
-    console.error('Error fetching all payments for admin:', error);
+    console.error('Error fetching payments:', error);
     res.status(500).json({ error: 'Failed to fetch payments' });
   }
 });
@@ -1002,163 +943,43 @@ router.get('/payments', authenticateToken, requireAdmin, async (req: AuthRequest
 // GET /api/admin/revenue - Get revenue statistics (Admin only)
 router.get('/revenue', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    const { 
-      period = 'month', 
-      serviceType,
-      vendor
-    } = req.query as { 
-      period?: string; 
-      serviceType?: string; 
-      vendor?: string;
-    };
+    // Get all paid bookings
+    const paidBookings = await Booking.find({ 
+      paymentStatus: PaymentStatus.PAID 
+    }).select('totalPrice paymentMode serviceType createdAt');
 
-    // Build match filter
-    const matchFilter: Record<string, unknown> = {
-      paymentStatus: PaymentStatus.PAID,
-      status: { $in: [BookingStatus.CONFIRMED, BookingStatus.COMPLETED] }
-    };
+    // Calculate revenue statistics
+    let totalPlatformRevenue = 0;
+    let totalOnlineRevenue = 0;
+    let totalCashRevenue = 0;
 
-    // Apply service type filter
-    if (serviceType && Object.values(ServiceType).includes(serviceType as ServiceType)) {
-      matchFilter.serviceType = serviceType;
-    }
-
-    // Apply vendor filter
-    if (vendor && Types.ObjectId.isValid(vendor)) {
-      matchFilter.providerId = new Types.ObjectId(vendor);
-    }
-
-    // Calculate date range based on period
-    const now = new Date();
-    let startDate: Date;
-    
-    switch (period) {
-      case 'week':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        break;
-      case 'year':
-        startDate = new Date(now.getFullYear() - 1, 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    }
-
-    matchFilter.createdAt = { $gte: startDate, $lte: now };
-
-    // Get revenue statistics
-    const revenueStats = await Booking.aggregate([
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: null,
-          totalOnlineRevenue: {
-            $sum: {
-              $cond: [{ $eq: ['$bookingType', BookingType.ONLINE] }, '$totalPrice', 0]
-            }
-          },
-          totalCashRevenue: {
-            $sum: {
-              $cond: [{ $eq: ['$bookingType', BookingType.CASH] }, '$totalPrice', 0]
-            }
-          },
-          totalPlatformRevenue: { $sum: '$totalPrice' },
-          totalOnlineTransactions: {
-            $sum: {
-              $cond: [{ $eq: ['$bookingType', BookingType.ONLINE] }, 1, 0]
-            }
-          },
-          totalBookings: { $sum: 1 }
-        }
+    paidBookings.forEach(booking => {
+      totalPlatformRevenue += booking.totalPrice;
+      
+      if (booking.paymentMode === 'ONLINE') {
+        totalOnlineRevenue += booking.totalPrice;
+      } else if (booking.paymentMode === 'CASH') {
+        totalCashRevenue += booking.totalPrice;
       }
-    ]);
-
-    // Get payment status counts
-    const paymentStatusCounts = await Booking.aggregate([
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: '$paymentStatus',
-          count: { $sum: 1 }
-        }
-      }
-    ]);
-
-    // Format payment status counts
-    const paymentStatusMap: Record<string, number> = {
-      [PaymentStatus.PENDING]: 0,
-      [PaymentStatus.PAID]: 0,
-      [PaymentStatus.FAILED]: 0,
-      [PaymentStatus.REFUNDED]: 0
-    };
-
-    paymentStatusCounts.forEach(item => {
-      paymentStatusMap[item._id] = item.count;
     });
-
-    // Get revenue by service category
-    const revenueByService = await Booking.aggregate([
-      { $match: matchFilter },
-      {
-        $group: {
-          _id: '$serviceType',
-          revenue: { $sum: '$totalPrice' },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { revenue: -1 } }
-    ]);
-
-    // Get revenue by vendor
-    const revenueByVendor = await Booking.aggregate([
-      { $match: matchFilter },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'providerId',
-          foreignField: '_id',
-          as: 'provider'
-        }
-      },
-      {
-        $group: {
-          _id: '$providerId',
-          providerName: { $first: { $concat: [{ $arrayElemAt: ['$provider.firstName', 0] }, ' ', { $arrayElemAt: ['$provider.lastName', 0] }] } },
-          revenue: { $sum: '$totalPrice' },
-          count: { $sum: 1 }
-        }
-      },
-      { $sort: { revenue: -1 } },
-      { $limit: 10 }
-    ]);
-
-    // Format the response
-    const stats = revenueStats[0] || {
-      totalOnlineRevenue: 0,
-      totalCashRevenue: 0,
-      totalPlatformRevenue: 0,
-      totalOnlineTransactions: 0,
-      totalBookings: 0
-    };
 
     res.json({
       summary: {
-        totalOnlineRevenue: stats.totalOnlineRevenue,
-        totalCashRevenue: stats.totalCashRevenue,
-        totalPlatformRevenue: stats.totalPlatformRevenue,
-        totalOnlineTransactions: stats.totalOnlineTransactions,
-        totalBookings: stats.totalBookings,
-        successRate: stats.totalBookings > 0 ? Math.round((paymentStatusMap[PaymentStatus.PAID] / stats.totalBookings) * 100) : 0
+        totalPlatformRevenue,
+        totalOnlineRevenue,
+        totalCashRevenue
       },
-      paymentStatus: paymentStatusMap,
-      revenueByService,
-      revenueByVendor
+      bookings: paidBookings.map(booking => ({
+        id: booking._id,
+        totalPrice: booking.totalPrice,
+        paymentMode: booking.paymentMode,
+        serviceType: booking.serviceType,
+        date: booking.createdAt
+      }))
     });
   } catch (error) {
-    console.error('Error fetching revenue statistics for admin:', error);
-    res.status(500).json({ error: 'Failed to fetch revenue statistics' });
+    console.error('Error fetching revenue data:', error);
+    res.status(500).json({ error: 'Failed to fetch revenue data' });
   }
 });
 
@@ -1296,13 +1117,3 @@ router.put('/bookings/:id/payment-status', authenticateToken, requireAdmin, asyn
 });
 
 export default router;
-
-
-
-
-
-
-
-
-
-
