@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface DecorationService {
   _id: string;
@@ -62,6 +63,7 @@ interface DecorationService {
 
 export default function DecorationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<DecorationService | null>(null);
@@ -457,7 +459,8 @@ export default function DecorationDetailPage({ params }: { params: Promise<{ id:
                 <p className="text-gray-600">Starting Price</p>
               </div>
 
-              {selectedDate ? (
+              {/* Only show booking button if user is not a provider - providers can only view, not book */}
+              {user?.role !== 'PROVIDER' && selectedDate ? (
                 <Button
                   onClick={() => setShowBookingModal(true)}
                   className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
@@ -466,10 +469,15 @@ export default function DecorationDetailPage({ params }: { params: Promise<{ id:
                     ? `Book for ${selectedDates.length} dates` 
                     : `Book for ${selectedDate}`}
                 </Button>
-              ) : (
+              ) : user?.role !== 'PROVIDER' ? (
                 <div className="text-center">
                   <Flower className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <Flower className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
                 </div>
               )}
             </div>

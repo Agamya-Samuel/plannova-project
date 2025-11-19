@@ -434,7 +434,7 @@ function VenuesContent() {
             <div key={venue._id} className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]">
               <div className="relative">
                 <Image 
-                  src={venue.images.length > 0 ? venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url : 'https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} 
+                  src={venue.images.length > 0 ? venue.images.find(img => img.isPrimary)?.url || venue.images[0]?.url : ''} 
                   alt={venue.name}
                   width={800}
                   height={256}

@@ -18,6 +18,7 @@ import {
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface VideographyService {
   _id: string;
@@ -79,6 +80,7 @@ interface VideographyResponse {
 export default function VideographyDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const [service, setService] = useState<VideographyService | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -378,7 +380,8 @@ export default function VideographyDetailPage() {
                 <p className="text-gray-600">Starting Price</p>
               </div>
 
-              {selectedDate ? (
+              {/* Only show booking button if user is not a provider - providers can only view, not book */}
+              {user?.role !== 'PROVIDER' && selectedDate ? (
                 <button
                   onClick={() => setShowBookingModal(true)}
                   className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-colors mb-4"
@@ -387,10 +390,15 @@ export default function VideographyDetailPage() {
                     ? `Book for ${selectedDates.length} dates` 
                     : `Book for ${selectedDate}`}
                 </button>
-              ) : (
+              ) : user?.role !== 'PROVIDER' ? (
                 <div className="text-center mb-4">
                   <Video className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              ) : (
+                <div className="text-center mb-4">
+                  <Video className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
                 </div>
               )}
               
