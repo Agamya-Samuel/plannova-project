@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { MapPin, Heart, Camera, Calendar, Users, Home } from 'lucide-react';
+import { MapPin, Calendar, Users, Home, FileText } from 'lucide-react';
 
 // Navigation items for the floating dock
 // These are the main quick-access navigation items
@@ -12,8 +12,7 @@ const dockItems = [
   { label: 'Home', href: '/', icon: Home },
   { label: 'Venues', href: '/venues', icon: MapPin },
   { label: 'Vendors', href: '/vendors', icon: Users },
-  { label: 'Photos', href: '/photos', icon: Camera },
-  { label: 'Past Events', href: '/past-events', icon: Heart },
+  { label: 'Blog', href: '/blog', icon: FileText },
 ];
 
 export default function FloatingNavDock() {
@@ -63,6 +62,10 @@ export default function FloatingNavDock() {
   const isActiveRoute = (href: string) => {
     if (href === '/') {
       return pathname === '/';
+    }
+    // Blog route: active when on /blog or any blog sub-route
+    if (href === '/blog') {
+      return pathname.startsWith('/blog');
     }
     return pathname.startsWith(href);
   };

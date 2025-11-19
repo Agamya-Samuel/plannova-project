@@ -318,7 +318,7 @@ export default function EditVenuePage() {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -380,7 +380,7 @@ export default function EditVenuePage() {
       
       console.log('Updating venue with cleaned data:', cleanFormData);
 
-      const response = await apiClient.put(`/venues/${venueId}`, cleanFormData);
+      const response = await apiClient.put(`/venues/${venueId}`, { ...cleanFormData, status });
       
       // Show appropriate message based on response
       if (response.data.message.includes('submitted for approval')) {
@@ -409,14 +409,12 @@ export default function EditVenuePage() {
     }
   };
 
-  const handleManualSubmit = () => {
-    console.log('Manual submit button clicked');
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
+    console.log('Manual submit button clicked with status:', status);
     setIsExplicitSubmit(true);
-    // Trigger form submission after setting the flag
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (user?.role !== 'PROVIDER') {
@@ -1241,24 +1239,37 @@ export default function EditVenuePage() {
                   </Button>
                   
                   {isLastTab ? (
-                    <Button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleManualSubmit}
-                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Updating...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Update Venue</span>
-                        </div>
-                      )}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       type="button"
