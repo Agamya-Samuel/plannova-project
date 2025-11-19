@@ -26,6 +26,7 @@ import VenueContactInput from '@/components/ui/VenueContactInput';
 import VenuePolicyInput from '@/components/ui/VenuePolicyInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import { VENUE_TYPES } from '@/constants/venueTypes';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 interface VenueFormData {
   name: string;
@@ -59,6 +60,7 @@ interface VenueFormData {
   foodOptions: Array<{ name: string; description: string; price: number; cuisine: string[]; isVeg: boolean; servingSize: string }>;
   decorationOptions: Array<{ name: string; description: string; price: number; theme: string; includes: string[]; duration: string }>;
   addonServices: Array<{ name: string; description: string; price: number; category: string; includes: string[]; duration: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 // Use shared venue types constant to ensure consistency across the application
@@ -124,7 +126,8 @@ export default function CreateVenuePage() {
     features: [],
     foodOptions: [],
     decorationOptions: [],
-    addonServices: []
+    addonServices: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   // Update email when user data becomes available
@@ -292,8 +295,16 @@ export default function CreateVenuePage() {
 
       const response = await apiClient.post('/venues', { ...cleanFormData, status });
       
-      // Set venue ID for future image uploads
+      // Save payment configuration
       if (response.data.venue?._id) {
+        try {
+          await apiClient.post(`/vendor-service-config/${response.data.venue._id}`, {
+            serviceType: 'venues',
+            paymentMode: formData.paymentMethod
+          });
+        } catch (configError) {
+          console.error('Failed to save payment configuration:', configError);
+        }
         setVenueId(response.data.venue._id);
       }
       
@@ -796,6 +807,14 @@ export default function CreateVenuePage() {
                     </div>
                   </div>
 
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
+                  </div>
+
                   <VenuePolicyInput
                     data={{ cancellationPolicy: formData.cancellationPolicy }}
                     onChange={(data) => {
@@ -1150,6 +1169,7 @@ export default function CreateVenuePage() {
                       <p className="text-black"><strong>Type:</strong> {formData.type}</p>
                       <p className="text-black"><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
                       <p className="text-black"><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
+                      <p className="text-black"><strong>Payment Method:</strong> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">

@@ -602,6 +602,15 @@ function AdminDashboard() {
           color="yellow"
         />
         <DashboardCard
+          title="Payment Management"
+          description="Track all payments and revenue across the platform"
+          icon={<IndianRupee className="h-8 w-8 text-green-600" />}
+          action="Manage Payments"
+          href="/admin/payments"
+          stats="View Transactions"
+          color="green"
+        />
+        <DashboardCard
           title="Content Management"
           description="Manage site content and configurations"
           icon={<Camera className="h-8 w-8 text-orange-600" />}

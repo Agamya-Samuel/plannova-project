@@ -44,6 +44,7 @@ export interface IVideography extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number; // Add this line
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -185,6 +186,10 @@ const VideographySchema: Schema<IVideography> = new Schema({
     required: true,
     min: 0
   },
+  pricePerGuest: {  // Add this block
+    type: Number,
+    min: 0
+  },
   minGuests: {
     type: Number,
     min: 1
@@ -258,3 +263,7 @@ const VideographySchema: Schema<IVideography> = new Schema({
 // Create and export the Videography model
 export const Videography = mongoose.model<IVideography>('Videography', VideographySchema);
 export default Videography;
+
+
+
+

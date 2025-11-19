@@ -2,11 +2,13 @@
 
 import React from 'react';
 import { Input } from './input';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 interface BasicInfoData {
   name: string;
   description: string;
   basePrice?: number;
+  paymentMethod?: 'ONLINE_CASH' | 'CASH';
 }
 
 interface BasicInfoInputProps {
@@ -90,6 +92,14 @@ export default function BasicInfoInput({
           <p className="text-xs text-gray-500 mt-1">This is your starting price - you can adjust for different packages</p>
         </div>
       )}
+      
+      {/* Payment Method Selector */}
+      <div className="mt-8">
+        <PaymentMethodSelector 
+          value={data.paymentMethod || 'ONLINE_CASH'}
+          onChange={(value) => handleFieldChange('paymentMethod', value)}
+        />
+      </div>
     </div>
   );
 }
