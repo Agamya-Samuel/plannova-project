@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '@/lib/api';
 import { signInWithGoogle, logout as firebaseLogout, getCurrentUser } from '@/lib/firebase-auth';
+import { auth } from '@/lib/firebase';
+import { onIdTokenChanged } from 'firebase/auth';
 import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -136,6 +138,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
+  }, []);
+
+  // Set up Firebase token refresh listener
+  // This ensures Firebase tokens are automatically refreshed and stored in localStorage
+  // Firebase tokens expire after 1 hour, but Firebase automatically refreshes them
+  // This listener updates localStorage whenever the token is refreshed
+  useEffect(() => {
+    // Only set up listener if we're in the browser
+    if (typeof window === 'undefined') return;
+
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Get the latest token (Firebase automatically refreshes if needed)
+          const token = await firebaseUser.getIdToken(false);
+          
+          // Update localStorage with the fresh token
+          // This ensures sessions persist longer than 1 hour
+          const currentToken = localStorage.getItem('token');
+          if (currentToken !== token) {
+            localStorage.setItem('token', token);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔄 Firebase token refreshed via listener');
+            }
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Failed to refresh Firebase token in listener:', error);
+          }
+        }
+      } else {
+        // User signed out, clear token
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
