@@ -102,6 +102,12 @@ export function BookingModal({
       return;
     }
 
+    // Check if user is provider - providers cannot make bookings, they can only view bookings for their services
+    if (user.role === 'PROVIDER') {
+      toast.error('Providers cannot make bookings. They can only view bookings for their services.');
+      return;
+    }
+
     // Check if user is staff
     if (user.role === 'STAFF') {
       toast.error('Staff members cannot make bookings');
