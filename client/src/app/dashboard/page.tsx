@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2 } from 'lucide-react';
+import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2, User, Phone, Mail, IndianRupee, Check, X, Search, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
 import apiClient from '@/lib/api';
+import { Booking, ServiceType } from '@/types/booking';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -195,6 +196,7 @@ function ProviderDashboard() {
     responseTimeStatus: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeView, setActiveView] = useState<'dashboard' | 'services' | 'bookings'>('dashboard');
 
   // Fetch provider statistics from API
   useEffect(() => {
@@ -238,12 +240,6 @@ function ProviderDashboard() {
     return null;
   }
 
-  // If user has a service category selected, show the relevant dashboard
-  if (user?.role === 'PROVIDER' && user.serviceCategories && user.serviceCategories.length > 0) {
-    const selectedService = user.serviceCategories[0]; // Only one service category allowed
-    return <ServiceSpecificDashboard serviceType={selectedService} />;
-  }
-
   // Format revenue for display (convert to lakhs if needed)
   const formatRevenue = (amount: number): string => {
     if (amount >= 100000) {
@@ -253,140 +249,212 @@ function ProviderDashboard() {
     return `₹${amount.toLocaleString('en-IN')}`;
   };
 
+  const handleMyServicesClick = () => {
+    setActiveView('services');
+  };
+
+  const handleMyBookingsClick = () => {
+    setActiveView('bookings');
+  };
+
+  const handleBackToDashboard = () => {
+    setActiveView('dashboard');
+  };
+
+  // Render services view
+  const renderServicesView = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={handleBackToDashboard}
+            className="flex items-center text-purple-600 hover:text-purple-800 font-medium"
+          >
+            <svg className="h-5 w-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Back to Dashboard
+          </button>
+          <h2 className="text-2xl font-bold text-gray-900">My Services</h2>
+          <div></div> {/* Spacer for alignment */}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Add New Service Card */}
+          <div 
+            onClick={() => router.push('/settings')}
+            className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group border-2 border-dashed border-gray-300 cursor-pointer flex flex-col items-center justify-center p-8 text-center hover:border-purple-500"
+          >
+            <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-purple-200 transition-colors">
+              <svg className="h-8 w-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">Add New Service</h3>
+            <p className="text-gray-600">Expand your service offerings</p>
+          </div>
+          
+          {/* Service Category Cards */}
+          {user?.serviceCategories?.map((serviceCategory) => (
+            <ServiceCategoryCard 
+              key={serviceCategory} 
+              serviceCategory={serviceCategory} 
+              onViewDetails={() => {
+                const serviceRoutes: Record<string, string> = {
+                  'venue': '/provider/venues',
+                  'catering': '/provider/catering',
+                  'photography': '/provider/photography',
+                  'videography': '/provider/videography',
+                  'music': '/provider/entertainment',
+                  'makeup': '/provider/beauty',
+                  'bridal-makeup': '/provider/bridal-makeup',
+                  'decoration': '/provider/decoration'
+                };
+                
+                const route = serviceRoutes[serviceCategory];
+                if (route) {
+                  router.push(route);
+                }
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  // Render bookings view
+  const renderBookingsView = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <button 
+            onClick={handleBackToDashboard}
+            className="flex items-center text-purple-600 hover:text-purple-800 font-medium"
+          >
+            <svg className="h-5 w-5 mr-1" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            Back to Dashboard
+          </button>
+          <h2 className="text-2xl font-bold text-gray-900">My Bookings</h2>
+          <div></div> {/* Spacer for alignment */}
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-lg p-6">
+          <BookingView />
+        </div>
+      </div>
+    );
+  };
+
+  // Render main dashboard view
+  const renderDashboardView = () => {
+    return (
+      <div className="space-y-6">
+        {/* Stats Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {loading ? '—' : (stats?.totalBookings ?? 0)}
+                </p>
+                <p className="text-sm text-green-600 flex items-center mt-1">
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  {loading ? '—' : stats && stats.bookingsGrowth > 0 ? `+${stats.bookingsGrowth}%` : stats && stats.bookingsGrowth < 0 ? `${stats.bookingsGrowth}%` : '0%'} this month
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
+                <Calendar className="h-6 w-6 text-pink-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Revenue</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {loading ? '—' : formatRevenue(stats?.revenue ?? 0)}
+                </p>
+                <p className="text-sm text-green-600 flex items-center mt-1">
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  {loading ? '—' : stats && stats.revenueGrowth > 0 ? `+${stats.revenueGrowth}%` : stats && stats.revenueGrowth < 0 ? `${stats.revenueGrowth}%` : '0%'} this month
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {loading ? '—' : (stats?.avgRating ?? 0).toFixed(1)}
+                </p>
+                <p className="text-sm text-blue-600 flex items-center mt-1">
+                  <Star className="h-4 w-4 mr-1" />
+                  {loading ? '—' : `${stats?.totalReviews ?? 0} reviews`}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
+                <Star className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-xl p-6 shadow-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Response Time</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {loading ? '—' : (stats?.responseTime ?? '—')}
+                </p>
+                <p className="text-sm text-purple-600 flex items-center mt-1">
+                  <Clock className="h-4 w-4 mr-1" />
+                  {loading ? '—' : (stats?.responseTimeStatus ?? 'No data')}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                <Clock className="h-6 w-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Main Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <DashboardCard
+            title="My Services"
+            description="View and manage all your service offerings"
+            icon={<Settings className="h-8 w-8 text-purple-600" />}
+            action="View Services"
+            onClick={handleMyServicesClick}
+            color="purple"
+          />
+          <DashboardCard
+            title="My Bookings"
+            description="View and manage all your bookings"
+            icon={<Calendar className="h-8 w-8 text-pink-600" />}
+            action="View Bookings"
+            onClick={handleMyBookingsClick}
+            color="pink"
+          />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {loading ? '—' : (stats?.totalBookings ?? 0)}
-              </p>
-              <p className="text-sm text-green-600 flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                {loading ? '—' : stats && stats.bookingsGrowth > 0 ? `+${stats.bookingsGrowth}%` : stats && stats.bookingsGrowth < 0 ? `${stats.bookingsGrowth}%` : '0%'} this month
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center">
-              <Calendar className="h-6 w-6 text-pink-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Revenue</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {loading ? '—' : formatRevenue(stats?.revenue ?? 0)}
-              </p>
-              <p className="text-sm text-green-600 flex items-center mt-1">
-                <TrendingUp className="h-4 w-4 mr-1" />
-                {loading ? '—' : stats && stats.revenueGrowth > 0 ? `+${stats.revenueGrowth}%` : stats && stats.revenueGrowth < 0 ? `${stats.revenueGrowth}%` : '0%'} this month
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <BarChart3 className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Avg Rating</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {loading ? '—' : (stats?.avgRating ?? 0).toFixed(1)}
-              </p>
-              <p className="text-sm text-blue-600 flex items-center mt-1">
-                <Star className="h-4 w-4 mr-1" />
-                {loading ? '—' : `${stats?.totalReviews ?? 0} reviews`}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-              <Star className="h-6 w-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-xl p-6 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Response Time</p>
-              <p className="text-3xl font-bold text-gray-900">
-                {loading ? '—' : (stats?.responseTime ?? '—')}
-              </p>
-              <p className="text-sm text-purple-600 flex items-center mt-1">
-                <Clock className="h-4 w-4 mr-1" />
-                {loading ? '—' : (stats?.responseTimeStatus ?? 'No data')}
-              </p>
-            </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <Clock className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      {/* Main Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <DashboardCard
-          title="My Venues"
-          description="Manage your event venues and listings"
-          icon={<MapPin className="h-8 w-8 text-pink-600" />}
-          action="Manage Venues"
-          href="/provider/venues"
-          stats="3 Active"
-          color="pink"
-        />
-        <DashboardCard
-          title="Bookings"
-          description="View and manage incoming booking requests"
-          icon={<Calendar className="h-8 w-8 text-purple-600" />}
-          action="View Bookings"
-          href="/provider/bookings"
-          stats="8 Pending"
-          color="purple"
-        />
-        <DashboardCard
-          title="Calendar"
-          description="Check availability and schedule events"
-          icon={<Calendar className="h-8 w-8 text-blue-600" />}
-          action="View Calendar"
-          href="/provider/calendar"
-          stats="Next: Tomorrow"
-          color="blue"
-        />
-        <DashboardCard
-          title="Analytics"
-          description="Track your venue performance and bookings"
-          icon={<BarChart3 className="h-8 w-8 text-green-600" />}
-          action="View Analytics"
-          href="/provider/analytics"
-          stats="+18% Growth"
-          color="green"
-        />
-        <DashboardCard
-          title="Messages"
-          description="Communicate with potential customers"
-          icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-          action="View Messages"
-          href="/provider/messages"
-          stats="5 New"
-          color="orange"
-        />
-        <DashboardCard
-          title="Settings"
-          description="Manage your business profile and settings"
-          icon={<Settings className="h-8 w-8 text-gray-600" />}
-          action="Settings"
-          href="/provider/settings"
-          stats="Profile 90%"
-          color="gray"
-        />
-      </div>
+      {activeView === 'dashboard' && renderDashboardView()}
+      {activeView === 'services' && renderServicesView()}
+      {activeView === 'bookings' && renderBookingsView()}
     </div>
   );
 }
@@ -476,33 +544,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="Next: Tomorrow"
               color="blue"
             />
-            <DashboardCard
-              title="Venue Analytics"
-              description="Track your venue performance and bookings"
-              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
-              action="View Analytics"
-              href="/provider/analytics"
-              stats="+18% Growth"
-              color="green"
-            />
-            <DashboardCard
-              title="Venue Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/messages"
-              stats="5 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Venue Settings"
-              description="Manage your business profile and settings"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/settings"
-              stats="Profile 90%"
-              color="gray"
-            />
+            
           </div>
         );
       case 'catering':
@@ -535,33 +577,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="12 Items"
               color="green"
             />
-            <DashboardCard
-              title="Catering Analytics"
-              description="Track your catering performance and revenue"
-              icon={<BarChart3 className="h-8 w-8 text-yellow-600" />}
-              action="View Analytics"
-              href="/provider/catering/analytics"
-              stats="+12% Growth"
-              color="yellow"
-            />
-            <DashboardCard
-              title="Catering Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/catering/messages"
-              stats="2 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Catering Settings"
-              description="Manage your catering business profile"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/catering/settings"
-              stats="Profile 85%"
-              color="gray"
-            />
+            
           </div>
         );
       case 'photography':
@@ -594,33 +610,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="42 Photos"
               color="blue"
             />
-            <DashboardCard
-              title="Photography Analytics"
-              description="Track your photography performance and revenue"
-              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
-              action="View Analytics"
-              href="/provider/photography/analytics"
-              stats="+8% Growth"
-              color="green"
-            />
-            <DashboardCard
-              title="Photography Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/photography/messages"
-              stats="3 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Photography Settings"
-              description="Manage your photography business profile"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/photography/settings"
-              stats="Profile 92%"
-              color="gray"
-            />
+            
           </div>
         );
       case 'videography':
@@ -653,33 +643,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="18 Videos"
               color="pink"
             />
-            <DashboardCard
-              title="Videography Analytics"
-              description="Track your videography performance and revenue"
-              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
-              action="View Analytics"
-              href="/provider/videography/analytics"
-              stats="+15% Growth"
-              color="green"
-            />
-            <DashboardCard
-              title="Videography Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/videography/messages"
-              stats="1 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Videography Settings"
-              description="Manage your videography business profile"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/videography/settings"
-              stats="Profile 78%"
-              color="gray"
-            />
+            
           </div>
         );
       case 'music':
@@ -712,33 +676,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="12 Demos"
               color="purple"
             />
-            <DashboardCard
-              title="Entertainment Analytics"
-              description="Track your entertainment performance and revenue"
-              icon={<BarChart3 className="h-8 w-8 text-yellow-600" />}
-              action="View Analytics"
-              href="/provider/entertainment/analytics"
-              stats="+22% Growth"
-              color="yellow"
-            />
-            <DashboardCard
-              title="Entertainment Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/entertainment/messages"
-              stats="4 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Entertainment Settings"
-              description="Manage your entertainment business profile"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/entertainment/settings"
-              stats="Profile 88%"
-              color="gray"
-            />
+            
           </div>
         );
       case 'makeup':
@@ -771,33 +709,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="24 Looks"
               color="purple"
             />
-            <DashboardCard
-              title="Beauty Analytics"
-              description="Track your beauty performance and revenue"
-              icon={<BarChart3 className="h-8 w-8 text-green-600" />}
-              action="View Analytics"
-              href="/provider/beauty/analytics"
-              stats="+14% Growth"
-              color="green"
-            />
-            <DashboardCard
-              title="Beauty Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/beauty/messages"
-              stats="3 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Beauty Settings"
-              description="Manage your beauty business profile"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/beauty/settings"
-              stats="Profile 95%"
-              color="gray"
-            />
+            
           </div>
         );
       case 'decoration':
@@ -830,33 +742,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="31 Designs"
               color="purple"
             />
-            <DashboardCard
-              title="Decoration Analytics"
-              description="Track your decoration performance and revenue"
-              icon={<BarChart3 className="h-8 w-8 text-blue-600" />}
-              action="View Analytics"
-              href="/provider/decoration/analytics"
-              stats="+11% Growth"
-              color="blue"
-            />
-            <DashboardCard
-              title="Decoration Messages"
-              description="Communicate with potential customers"
-              icon={<MessageCircle className="h-8 w-8 text-orange-600" />}
-              action="View Messages"
-              href="/provider/decoration/messages"
-              stats="2 New"
-              color="orange"
-            />
-            <DashboardCard
-              title="Decoration Settings"
-              description="Manage your decoration business profile"
-              icon={<Settings className="h-8 w-8 text-gray-600" />}
-              action="Settings"
-              href="/provider/decoration/settings"
-              stats="Profile 82%"
-              color="gray"
-            />
+          
           </div>
         );
       default:
@@ -880,15 +766,7 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
               stats="Pending"
               color="blue"
             />
-            <DashboardCard
-              title="Service Settings"
-              description="Manage your business profile"
-              icon={<Settings className="h-8 w-8 text-purple-600" />}
-              action="Settings"
-              href="/provider/settings"
-              stats="Profile"
-              color="purple"
-            />
+            
           </div>
         );
     }
@@ -970,12 +848,10 @@ function ServiceSpecificDashboard({ serviceType }: { serviceType: string }) {
           </div>
         </div>
       </div>
-      
-      {/* Service-specific cards */}
-      {getServiceDashboard()}
     </div>
   );
 }
+
 
 function AdminDashboard() {
   const [stats, setStats] = useState<{ users: { total: number }; venues: { approved: number }; bookings: { total: number; successRate: number }; revenue: number } | null>(null);
@@ -1191,17 +1067,685 @@ function StaffDashboard() {
   );
 }
 
+// Add new components for the service category card and booking view
+function ServiceCategoryCard({ serviceCategory, onViewDetails }: { serviceCategory: string; onViewDetails: () => void }) {
+  const getServiceInfo = (category: string) => {
+    const serviceMap: Record<string, { title: string; description: string; icon: React.ReactNode }> = {
+      'venue': {
+        title: 'Venue Services',
+        description: 'Manage your event venues and listings',
+        icon: <MapPin className="h-8 w-8 text-pink-600" />
+      },
+      'catering': {
+        title: 'Catering Services',
+        description: 'Manage your catering packages and menus',
+        icon: <Utensils className="h-8 w-8 text-blue-600" />
+      },
+      'photography': {
+        title: 'Photography Services',
+        description: 'Manage your photography packages and portfolio',
+        icon: <Camera className="h-8 w-8 text-purple-600" />
+      },
+      'videography': {
+        title: 'Videography Services',
+        description: 'Manage your videography packages and portfolio',
+        icon: <Video className="h-8 w-8 text-blue-600" />
+      },
+      'music': {
+        title: 'Entertainment Services',
+        description: 'Manage your music and entertainment packages',
+        icon: <Music className="h-8 w-8 text-green-600" />
+      },
+      'makeup': {
+        title: 'Beauty Services',
+        description: 'Manage your makeup and beauty packages',
+        icon: <Heart className="h-8 w-8 text-red-500" />
+      },
+      'bridal-makeup': {
+        title: 'Bridal Makeup Services',
+        description: 'Manage your bridal makeup packages',
+        icon: <Heart className="h-8 w-8 text-red-500" />
+      },
+      'decoration': {
+        title: 'Decoration Services',
+        description: 'Manage your decoration and floral packages',
+        icon: <Flower className="h-8 w-8 text-pink-500" />
+      }
+    };
+    
+    return serviceMap[category] || {
+      title: `${category.charAt(0).toUpperCase() + category.slice(1)} Services`,
+      description: `Manage your ${category} services`,
+      icon: <Settings className="h-8 w-8 text-gray-600" />
+    };
+  };
+
+  const serviceInfo = getServiceInfo(serviceCategory);
+
+  return (
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group">
+      <div className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="p-2 rounded-xl bg-gray-50 group-hover:bg-gray-100 transition-colors">
+            {serviceInfo.icon}
+          </div>
+        </div>
+        
+        <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors">
+          {serviceInfo.title}
+        </h3>
+        <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+          {serviceInfo.description}
+        </p>
+        
+        <button
+          onClick={onViewDetails}
+          className="inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105"
+        >
+          Manage Service
+          <svg
+            className="ml-2 w-4 h-4 transition-transform group-hover:translate-x-1"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BookingView() {
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'completed'>('all');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<'all' | ServiceType>('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await apiClient.get<Booking[]>('/bookings/provider/incoming');
+        setBookings(response.data || []);
+      } catch (err) {
+        console.error('Error fetching bookings:', err);
+        setError('Failed to load bookings. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user && user.role === 'PROVIDER') {
+      fetchBookings();
+    }
+  }, [user]);
+
+  const handleAcceptBooking = async (bookingId: string) => {
+    if (processingBookingId) return; // Prevent concurrent requests
+    
+    try {
+      setProcessingBookingId(bookingId);
+      setError(null);
+      console.log('🔄 Attempting to accept booking:', bookingId);
+      const response = await apiClient.put(`/bookings/${bookingId}/accept`);
+      console.log('✅ Booking accepted successfully:', response.data);
+      // Refresh bookings
+      const bookingsResponse = await apiClient.get<Booking[]>('/bookings/provider/incoming');
+      setBookings(bookingsResponse.data);
+    } catch (err: unknown) {
+      console.error('❌ Error accepting booking:', err);
+      const apiError = err as { response?: { data?: { error?: string; status?: number } } };
+      console.error('❌ Error response:', apiError.response?.data);
+      console.error('❌ Error status:', apiError.response?.data?.status);
+      const errorMessage = apiError.response?.data?.error || 'Failed to accept booking. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    if (processingBookingId) return; // Prevent concurrent requests
+    
+    try {
+      setProcessingBookingId(bookingId);
+      setError(null);
+      console.log('🔄 Attempting to reject booking:', bookingId);
+      const response = await apiClient.put(`/bookings/${bookingId}/reject`);
+      console.log('✅ Booking rejected successfully:', response.data);
+      // Refresh bookings
+      const bookingsResponse = await apiClient.get<Booking[]>('/bookings/provider/incoming');
+      setBookings(bookingsResponse.data);
+    } catch (err: unknown) {
+      console.error('❌ Error rejecting booking:', err);
+      const apiError = err as { response?: { data?: { error?: string; status?: number } } };
+      console.error('❌ Error response:', apiError.response?.data);
+      console.error('❌ Error status:', apiError.response?.data?.status);
+      const errorMessage = apiError.response?.data?.error || 'Failed to reject booking. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleCompleteBooking = async (bookingId: string) => {
+    if (processingBookingId) return; // Prevent concurrent requests
+    
+    // Confirm the action
+    if (!confirm('Are you sure you want to mark this booking as completed? This confirms that the event was successfully held.')) {
+      return;
+    }
+    
+    try {
+      setProcessingBookingId(bookingId);
+      setError(null);
+      console.log('🔄 Attempting to complete booking:', bookingId);
+      const response = await apiClient.put(`/bookings/${bookingId}/complete`);
+      console.log('✅ Booking completed successfully:', response.data);
+      // Refresh bookings
+      const bookingsResponse = await apiClient.get<Booking[]>('/bookings/provider/incoming');
+      setBookings(bookingsResponse.data);
+    } catch (err: unknown) {
+      console.error('❌ Error completing booking:', err);
+      const apiError = err as { response?: { data?: { error?: string; status?: number } } };
+      console.error('❌ Error response:', apiError.response?.data);
+      console.error('❌ Error status:', apiError.response?.data?.status);
+      const errorMessage = apiError.response?.data?.error || 'Failed to mark booking as completed. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleViewDetails = (booking: Booking) => {
+    // Navigate to the service details page based on service type
+    if (booking.serviceId && booking.serviceType) {
+      const serviceRoutes: Record<string, string> = {
+        'venue': '/venues',
+        'catering': '/catering',
+        'photography': '/photography',
+        'videography': '/videography',
+        'bridal-makeup': '/bridal-makeup',
+        'decoration': '/decoration'
+      };
+      
+      const route = serviceRoutes[booking.serviceType];
+      if (route) {
+        router.push(`${route}/${booking.serviceId}`);
+      }
+    }
+  };
+
+  const getStatusIcon = (status: Booking['status']) => {
+    switch (status) {
+      case 'confirmed':
+        return <CheckCircle className="h-5 w-5 text-white" />;
+      case 'completed':
+        return <Check className="h-5 w-5 text-white" />;
+      case 'pending':
+        return <Calendar className="h-5 w-5 text-white" />;
+      case 'cancelled':
+      case 'rejected':
+        return <X className="h-5 w-5 text-white" />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusText = (status: Booking['status']) => {
+    switch (status) {
+      case 'confirmed':
+        return 'Confirmed';
+      case 'completed':
+        return 'Completed';
+      case 'pending':
+        return 'Pending';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'rejected':
+        return 'Rejected';
+      default:
+        return '';
+    }
+  };
+
+  const getStatusClass = (status: Booking['status']) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-green-600 text-white';
+      case 'completed':
+        return 'bg-blue-600 text-white';
+      case 'pending':
+        return 'bg-yellow-600 text-white';
+      case 'cancelled':
+      case 'rejected':
+        return 'bg-red-600 text-white';
+      default:
+        return '';
+    }
+  };
+
+  const getServiceTypeLabel = (serviceType?: string) => {
+    switch (serviceType) {
+      case 'venue':
+        return 'Venue';
+      case 'catering':
+        return 'Catering';
+      case 'photography':
+        return 'Photography';
+      case 'videography':
+        return 'Videography';
+      case 'bridal-makeup':
+        return 'Bridal Makeup';
+      case 'decoration':
+        return 'Decoration';
+      case 'entertainment':
+        return 'Entertainment';
+      default:
+        return 'Service';
+    }
+  };
+
+  // Filter and sort bookings
+  const filteredBookings = useMemo(() => {
+    let result = [...bookings];
+    
+    // Apply search filter
+    if (searchTerm) {
+      result = result.filter(booking => 
+        booking.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.contactEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.contactPhone?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.serviceName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        booking.venueName?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(booking => booking.status === statusFilter);
+    }
+    
+    // Apply service type filter
+    if (serviceTypeFilter !== 'all') {
+      result = result.filter(booking => booking.serviceType === serviceTypeFilter);
+    }
+    
+    return result;
+  }, [bookings, searchTerm, statusFilter, serviceTypeFilter]);
+
+  const stats = {
+    total: bookings.length,
+    pending: bookings.filter(b => b.status === 'pending').length,
+    confirmed: bookings.filter(b => b.status === 'confirmed').length,
+    completed: bookings.filter(b => b.status === 'completed').length,
+    rejected: bookings.filter(b => b.status === 'rejected' || b.status === 'cancelled').length,
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="flex items-start">
+            <X className="h-5 w-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+            <p className="text-red-800">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Search and Filters */}
+      <div className="space-y-4">
+        {/* Search Bar */}
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
+          </div>
+          <input
+            type="text"
+            placeholder="Search by customer name, email, phone, or service..."
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
+        {/* Filter Controls */}
+        <div className="flex flex-wrap gap-4">
+          {/* Status Filter */}
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 appearance-none"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as 'all' | 'pending' | 'confirmed' | 'cancelled' | 'rejected' | 'completed')}
+            >
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="completed">Completed</option>
+              <option value="rejected">Rejected</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </div>
+
+          {/* Service Type Filter */}
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
+            <select
+              className="w-full pl-3 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 appearance-none"
+              value={serviceTypeFilter}
+              onChange={(e) => setServiceTypeFilter(e.target.value as 'all' | ServiceType)}
+            >
+              <option value="all">All Services</option>
+              <option value="venue">Venue</option>
+              <option value="catering">Catering</option>
+              <option value="photography">Photography</option>
+              <option value="videography">Videography</option>
+              <option value="bridal-makeup">Bridal Makeup</option>
+              <option value="decoration">Decoration</option>
+              <option value="entertainment">Entertainment</option>
+            </select>
+          </div>
+
+          {/* Clear Filters Button */}
+          {(searchTerm || statusFilter !== 'all' || serviceTypeFilter !== 'all') && (
+            <div className="flex items-end">
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setServiceTypeFilter('all');
+                }}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors flex items-center"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear Filters
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4">
+          <p className="text-sm text-gray-600 mb-1">Total Bookings</p>
+          <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
+        </div>
+        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-xl p-4">
+          <p className="text-sm text-gray-600 mb-1">Pending</p>
+          <p className="text-2xl font-bold text-yellow-900">{stats.pending}</p>
+        </div>
+        <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4">
+          <p className="text-sm text-gray-600 mb-1">Confirmed</p>
+          <p className="text-2xl font-bold text-green-900">{stats.confirmed}</p>
+        </div>
+        <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 rounded-xl p-4">
+          <p className="text-sm text-gray-600 mb-1">Completed</p>
+          <p className="text-2xl font-bold text-indigo-900">{stats.completed}</p>
+        </div>
+        <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-xl p-4">
+          <p className="text-sm text-gray-600 mb-1">Rejected</p>
+          <p className="text-2xl font-bold text-red-900">{stats.rejected}</p>
+        </div>
+      </div>
+
+      {/* Bookings List */}
+      <div className="space-y-6">
+        {filteredBookings.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+            <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              No bookings found
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {searchTerm || statusFilter !== 'all' || serviceTypeFilter !== 'all' 
+                ? 'Try adjusting your filters or check back later' 
+                : 'You don\'t have any bookings yet.'}
+            </p>
+            {(searchTerm || statusFilter !== 'all' || serviceTypeFilter !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchTerm('');
+                  setStatusFilter('all');
+                  setServiceTypeFilter('all');
+                }}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        ) : (
+          filteredBookings.map((booking: Booking) => (
+            <div key={booking.id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+              <div className="p-6">
+                <div className="flex flex-col lg:flex-row">
+                  {/* Service Image */}
+                  <div className="lg:w-1/4 mb-4 lg:mb-0 lg:mr-6">
+                    <div className="aspect-video bg-gray-200 rounded-xl overflow-hidden">
+                      <Image 
+                        src={booking.serviceImage || booking.venueImage || '/placeholder-image.jpg'} 
+                        alt={booking.serviceName || booking.venueName || 'Service'}
+                        width={400}
+                        height={225}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/placeholder-image.jpg';
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Booking Details */}
+                  <div className="lg:w-3/4">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center mb-2">
+                          <h2 className="text-xl font-bold text-gray-900 mr-3">
+                            {booking.serviceName || booking.venueName}
+                          </h2>
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusClass(booking.status)}`}>
+                            {getStatusIcon(booking.status)}
+                            <span className="ml-1">{getStatusText(booking.status)}</span>
+                          </span>
+                        </div>
+                        <div className="mb-4">
+                          <span className="inline-block px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">
+                            {getServiceTypeLabel(booking.serviceType)}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                          <div className="flex items-center text-gray-900">
+                            <Calendar className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-xs text-gray-500 mb-0.5">Event Time</p>
+                              <p className="font-semibold">
+                                {new Date(booking.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at {booking.time}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-900">
+                            <User className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-xs text-gray-500 mb-0.5">Guest Count</p>
+                              <p className="font-semibold">{booking.guestCount} guests</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-900">
+                            <IndianRupee className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-xs text-gray-500 mb-0.5">Total Price</p>
+                              <p className="font-semibold">₹{booking.totalPrice.toLocaleString('en-IN')}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 md:mt-0">
+                        <div className="text-right">
+                          <p className="text-sm text-gray-500">Total Amount</p>
+                          <p className="text-2xl font-bold text-gray-900">₹{booking.totalPrice.toLocaleString('en-IN')}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Customer Information */}
+                    <div className="mt-6 pt-6 border-t border-gray-100">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-3">Customer Information</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="flex items-center text-gray-600">
+                          <User className="h-5 w-5 mr-3 text-pink-600" />
+                          <div>
+                            <p className="text-sm text-gray-500 mb-0.5">Customer</p>
+                            <p className="font-medium text-gray-900">{booking.contactPerson}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center text-gray-600">
+                          <Phone className="h-5 w-5 mr-3 text-pink-600" />
+                          <div>
+                            <p className="text-sm text-gray-500 mb-0.5">Phone</p>
+                            <p className="font-medium text-gray-900">{booking.contactPhone}</p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center text-gray-600">
+                          <Mail className="h-5 w-5 mr-3 text-pink-600" />
+                          <div>
+                            <p className="text-sm text-gray-500 mb-0.5">Email</p>
+                            <p className="font-medium text-gray-900">{booking.contactEmail}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Action Buttons */}
+                    {booking.status === 'pending' && (
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <button 
+                          onClick={() => handleAcceptBooking(booking.id)}
+                          disabled={processingBookingId !== null}
+                          className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {processingBookingId === booking.id ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            'Accept Booking'
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => handleRejectBooking(booking.id)}
+                          disabled={processingBookingId !== null}
+                          className="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {processingBookingId === booking.id ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            'Reject Booking'
+                          )}
+                        </button>
+                      </div>
+                    )}
+
+                    {booking.status === 'confirmed' && (
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <button 
+                          onClick={() => handleCompleteBooking(booking.id)}
+                          disabled={processingBookingId !== null}
+                          className="px-6 py-2 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          {processingBookingId === booking.id ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Mark as Completed
+                            </>
+                          )}
+                        </button>
+                        <button 
+                          onClick={() => handleViewDetails(booking)}
+                          className="px-6 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Details
+                        </button>
+                      </div>
+                    )}
+
+                    {booking.status === 'completed' && (
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-lg">
+                          <CheckCircle className="h-5 w-5" />
+                          <span className="font-medium">Event Successfully Completed</span>
+                        </div>
+                        <button 
+                          onClick={() => handleViewDetails(booking)}
+                          className="px-6 py-2 bg-gray-200 text-gray-800 font-medium rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          View Details
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Update DashboardCard to support onClick
 interface DashboardCardProps {
   title: string;
   description: string;
   icon: React.ReactNode;
   action: string;
-  href: string;
+  href?: string;
+  onClick?: () => void;
   stats?: string;
   color: string;
 }
 
-function DashboardCard({ title, description, icon, action, href, stats, color }: DashboardCardProps) {
+function DashboardCard({ title, description, icon, action, href, onClick, stats, color }: DashboardCardProps) {
   const getColorClasses = (color: string) => {
     const colors = {
       pink: 'from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700',
@@ -1217,8 +1761,16 @@ function DashboardCard({ title, description, icon, action, href, stats, color }:
     return colors[color as keyof typeof colors] || colors.gray;
   };
 
+  const handleClick = () => {
+    if (onClick) {
+      onClick();
+    } else if (href) {
+      window.location.href = href;
+    }
+  };
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group">
+    <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group cursor-pointer" onClick={handleClick}>
       <div className="p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="p-2 rounded-xl bg-gray-50 group-hover:bg-gray-100 transition-colors">
@@ -1238,8 +1790,7 @@ function DashboardCard({ title, description, icon, action, href, stats, color }:
           {description}
         </p>
         
-        <a
-          href={href}
+        <div
           className={`inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r ${getColorClasses(color)} text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105`}
         >
           {action}
@@ -1255,7 +1806,7 @@ function DashboardCard({ title, description, icon, action, href, stats, color }:
               clipRule="evenodd"
             />
           </svg>
-        </a>
+        </div>
       </div>
     </div>
   );
