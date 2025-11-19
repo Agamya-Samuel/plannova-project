@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PhotographyService {
   _id: string;
@@ -24,6 +25,7 @@ interface PhotographyService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -61,12 +63,22 @@ interface PhotographyService {
 
 export default function PhotographyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<PhotographyService | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+
+  // Redirect to login if not authenticated (prevents direct URL access)
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.push('/auth/login');
+    }
+  }, [isAuthenticated, authLoading, router]);
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -77,9 +89,18 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
     unwrapParams();
   }, [params]);
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowBookingModal(true);
+  const handleDateSelect = (date: string | string[]) => {
+    if (typeof date === 'string') {
+      // Single date selection
+      setSelectedDate(date);
+      setSelectedDates([date]); // Also set the array for consistency
+      setShowBookingModal(true);
+    } else if (date.length > 0) {
+      // Multiple dates selection
+      setSelectedDates(date);
+      setSelectedDate(date[0]); // Set first date as primary
+      setShowBookingModal(true);
+    }
   };
 
   const fetchPhotographyService = React.useCallback(async () => {
@@ -103,10 +124,28 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
   }, [serviceId]);
 
   useEffect(() => {
-    if (serviceId) {
+    if (serviceId && isAuthenticated) {
       fetchPhotographyService();
     }
-  }, [serviceId, fetchPhotographyService]);
+  }, [serviceId, fetchPhotographyService, isAuthenticated]);
+
+  // Don't render content if not authenticated (while redirecting)
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    // Will redirect via useEffect, but show loading while redirecting
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-pink-600"></div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -431,6 +470,9 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
               serviceType="photography"
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Card */}
@@ -442,17 +484,25 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
                 <p className="text-gray-600">Starting Price</p>
               </div>
 
-              {selectedDate ? (
+              {/* Only show booking button if user is not a provider - providers can only view, not book */}
+              {user?.role !== 'PROVIDER' && selectedDate ? (
                 <Button
                   onClick={() => setShowBookingModal(true)}
                   className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
                 >
-                  Book for {selectedDate}
+                  {selectedDates.length > 1 
+                    ? `Book for ${selectedDates.length} dates` 
+                    : `Book for ${selectedDate}`}
                 </Button>
-              ) : (
+              ) : user?.role !== 'PROVIDER' ? (
                 <div className="text-center">
                   <Camera className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <Camera className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
                 </div>
               )}
             </div>
@@ -467,8 +517,9 @@ export default function PhotographyDetailPage({ params }: { params: Promise<{ id
           serviceName={service.name}
           serviceType="photography"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
+          preselectedDates={selectedDates}
         />
       </div>
     </div>

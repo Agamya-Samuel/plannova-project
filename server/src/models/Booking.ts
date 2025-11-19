@@ -5,7 +5,8 @@ export enum BookingStatus {
   PENDING = 'pending',
   CONFIRMED = 'confirmed',
   CANCELLED = 'cancelled',
-  REJECTED = 'rejected'
+  REJECTED = 'rejected',
+  COMPLETED = 'completed'
 }
 
 // Define PaymentStatus enum
@@ -27,16 +28,30 @@ export enum ServiceType {
   ENTERTAINMENT = 'entertainment'
 }
 
+// Define BookingType enum
+export enum BookingType {
+  ONLINE = 'ONLINE',
+  CASH = 'CASH'
+}
+
+// Define PaymentMode enum
+export enum PaymentMode {
+  CASH = 'CASH',
+  ONLINE = 'ONLINE'
+}
+
 // Interface for Booking
 export interface IBooking extends Document {
   customerId: mongoose.Types.ObjectId;
   providerId: mongoose.Types.ObjectId;
   serviceType: ServiceType;
-  serviceId: mongoose.Types.ObjectId; // ID of the specific service (venue, catering, etc.)
+  serviceId: mongoose.Types.ObjectId; // ID of the specific service (venue, casing, etc.)
   date: Date;
   time: string;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  bookingType: BookingType;
+  paymentMode: PaymentMode;
   totalPrice: number;
   advanceAmount?: number;
   remainingAmount?: number;
@@ -45,6 +60,11 @@ export interface IBooking extends Document {
   contactPhone: string;
   contactEmail: string;
   specialRequests?: string;
+  // Group ID for related bookings (e.g., multiple dates for the same service)
+  bookingGroupId?: string;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   // Deprecated fields (for backward compatibility)
   venueId?: mongoose.Types.ObjectId;
   createdAt: Date;
@@ -100,6 +120,16 @@ const BookingSchema: Schema<IBooking> = new Schema({
     enum: Object.values(PaymentStatus),
     default: PaymentStatus.PENDING
   },
+  bookingType: {
+    type: String,
+    enum: Object.values(BookingType),
+    default: BookingType.ONLINE
+  },
+  paymentMode: {
+    type: String,
+    enum: Object.values(PaymentMode),
+    default: PaymentMode.ONLINE
+  },
   totalPrice: {
     type: Number,
     required: true,
@@ -134,6 +164,21 @@ const BookingSchema: Schema<IBooking> = new Schema({
   specialRequests: {
     type: String,
     trim: true
+  },
+  // Group ID for related bookings (e.g., multiple dates for the same service)
+  bookingGroupId: {
+    type: String,
+    index: true
+  },
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
   }
 }, {
   timestamps: true
@@ -144,6 +189,8 @@ BookingSchema.index({ date: 1 });
 BookingSchema.index({ providerId: 1, status: 1 });
 BookingSchema.index({ serviceType: 1, serviceId: 1 });
 BookingSchema.index({ serviceId: 1, date: 1, status: 1 }); // For availability checks
+BookingSchema.index({ bookingType: 1 });
+BookingSchema.index({ paymentMode: 1 });
 
 // Create and export the model
 const Booking = mongoose.model<IBooking>('Booking', BookingSchema);

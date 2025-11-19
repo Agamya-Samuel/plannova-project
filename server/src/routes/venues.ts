@@ -57,6 +57,7 @@ router.get('/', async (req: Request, res: Response) => {
     // Build filter object to include both approved venues and venues with pending edits
     const filter: Record<string, unknown> = {
       isActive: true,
+      isDeleted: { $ne: true },
       status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] }
     };
 
@@ -123,7 +124,8 @@ router.get('/provider/my-venues', authenticateToken, requireProvider, async (req
 
     const filter: Record<string, unknown> = { 
       providerId: req.user!.id,
-      isActive: true // Only show active venues
+      isActive: true, // Only show active venues
+      isDeleted: { $ne: true }
     };
     
     if (status && status !== 'ALL') {
@@ -173,7 +175,8 @@ router.get('/provider/:id', authenticateToken, requireProvider, async (req: Auth
     const venue = await Venue.findOne({
       _id: req.params.id,
       providerId: req.user!.id,
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }
     });
 
     if (!venue) {
@@ -197,7 +200,8 @@ router.get('/favorites', authenticateToken, async (req: AuthRequest, res: Respon
       path: 'favorites',
       match: { 
         status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] },
-        isActive: true
+        isActive: true,
+        isDeleted: { $ne: true }
       },
       select: '-reviews' // Exclude reviews for performance
     });
@@ -224,7 +228,8 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
     const { status, page = 1, limit = 10, search } = req.query;
 
     const filter: Record<string, unknown> = { 
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }
     };
     
     if (status && status !== 'ALL') {
@@ -282,6 +287,7 @@ router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async
 
     const filter: Record<string, unknown> = { 
       isActive: true,
+      isDeleted: { $ne: true },
       status: 'PENDING_EDIT'
     };
 
@@ -332,17 +338,20 @@ router.get('/staff/stats', authenticateToken, requireStaffOrAdmin, async (req: A
     // Get counts for each status
     const pendingCount = await Venue.countDocuments({ 
       status: VenueStatus.PENDING,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
     
     const approvedCount = await Venue.countDocuments({ 
       status: VenueStatus.APPROVED,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
     
     const rejectedCount = await Venue.countDocuments({ 
       status: VenueStatus.REJECTED,
-      isActive: true 
+      isActive: true,
+      isDeleted: { $ne: true }
     });
 
     res.json({
@@ -364,7 +373,8 @@ router.get('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: Aut
   try {
     const venue = await Venue.findOne({
       _id: req.params.id,
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }
     }).populate('providerId', 'firstName lastName email phone');
 
     if (!venue) {
@@ -384,7 +394,8 @@ router.get('/:id', async (req: Request, res: Response) => {
     const venue = await Venue.findOne({
       _id: req.params.id,
       status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] },
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }
     }).populate('providerId', 'firstName lastName email phone');
 
     if (!venue) {
@@ -411,16 +422,21 @@ router.post('/', authenticateToken, requireProvider, createVenueValidation, asyn
       return res.status(400).json({ error: 'Maximum capacity must be greater than or equal to minimum capacity' });
     }
 
+    // Use the status from the request body if provided, otherwise default to DRAFT
+    const status = req.body.status && Object.values(VenueStatus).includes(req.body.status) 
+      ? req.body.status 
+      : VenueStatus.DRAFT;
+    
     const venueData = {
       ...req.body,
       providerId: req.user!.id,
-      status: VenueStatus.DRAFT
+      status
     };
 
     const venue = await Venue.create(venueData);
 
     res.status(201).json({
-      message: 'Venue created successfully',
+      message: `Venue created successfully with status ${status}`,
       venue
     });
   } catch (error) {
@@ -839,7 +855,8 @@ router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const filter: Record<string, any> = { 
       status: VenueStatus.PENDING_EDIT,
-      isActive: true
+      isActive: true,
+      isDeleted: { $ne: true }
     };
 
     // Add search functionality
@@ -1206,11 +1223,14 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
       }
     }
 
-    // Actually delete the venue from the database
-    await Venue.findByIdAndDelete(venueId);
+    // Soft delete the venue instead of hard deleting
+    venue.isDeleted = true;
+    venue.deletedAt = new Date();
+    await venue.save();
 
     res.json({
-      message: 'Venue deleted successfully'
+      message: 'Venue moved to trash successfully',
+      data: venue
     });
   } catch (error) {
     console.error('Error deleting venue:', error);
@@ -1367,3 +1387,8 @@ router.delete('/:id/blocked-dates', authenticateToken, requireProvider, async (r
 });
 
 export default router;
+
+
+
+
+

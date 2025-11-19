@@ -67,6 +67,7 @@ interface EntertainmentServiceFormData {
   packages: PackageFormData[];
   addons: AddonFormData[];
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 const entertainmentTypeOptions = ['DJ', 'Live Band', 'Dhol', 'MC/Host', 'Sound System', 'Lighting'];
@@ -112,7 +113,8 @@ function EditEntertainmentServiceContent() {
     entertainmentTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchEntertainmentService = React.useCallback(async () => {
@@ -139,7 +141,8 @@ function EditEntertainmentServiceContent() {
         addons: service.addons?.length > 0
           ? service.addons.map((a: { price: number }) => ({ ...a, price: Number(a.price) }))
           : [{ name: '', description: '', price: 0 }],
-        images: service.images || []
+        images: service.images || [],
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
       // Mark all tabs as visited since we're loading existing data
       setVisitedTabs(new Set(['basic', 'location', 'contact', 'images', 'services', 'policies', 'review']));
@@ -275,7 +278,7 @@ function EditEntertainmentServiceContent() {
     setFormData(prev => ({ ...prev, images: formattedImages }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -290,7 +293,18 @@ function EditEntertainmentServiceContent() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({ ...a, price: Number(a.price) })),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.put(`/entertainment/${serviceId}`, serviceData);
+      await apiClient.put(`/entertainment/${serviceId}`, { ...serviceData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+          serviceType: 'entertainment',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
+      
       toast.success('Entertainment service updated successfully!');
       router.push('/provider/entertainment');
     } catch (err: unknown) {
@@ -309,12 +323,11 @@ function EditEntertainmentServiceContent() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (fetching) {
@@ -417,14 +430,16 @@ function EditEntertainmentServiceContent() {
                   data={{
                     name: formData.name,
                     description: formData.description,
-                    basePrice: formData.basePrice
+                    basePrice: formData.basePrice,
+                    paymentMethod: formData.paymentMethod
                   }}
                   onChange={(data) => {
                     setFormData(prev => ({
                       ...prev,
                       name: data.name,
                       description: data.description,
-                      basePrice: data.basePrice || prev.basePrice
+                      basePrice: data.basePrice || prev.basePrice,
+                      paymentMethod: data.paymentMethod || prev.paymentMethod
                     }));
                   }}
                   serviceType="Entertainment"
@@ -557,6 +572,7 @@ function EditEntertainmentServiceContent() {
                       <p><strong>Service Name:</strong> {formData.name}</p>
                       <p><strong>Description:</strong> {formData.description}</p>
                       <p><strong>Base Price:</strong> ₹{formData.basePrice}</p>
+                      <p><strong>Payment Method:</strong> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>
@@ -591,9 +607,37 @@ function EditEntertainmentServiceContent() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                      {loading ? 'Updating...' : 'Update Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                       <span>Next</span>

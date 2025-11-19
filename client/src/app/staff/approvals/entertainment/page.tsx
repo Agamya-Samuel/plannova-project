@@ -263,14 +263,14 @@ export default function StaffEntertainmentApprovalsPage() {
   };
 
   const handleDeleteService = async (serviceId: string) => {
-    const confirmed = await sonnerConfirm('Are you sure you want to delete this entertainment service? This action cannot be undone.');
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this entertainment service? The service will be moved to the trash where it can be restored later.');
     if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.delete(`/entertainment/staff/${serviceId}`);
-      toast.success('Entertainment service deleted successfully!');
+      toast.success('Entertainment service moved to trash successfully!');
       fetchEntertainmentServices(statusFilter, searchTerm);
     } catch (err: unknown) {
       console.error('Error deleting entertainment service:', err);

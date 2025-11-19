@@ -2,7 +2,9 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import apiClient from '@/lib/api';
-import { signInWithGoogle, logout as firebaseLogout } from '@/lib/firebase-auth';
+import { signInWithGoogle, logout as firebaseLogout, getCurrentUser } from '@/lib/firebase-auth';
+import { auth } from '@/lib/firebase';
+import { onIdTokenChanged } from 'firebase/auth';
 import { User, AuthContextType, RegisterData, LoginResponse, RoleUpdateResponse, UserRole, ServiceCategory } from '@/types/auth';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,22 +19,110 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user;
 
+  // In-memory throttle for /auth/profile to avoid 429s when many components mount
+  const lastProfileFetchRef = React.useRef<number>(0);
+  const inflightProfileRef = React.useRef<Promise<unknown> | null>(null);
+
+  const fetchProfileWithRetryThrottled = async (): Promise<User | null> => {
+    const now = Date.now();
+    // 20s throttle window
+    if (inflightProfileRef.current) {
+      return inflightProfileRef.current as Promise<User | null>;
+    }
+    if (now - lastProfileFetchRef.current < 20_000) {
+      // Too soon; just reuse last successful value from localStorage
+      const cached = localStorage.getItem('user');
+      return cached ? (JSON.parse(cached) as User) : null;
+    }
+
+    const runner = (async () => {
+      let attempt = 0;
+      const maxAttempts = 3;
+      const baseDelay = 300; // ms
+      while (attempt < maxAttempts) {
+        try {
+          const response = await apiClient.get('/auth/profile');
+          lastProfileFetchRef.current = Date.now();
+          if (process.env.NODE_ENV === 'development') {
+            console.log('👤 Profile fetched successfully:', response.data);
+          }
+          return response.data as User;
+        } catch (err: unknown) {
+          const status = (err as { response?: { status?: number } })?.response?.status;
+          if (process.env.NODE_ENV === 'development') {
+            console.error('👤 Profile fetch error:', {
+              attempt,
+              status,
+              error: err,
+              message: (err as Error)?.message
+            });
+          }
+          if (status === 429 || status === 503) {
+            const delay = baseDelay * Math.pow(2, attempt);
+            await new Promise(r => setTimeout(r, delay));
+            attempt += 1;
+            continue;
+          }
+          throw err;
+        }
+      }
+      return null;
+    })();
+
+    inflightProfileRef.current = runner.finally(() => {
+      inflightProfileRef.current = null;
+    });
+
+    return inflightProfileRef.current as Promise<User | null>;
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👤 Initializing auth...');
+      }
       const token = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('👤 Auth data from localStorage:', { token: !!token, storedUser: !!storedUser });
+      }
 
       if (token && storedUser) {
         try {
           const user = JSON.parse(storedUser);
           setUser(user);
           
-          // Verify token is still valid by fetching profile
-          const response = await apiClient.get('/auth/profile');
           if (process.env.NODE_ENV === 'development') {
-            console.log('👤 Current user profile data:', response.data);
+            console.log('👤 Setting user from localStorage:', user);
           }
-          setUser(response.data);
+          
+          // Verify token is still valid by fetching profile (with retry + throttle)
+          const responseData = await fetchProfileWithRetryThrottled();
+          if (process.env.NODE_ENV === 'development') {
+            console.log('👤 Current user profile data:', responseData);
+          }
+          
+          // If user signed in with Google, also check Firebase for the latest photoURL
+          // This ensures we have the most up-to-date profile photo
+          if (responseData && (responseData as { provider?: string }).provider === 'google.com') {
+            const firebaseUser = getCurrentUser();
+            if (firebaseUser?.photoURL && !(responseData as { photoURL?: string }).photoURL) {
+              // Use Firebase photoURL as fallback if database doesn't have it
+              (responseData as { photoURL?: string }).photoURL = firebaseUser.photoURL;
+            } else if (firebaseUser?.photoURL && firebaseUser.photoURL !== (responseData as { photoURL?: string }).photoURL) {
+              // Firebase photoURL is newer, use it
+              (responseData as { photoURL?: string }).photoURL = firebaseUser.photoURL;
+            }
+          }
+          
+          if (responseData) {
+            setUser(responseData);
+          }
+          // Update localStorage with the latest user data including photoURL
+          if (responseData) {
+            localStorage.setItem('user', JSON.stringify(responseData));
+          }
         } catch (error) {
           if (process.env.NODE_ENV === 'development') {
             console.error('Auth initialization error:', error);
@@ -48,6 +138,46 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
 
     initializeAuth();
+  }, []);
+
+  // Set up Firebase token refresh listener
+  // This ensures Firebase tokens are automatically refreshed and stored in localStorage
+  // Firebase tokens expire after 1 hour, but Firebase automatically refreshes them
+  // This listener updates localStorage whenever the token is refreshed
+  useEffect(() => {
+    // Only set up listener if we're in the browser
+    if (typeof window === 'undefined') return;
+
+    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Get the latest token (Firebase automatically refreshes if needed)
+          const token = await firebaseUser.getIdToken(false);
+          
+          // Update localStorage with the fresh token
+          // This ensures sessions persist longer than 1 hour
+          const currentToken = localStorage.getItem('token');
+          if (currentToken !== token) {
+            localStorage.setItem('token', token);
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔄 Firebase token refreshed via listener');
+            }
+          }
+        } catch (error) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('❌ Failed to refresh Firebase token in listener:', error);
+          }
+        }
+      } else {
+        // User signed out, clear token
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      }
+    });
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string): Promise<void> => {
@@ -119,6 +249,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🔑 Got Firebase ID token, sending to backend...');
         console.log('🌐 API URL:', apiClient.defaults.baseURL);
         console.log('🔗 Full endpoint:', `${apiClient.defaults.baseURL}/auth/google`);
+        console.log('🔐 ID Token length:', idToken?.length);
       }
       
       // Test API connectivity first
@@ -171,6 +302,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
       const { user: userData, token, needsRoleSelection } = response.data;
       
+      // If user signed in with Google, ensure we have the photoURL from Firebase
+      // This is a fallback in case the database doesn't have it yet
+      // Firebase user from signInWithGoogle() has the latest photoURL
+      if (user.photoURL && (!userData.photoURL || user.photoURL !== userData.photoURL)) {
+        userData.photoURL = user.photoURL;
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🖼️ Using Firebase photoURL as fallback/update:', user.photoURL);
+        }
+      }
+      
       // Debug: Log the photoURL we received
       if (process.env.NODE_ENV === 'development') {
         console.log('🖼️ User photoURL received:', userData.photoURL);
@@ -219,6 +360,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         switch (status) {
           case 401:
             errorMessage = 'Authentication failed. Please try again.';
+            break;
+          case 403:
+            errorMessage = 'Access forbidden. Your account may not have the required permissions.';
             break;
           case 429:
             errorMessage = 'Too many requests. Please wait a moment and try again.';

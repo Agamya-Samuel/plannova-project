@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { UserRole, ServiceCategory } from '@/types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, CheckCircle, Utensils, Video, Flower, Music } from 'lucide-react';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, Utensils, Video, Flower, Music, FileText } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
 import Image from 'next/image';
 
@@ -19,13 +19,11 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Venues', href: '/venues', icon: <MapPin className="h-4 w-4" /> },
-  { label: 'Vendors', href: '/vendors', roles: ['CUSTOMER', 'PROVIDER', 'ADMIN'], icon: <Users className="h-4 w-4" /> },
-  { label: 'Photos', href: '/photos', icon: <Camera className="h-4 w-4" /> },
-  { label: 'Past Events', href: '/past-events', icon: <Heart className="h-4 w-4" /> },
+  { label: 'Vendors', href: '/vendors', icon: <Users className="h-4 w-4" /> },
+  { label: 'Blog', href: '/blog', icon: <FileText className="h-4 w-4" /> },
   { label: 'My Bookings', href: '/bookings', roles: ['CUSTOMER'], icon: <Calendar className="h-4 w-4" /> },
   // My Service dropdown will be added dynamically for providers
-  { label: 'Approvals', href: '/staff/approvals', roles: ['STAFF'], icon: <CheckCircle className="h-4 w-4" /> },
-  { label: 'Admin Panel', href: '/admin', roles: ['ADMIN'], icon: <Settings className="h-4 w-4" /> },
+  // Approvals moved to Staff Dashboard card
 ];
 
 export default function Navbar() {
@@ -38,6 +36,15 @@ export default function Navbar() {
   const desktopProfileRef = useRef<HTMLDivElement>(null);
   const mobileProfileRef = useRef<HTMLDivElement>(null);
   const servicesRef = useRef<HTMLDivElement>(null);
+
+  // Handle button pop animation on click
+  const handleButtonClick = (e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
+    const target = e.currentTarget;
+    target.classList.add('button-pop');
+    setTimeout(() => {
+      target.classList.remove('button-pop');
+    }, 200);
+  };
 
   const handleLogout = () => {
     logout();
@@ -92,6 +99,10 @@ export default function Navbar() {
     if (href === '/provider/venues') {
       return pathname.startsWith('/provider/venues');
     }
+    // Blog route: active when on /blog or any blog sub-route
+    if (href === '/blog') {
+      return pathname.startsWith('/blog');
+    }
     return pathname === href;
   };
 
@@ -112,7 +123,7 @@ export default function Navbar() {
     : serviceOptions;
 
   return (
-    <nav className="bg-white shadow-lg border-b sticky top-0 z-50">
+    <nav className="bg-white shadow-lg sticky top-0 z-50">
       <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="relative flex justify-between items-center h-16">
           {/* Mobile: Left - Hamburger (reserve space; hide visually when profile menu open) */}
@@ -249,9 +260,10 @@ export default function Navbar() {
                     <p className="text-sm font-medium text-gray-700">
                       {user?.firstName}
                     </p>
-                    <p className="text-xs text-pink-600 font-medium">
+                    {/* Role as a tag/badge */}
+                    <span className="inline-block mt-0.5 px-2 py-0.5 text-xs font-semibold text-pink-600 bg-pink-100 rounded-full">
                       {user?.role}
-                    </p>
+                    </span>
                   </div>
                   
                   {/* Dropdown Arrow */}
@@ -340,13 +352,27 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                <Link href="/auth/login">
-                  <Button variant="ghost" size="sm" className="text-gray-700 hover:text-pink-600">
+                <Link href="/auth/login" onClick={handleButtonClick}>
+                  <Button
+                    size="sm"
+                    className={`${
+                      pathname?.includes('/auth/login')
+                        ? 'bg-blue-100 border-blue-500 text-blue-800 shadow-inner'
+                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700'
+                    } active:bg-blue-100 active:border-blue-500 active:text-blue-800 focus:bg-blue-50 focus:border-blue-400 focus:text-blue-700 shadow-sm hover:shadow-md active:shadow-inner rounded-lg px-5 py-2 font-medium transition-all duration-200`}
+                  >
                     Sign In
                   </Button>
                 </Link>
-                <Link href="/auth/register">
-                  <Button size="sm" className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white">
+                <Link href="/auth/register" onClick={handleButtonClick}>
+                  <Button
+                    size="sm"
+                    className={`${
+                      pathname?.includes('/auth/register')
+                        ? 'bg-gradient-to-r from-pink-700 to-purple-700 shadow-inner'
+                        : 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700'
+                    } text-white shadow-md hover:shadow-lg rounded-lg px-5 py-2 font-medium transition-all duration-200`}
+                  >
                     Sign Up
                   </Button>
                 </Link>
@@ -564,18 +590,32 @@ export default function Navbar() {
           {isAuthenticated ? (
             <></>
           ) : (
-            <div className="border-t border-gray-200 pt-4 mt-2 space-y-2 px-4">
+            <div className="border-t border-gray-200 pt-4 mt-2 space-y-3 px-4">
               <Link
                 href="/auth/login"
-                className="block px-4 py-3 rounded-xl text-base font-medium text-gray-700 hover:text-pink-600 hover:bg-pink-50 transition-colors"
-                onClick={() => setIsOpen(false)}
+                className={`block px-6 py-3 rounded-lg text-base font-medium text-center transition-all duration-200 ${
+                  pathname?.includes('/auth/login')
+                    ? 'bg-blue-100 border border-blue-500 text-blue-800 shadow-inner'
+                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 active:bg-blue-100 active:border-blue-500 active:text-blue-800 shadow-sm hover:shadow-md active:shadow-inner'
+                }`}
+                onClick={(e) => {
+                  handleButtonClick(e);
+                  setIsOpen(false);
+                }}
               >
                 Sign In
               </Link>
               <Link
                 href="/auth/register"
-                className="block px-4 py-3 rounded-xl text-base font-medium text-white bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 transition-colors text-center"
-                onClick={() => setIsOpen(false)}
+                className={`block px-6 py-3 rounded-lg text-base font-medium text-white text-center transition-all duration-200 ${
+                  pathname?.includes('/auth/register')
+                    ? 'bg-gradient-to-r from-pink-700 to-purple-700 shadow-inner'
+                    : 'bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 shadow-md hover:shadow-lg'
+                }`}
+                onClick={(e) => {
+                  handleButtonClick(e);
+                  setIsOpen(false);
+                }}
               >
                 Sign Up
               </Link>

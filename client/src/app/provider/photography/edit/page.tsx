@@ -28,6 +28,7 @@ import 'react-phone-number-input/style.css';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 // Define the structure of the form data
 interface PhotographyServiceFormData {
@@ -51,6 +52,7 @@ interface PhotographyServiceFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -122,7 +124,8 @@ export default function EditPhotographyService() {
     photographyTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchPhotographyService = React.useCallback(async () => {
@@ -141,7 +144,8 @@ export default function EditPhotographyService() {
         photographyTypes: service.photographyTypes,
         packages: service.packages.map((p: { price: { toString: () => string; }; }) => ({...p, price: p.price.toString()})),
         addons: service.addons.map((a: { price: { toString: () => string; }; }) => ({...a, price: a.price.toString()})),
-        images: service.images
+        images: service.images,
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
     } catch (err: unknown) {
       let errorMessage = 'Failed to fetch photography service';
@@ -280,7 +284,7 @@ export default function EditPhotographyService() {
             } else if (!isValidPhoneNumber(formData.contact.phone)) {
                 validationErrors.push('Please enter a valid phone number');
             }
-            if (formData.contact.whatsapp.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
+            if (formData.contact.whatsapp?.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
                 validationErrors.push('Please enter a valid WhatsApp number');
             }
             if (!formData.contact.email.trim()) validationErrors.push('Email is required');
@@ -341,7 +345,7 @@ export default function EditPhotographyService() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -356,7 +360,7 @@ export default function EditPhotographyService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.put(`/photography/${serviceId}`, serviceData);
+      await apiClient.put(`/photography/${serviceId}`, { ...serviceData, status });
       toast.success('Photography service updated successfully!');
       router.push('/provider/photography');
     } catch (err: unknown) {
@@ -375,12 +379,11 @@ export default function EditPhotographyService() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (fetching) {
@@ -440,32 +443,26 @@ export default function EditPhotographyService() {
                 {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
-                  const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (canAccess) {
-                            setActiveTab(tab.id);
-                            setError('');
-                          }
+                          setActiveTab(tab.id);
+                          setError('');
                         }}
-                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
                             : isCompleted
                             ? 'bg-green-500 text-white'
-                            : canAccess
-                            ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
                         }`}
                       >
                         {isCompleted && !isCurrent ? <Check className="h-5 w-5" /> : <tab.icon className="h-5 w-5" />}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-pink-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : canAccess ? 'text-gray-600' : 'text-gray-400'
+                        isCurrent ? 'text-pink-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : 'text-gray-600'
                       }`}>
                         {tab.label}
                       </span>
@@ -489,13 +486,33 @@ export default function EditPhotographyService() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
                     <textarea value={formData.description} onChange={(e) => handleInputChange('description', e.target.value)} placeholder="Describe your photography service in detail..." rows={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" required minLength={10} />
                   </div>
-                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Base Price (₹) *</label>
-                    <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 15000" min="0" required className="text-black" />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Base Price (₹) *
+                    </label>
+                    <Input
+                      type="number"
+                      value={formData.basePrice}
+                      onChange={(e) => handleInputChange('basePrice', parseFloat(e.target.value) || 0)}
+                      placeholder="Enter starting price"
+                      min="0"
+                      required
+                      className="text-black"
+                    />
                   </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
+                  </div>
+
                 </div>
               )}
 
+              {/* Location Tab */}
               {activeTab === 'location' && (
                 <LocationInput
                   data={formData.serviceLocation}
@@ -588,6 +605,9 @@ export default function EditPhotographyService() {
                                     <Button type="button" size="sm" onClick={() => handleAddPackageInclude(index)} className="mt-2">Add Item</Button>
                                 </div>
                                 <div className="flex items-center mt-4">
+                                  {/* Removed minGuests field as it doesn't exist in PhotographyServiceFormData */}
+                                </div>
+                                <div className="flex items-center mt-4">
                                     <input type="checkbox" checked={pkg.isPopular} onChange={e => handlePackageChange(index, 'isPopular', e.target.checked)} />
                                     <label className="ml-2">Mark as Popular</label>
                                 </div>
@@ -595,8 +615,18 @@ export default function EditPhotographyService() {
                             </div>
                         ))}
                     </div>
+                    
+
                   </div>
                 </div>
+              )}
+
+              {/* Location Tab */}
+              {activeTab === 'location' && (
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => setFormData(prev => ({ ...prev, serviceLocation: data }))}
+                />
               )}
 
               {activeTab === 'policies' && (
@@ -610,6 +640,7 @@ export default function EditPhotographyService() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
                         <textarea value={formData.paymentTerms} onChange={(e) => handleInputChange('paymentTerms', e.target.value)} placeholder="Describe your payment terms..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
                     </div>
+                    {/* Payment Method Selector moved to services tab where pricing is set */}
                 </div>
               )}
 
@@ -656,9 +687,27 @@ export default function EditPhotographyService() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                      {loading ? 'Updating...' : 'Update Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 px-6"
+                      >
+                        {loading ? 'Submitting...' : 'Submit for Approval'}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                       <span>Next</span>

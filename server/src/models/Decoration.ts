@@ -43,12 +43,16 @@ export interface IDecoration extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
   rating: number;
   reviewCount: number;
   status: ApprovalStatus;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   isActive: boolean;
   pendingEdits?: Partial<IDecoration>;
   pendingEditSubmittedAt?: Date;
@@ -189,6 +193,10 @@ const DecorationSchema = new Schema<IDecoration>({
     required: true,
     min: 0
   },
+  pricePerGuest: {  // Add this block
+    type: Number,
+    min: 0
+  },
   minGuests: {
     type: Number,
     min: 1
@@ -242,7 +250,17 @@ const DecorationSchema = new Schema<IDecoration>({
       type: Date,
       default: Date.now
     }
-  }]
+  }],
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  }
 }, {
   timestamps: true
 });
@@ -276,3 +294,7 @@ DecorationSchema.pre('save', function(next) {
 });
 
 export default mongoose.model<IDecoration>('Decoration', DecorationSchema);
+
+
+
+

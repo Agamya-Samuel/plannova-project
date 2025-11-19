@@ -29,6 +29,9 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface VideographyServiceFormData {
   name: string;
@@ -52,6 +55,7 @@ interface VideographyServiceFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -118,7 +122,8 @@ function EditVideographyServiceContent() {
     videographyTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchVideographyService = React.useCallback(async () => {
@@ -138,7 +143,8 @@ function EditVideographyServiceContent() {
         videographyTypes: service.videographyTypes,
         packages: service.packages.map((p: { price: { toString: () => string; }; }) => ({...p, price: p.price.toString()})),
         addons: service.addons.map((a: { price: { toString: () => string; }; }) => ({...a, price: a.price.toString()})),
-        images: service.images
+        images: service.images,
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
     } catch (err: unknown) {
       let errorMessage = 'Failed to fetch videography service';
@@ -276,7 +282,7 @@ function EditVideographyServiceContent() {
             } else if (!isValidPhoneNumber(formData.contact.phone)) {
                 validationErrors.push('Please enter a valid phone number');
             }
-            if (formData.contact.whatsapp.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
+            if (formData.contact.whatsapp?.trim() && !isValidPhoneNumber(formData.contact.whatsapp)) {
                 validationErrors.push('Please enter a valid WhatsApp number');
             }
             if (!formData.contact.email.trim()) validationErrors.push('Email is required');
@@ -337,7 +343,7 @@ function EditVideographyServiceContent() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -353,7 +359,18 @@ function EditVideographyServiceContent() {
         basePrice: Number(formData.basePrice),
         minGuests: Number(formData.minGuests)
       };
-      await apiClient.put(`/videography/${serviceId}`, serviceData);
+      await apiClient.put(`/videography/${serviceId}`, { ...serviceData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+          serviceType: 'videography',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
+      
       toast.success('Videography service updated successfully!');
       router.push('/provider/videography');
     } catch (err: unknown) {
@@ -372,12 +389,11 @@ function EditVideographyServiceContent() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (fetching) {
@@ -437,32 +453,26 @@ function EditVideographyServiceContent() {
                 {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
-                  const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (canAccess) {
-                            setActiveTab(tab.id);
-                            setError('');
-                          }
+                          setActiveTab(tab.id);
+                          setError('');
                         }}
-                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-purple-600 text-white shadow-lg'
                             : isCompleted
                             ? 'bg-green-500 text-white'
-                            : canAccess
-                            ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
                         }`}
                       >
                         {isCompleted && !isCurrent ? <Check className="h-5 w-5" /> : <tab.icon className="h-5 w-5" />}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-purple-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : canAccess ? 'text-gray-600' : 'text-gray-400'
+                        isCurrent ? 'text-purple-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : 'text-gray-600'
                       }`}>
                         {tab.label}
                       </span>
@@ -491,12 +501,30 @@ function EditVideographyServiceContent() {
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 25000" min="0" required className="text-black" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Guests</label>
-                    <Input type="number" value={formData.minGuests} onChange={(e) => handleInputChange('minGuests', Number(e.target.value))} placeholder="e.g., 50" min="0" className="text-black" />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Minimum Guests
+                    </label>
+                    <Input
+                      type="number"
+                      value={formData.minGuests}
+                      onChange={(e) => handleInputChange('minGuests', parseInt(e.target.value) || 0)}
+                      placeholder="Minimum number of guests"
+                      min="0"
+                      className="text-black"
+                    />
                   </div>
+                    
+                    {/* Payment Method Selector */}
+                    <div className="mt-8">
+                      <PaymentMethodSelector 
+                        value={formData.paymentMethod}
+                        onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                      />
+                    </div>
                 </div>
               )}
 
+              {/* Location Tab */}
               {activeTab === 'location' && (
                 <LocationInput
                   data={formData.serviceLocation}
@@ -504,6 +532,7 @@ function EditVideographyServiceContent() {
                 />
               )}
 
+              {/* Contact Tab */}
               {activeTab === 'contact' && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Contact Information</h2>
@@ -536,6 +565,7 @@ function EditVideographyServiceContent() {
                 </div>
               )}
 
+              {/* Images Tab */}
               {activeTab === 'images' && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Images</h2>
@@ -550,6 +580,7 @@ function EditVideographyServiceContent() {
                 </div>
               )}
 
+              {/* Services Tab */}
               {activeTab === 'services' && (
                 <div className="space-y-8">
                   <h2 className="text-2xl font-bold text-gray-900 mb-6">Services & Packages</h2>
@@ -600,6 +631,7 @@ function EditVideographyServiceContent() {
                 </div>
               )}
 
+              {/* Policies Tab */}
               {activeTab === 'policies' && (
                 <div className="space-y-6">
                     <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
@@ -611,6 +643,7 @@ function EditVideographyServiceContent() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
                         <textarea value={formData.paymentTerms} onChange={(e) => handleInputChange('paymentTerms', e.target.value)} placeholder="Describe your payment terms..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
                     </div>
+                    {/* Payment Method Selector moved to services tab where pricing is set */}
                 </div>
               )}
 
@@ -623,7 +656,7 @@ function EditVideographyServiceContent() {
                       <p><strong>Service Name:</strong> {formData.name}</p>
                       <p><strong>Description:</strong> {formData.description}</p>
                       <p><strong>Base Price:</strong> ₹{formData.basePrice}</p>
-                      <p><strong>Min Guests:</strong> {formData.minGuests}</p>
+                      <p><strong>Payment Method:</strong> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>
@@ -658,9 +691,37 @@ function EditVideographyServiceContent() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-purple-600 to-blue-600">
-                      {loading ? 'Updating...' : 'Update Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-purple-600 text-purple-600 hover:bg-purple-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-purple-600 to-blue-600">
                       <span>Next</span>

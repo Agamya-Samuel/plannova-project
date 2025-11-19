@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
@@ -13,10 +13,12 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  IndianRupee
+  IndianRupee,
+  ChevronDown
 } from 'lucide-react';
 import type { Booking } from '@/types/booking';
 import apiClient from '@/lib/api';
+import { toast } from 'sonner';
 
 export default function AdminBookingsPage() {
   const { user: currentUser, isLoading } = useAuth();
@@ -24,39 +26,65 @@ export default function AdminBookingsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [paymentModeFilter, setPaymentModeFilter] = useState('all');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [totalBookings, setTotalBookings] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
+  const [itemsPerPage] = useState(10); // Set items per page
+
+  // Memoize expensive calculations
+  const pendingBookingsCount = useMemo(() => {
+    return bookings.filter(b => b.status === 'pending').length;
+  }, [bookings]);
+
+  const confirmedBookingsCount = useMemo(() => {
+    return bookings.filter(b => b.status === 'confirmed').length;
+  }, [bookings]);
+
+  const totalRevenue = useMemo(() => {
+    return bookings.reduce((sum, b) => sum + b.totalPrice, 0);
+  }, [bookings]);
 
   // Fetch bookings from API instead of mock data
   // Memoized to satisfy react-hooks exhaustive-deps and avoid unnecessary re-creations
-  const fetchBookings = useCallback(async (status: string = 'all', search: string = '') => {
+  const fetchBookings = useCallback(async (
+    status: string = 'all', 
+    paymentMode: string = 'all',
+    serviceType: string = 'all',
+    search: string = '', 
+    page: string = '1'
+  ) => {
     try {
       setLoading(true);
-      // Use provider incoming list if provider; otherwise use user bookings
-      const isProvider = currentUser?.role === 'PROVIDER';
-      const endpoint = isProvider ? '/bookings/provider/incoming' : '/bookings';
+      // Determine endpoint by role
+      const role = currentUser?.role;
+      let endpoint = '/bookings';
+      if (role === 'PROVIDER') {
+        endpoint = '/bookings/provider/incoming';
+      } else if (role === 'STAFF' || role === 'ADMIN') {
+        const params = new URLSearchParams({ 
+          page, 
+          limit: itemsPerPage.toString()
+        });
+        
+        // Add filters to params
+        if (status !== 'all') params.append('paymentStatus', status);
+        if (paymentMode !== 'all') params.append('paymentType', paymentMode);
+        if (serviceType !== 'all') params.append('serviceType', serviceType);
+        if (search) params.append('search', search);
+        
+        endpoint = `/admin/bookings?${params.toString()}`;
+      }
       const response = await apiClient.get(endpoint);
-      const apiBookings: Booking[] = response.data || [];
+      const apiBookings: Booking[] = response.data.bookings || [];
+      const pagination = response.data.pagination || { total: 0, pages: 1 };
 
-      // Apply filters
-      let filteredBookings = apiBookings;
-      
-      if (status !== 'all') {
-        filteredBookings = filteredBookings.filter(booking => booking.status.toLowerCase() === status.toLowerCase());
-      }
-      
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filteredBookings = filteredBookings.filter(booking => 
-          booking.venueName.toLowerCase().includes(searchLower) ||
-          booking.contactPerson.toLowerCase().includes(searchLower) ||
-          booking.contactEmail.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      setBookings(filteredBookings);
-      setTotalBookings(filteredBookings.length);
+      setBookings(apiBookings);
+      setTotalBookings(pagination.total);
+      setTotalPages(pagination.pages);
       setError('');
     } catch (err) {
       console.error('Error fetching bookings:', err);
@@ -64,27 +92,39 @@ export default function AdminBookingsPage() {
     } finally {
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, itemsPerPage]);
 
   useEffect(() => {
-    if (currentUser?.role === 'ADMIN') {
-      fetchBookings(statusFilter, searchTerm);
+    if (currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') {
+      fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm, currentPage.toString());
     }
-  }, [statusFilter, currentUser, searchTerm, fetchBookings]);
+  }, [statusFilter, paymentModeFilter, serviceTypeFilter, currentUser, searchTerm, fetchBookings, currentPage]);
 
-  const handleSearchTermChange = (value: string) => {
+  const handleSearchTermChange = useCallback((value: string) => {
     setSearchTerm(value);
     setCurrentPage(1);
-    fetchBookings(statusFilter, value);
-  };
+    fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, value, '1');
+  }, [statusFilter, paymentModeFilter, serviceTypeFilter, fetchBookings]);
 
-  const handleStatusFilterChange = (value: string) => {
+  const handleStatusFilterChange = useCallback((value: string) => {
     setStatusFilter(value);
     setCurrentPage(1);
-    fetchBookings(value, searchTerm);
-  };
+    fetchBookings(value, paymentModeFilter, serviceTypeFilter, searchTerm, '1');
+  }, [paymentModeFilter, serviceTypeFilter, searchTerm, fetchBookings]);
 
-  const getStatusIcon = (status: string) => {
+  const handlePaymentModeFilterChange = useCallback((value: string) => {
+    setPaymentModeFilter(value);
+    setCurrentPage(1);
+    fetchBookings(statusFilter, value, serviceTypeFilter, searchTerm, '1');
+  }, [statusFilter, serviceTypeFilter, searchTerm, fetchBookings]);
+
+  const handleServiceTypeFilterChange = useCallback((value: string) => {
+    setServiceTypeFilter(value);
+    setCurrentPage(1);
+    fetchBookings(statusFilter, paymentModeFilter, value, searchTerm, '1');
+  }, [statusFilter, paymentModeFilter, searchTerm, fetchBookings]);
+
+  const getStatusIcon = useCallback((status: string) => {
     switch (status) {
       case 'PENDING':
       case 'pending':
@@ -101,9 +141,9 @@ export default function AdminBookingsPage() {
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
-  };
+  }, []);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = useCallback((status: string) => {
     switch (status) {
       case 'PENDING':
       case 'pending':
@@ -120,9 +160,9 @@ export default function AdminBookingsPage() {
       default:
         return 'bg-gray-100 text-gray-800';
     }
-  };
+  }, []);
 
-  const getStatusText = (status: string) => {
+  const getStatusText = useCallback((status: string) => {
     switch (status) {
       case 'PENDING':
       case 'pending':
@@ -139,14 +179,168 @@ export default function AdminBookingsPage() {
       default:
         return status;
     }
+  }, []);
+
+  const getPaymentModeText = useCallback((paymentMode?: string) => {
+    switch (paymentMode) {
+      case 'CASH':
+        return 'Cash';
+      case 'ONLINE':
+        return 'Online';
+      default:
+        return 'Not specified';
+    }
+  }, []);
+
+  const getPaymentModeClass = useCallback((paymentMode?: string) => {
+    switch (paymentMode) {
+      case 'CASH':
+        return 'bg-blue-100 text-blue-800';
+      case 'ONLINE':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getBookingTypeText = useCallback((bookingType?: string) => {
+    switch (bookingType) {
+      case 'CASH':
+        return 'Cash Booking';
+      case 'ONLINE':
+        return 'Online Booking';
+      default:
+        return 'Not specified';
+    }
+  }, []);
+
+  const getBookingTypeClass = useCallback((bookingType?: string) => {
+    switch (bookingType) {
+      case 'CASH':
+        return 'bg-blue-100 text-blue-800';
+      case 'ONLINE':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getServiceTypeLabel = useCallback((serviceType: string) => {
+    switch (serviceType) {
+      case 'venue':
+        return 'Venue';
+      case 'catering':
+        return 'Catering';
+      case 'photography':
+        return 'Photography';
+      case 'videography':
+        return 'Videography';
+      case 'bridal-makeup':
+        return 'Bridal Makeup';
+      case 'decoration':
+        return 'Decoration';
+      case 'entertainment':
+        return 'Entertainment';
+      default:
+        return serviceType;
+    }
+  }, []);
+
+  const handlePaymentStatusUpdate = async (bookingId: string, newStatus: string) => {
+    try {
+      const response = await apiClient.put(`/admin/bookings/${bookingId}/payment-status`, {
+        paymentStatus: newStatus
+      });
+      
+      // Update the booking in the state more efficiently
+      setBookings(prevBookings => 
+        prevBookings.map(booking => 
+          booking.id === bookingId 
+            ? { ...booking, paymentStatus: response.data.booking.paymentStatus } 
+            : booking
+        )
+      );
+      
+      toast.success('Payment status updated successfully');
+      setEditingPaymentStatus(null);
+    } catch (error) {
+      console.error('Error updating payment status:', error);
+      toast.error('Failed to update payment status');
+    }
   };
 
-  if (!isLoading && currentUser?.role !== 'ADMIN') {
+  const renderPaymentStatusCell = useCallback((booking: Booking) => {
+    const paymentStatusOptions = [
+      { value: 'pending', label: 'Pending' },
+      { value: 'paid', label: 'Paid' },
+      { value: 'failed', label: 'Failed' },
+      { value: 'refunded', label: 'Refunded' }
+    ];
+    
+    const paymentStatus = booking.paymentStatus || 'pending';
+    
+    return (
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="flex items-center space-x-2">
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(paymentStatus)}`}>
+            {getStatusIcon(paymentStatus)}
+            <span className="ml-1">{getStatusText(paymentStatus)}</span>
+          </span>
+          <div className="relative">
+            <button 
+              className="text-gray-400 hover:text-gray-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditingPaymentStatus(
+                  editingPaymentStatus === booking.id ? null : booking.id
+                );
+              }}
+            >
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            
+            {editingPaymentStatus === booking.id && (
+              <div className="absolute right-0 mt-1 w-32 bg-white rounded-md shadow-lg py-1 z-10 border border-gray-200">
+                {paymentStatusOptions.map(option => (
+                  <button
+                    key={option.value}
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handlePaymentStatusUpdate(booking.id, option.value);
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </td>
+    );
+  }, [editingPaymentStatus, getStatusColor, getStatusIcon, getStatusText]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (editingPaymentStatus && !(event.target as Element).closest('.relative')) {
+        setEditingPaymentStatus(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [editingPaymentStatus]);
+
+  if (!isLoading && !(currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF')) {
     return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (
-    <ProtectedRoute allowedRoles={['ADMIN']}>
+    <ProtectedRoute allowedRoles={['ADMIN', 'STAFF']}>
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-purple-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -191,7 +385,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Pending</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {bookings.filter(b => b.status === 'pending').length}
+                    {pendingBookingsCount}
                   </p>
                 </div>
               </div>
@@ -205,7 +399,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Confirmed</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    {bookings.filter(b => b.status === 'confirmed').length}
+                    {confirmedBookingsCount}
                   </p>
                 </div>
               </div>
@@ -219,7 +413,7 @@ export default function AdminBookingsPage() {
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600">Revenue</p>
                   <p className="text-2xl font-bold text-gray-900">
-                    ₹{bookings.reduce((sum, b) => sum + b.totalPrice, 0).toLocaleString()}
+                    ₹{totalRevenue.toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -267,12 +461,45 @@ export default function AdminBookingsPage() {
                     <option value="rejected">Rejected</option>
                   </select>
                 </div>
+                
+                {/* Payment Mode Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={paymentModeFilter}
+                    onChange={(e) => handlePaymentModeFilterChange(e.target.value)}
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="all">All Payment Modes</option>
+                    <option value="ONLINE">Online</option>
+                    <option value="CASH">Cash</option>
+                  </select>
+                </div>
+                
+                {/* Service Type Filter */}
+                <div className="flex items-center space-x-2">
+                  <Filter className="h-5 w-5 text-gray-400" />
+                  <select
+                    value={serviceTypeFilter}
+                    onChange={(e) => handleServiceTypeFilterChange(e.target.value)}
+                    className="px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="all">All Services</option>
+                    <option value="venue">Venues</option>
+                    <option value="catering">Catering</option>
+                    <option value="photography">Photography</option>
+                    <option value="videography">Videography</option>
+                    <option value="bridal-makeup">Bridal Makeup</option>
+                    <option value="decoration">Decoration</option>
+                    <option value="entertainment">Entertainment</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Search Results Info */}
-          {!loading && !error && (searchTerm || statusFilter !== 'all') && (
+          {!loading && !error && (searchTerm || statusFilter !== 'all' || paymentModeFilter !== 'all' || serviceTypeFilter !== 'all') && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -281,14 +508,18 @@ export default function AdminBookingsPage() {
                     {bookings.length} booking{bookings.length !== 1 ? 's' : ''} found
                     {searchTerm && ` for "${searchTerm}"`}
                     {statusFilter !== 'all' && ` with status "${getStatusText(statusFilter)}"`}
+                    {paymentModeFilter !== 'all' && ` with payment mode "${paymentModeFilter === 'ONLINE' ? 'Online' : 'Cash'}"`}
+                    {serviceTypeFilter !== 'all' && ` for service type "${getServiceTypeLabel(serviceTypeFilter)}"`}
                   </span>
                 </div>
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setStatusFilter('all');
+                    setPaymentModeFilter('all');
+                    setServiceTypeFilter('all');
                     setCurrentPage(1);
-                    fetchBookings('all', '');
+                    fetchBookings('all', 'all', 'all', '', '1');
                   }}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
                 >
@@ -332,6 +563,18 @@ export default function AdminBookingsPage() {
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Mode
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Booking Type
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Payment Status
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Provider
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Guests
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -346,16 +589,17 @@ export default function AdminBookingsPage() {
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10">
                               <Image 
-                                src={booking.venueImage} 
-                                alt={booking.venueName}
+                                src={booking.venueImage || booking.serviceImage || '/placeholder-image.png'} 
+                                alt={booking.venueName || booking.serviceName || 'Unknown Service'}
                                 width={40}
                                 height={40}
                                 className="rounded-full object-cover"
+                                style={{ width: 'auto', height: 'auto' }}
                               />
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {booking.venueName}
+                                {booking.venueName || booking.serviceName || 'Unknown Service'}
                               </div>
                               <div className="text-sm text-gray-500">
                                 ID: {booking.id}
@@ -388,6 +632,32 @@ export default function AdminBookingsPage() {
                             <span className="ml-1">{getStatusText(booking.status)}</span>
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {booking.paymentMode && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentModeClass(booking.paymentMode)}`}>
+                              {getPaymentModeText(booking.paymentMode)}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {booking.bookingType && (
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getBookingTypeClass(booking.bookingType)}`}>
+                              {getBookingTypeText(booking.bookingType)}
+                            </span>
+                          )}
+                        </td>
+                        {renderPaymentStatusCell(booking)}
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {booking.provider?.name || '—'}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {booking.provider?.email || ''}
+                          </div>
+                          {booking.provider?.phone && (
+                            <div className="text-sm text-gray-500">{booking.provider?.phone}</div>
+                          )}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {booking.guestCount}
                         </td>
@@ -406,15 +676,15 @@ export default function AdminBookingsPage() {
                   <div className="flex-1 flex justify-between sm:hidden">
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPage(currentPage - 1)}
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
                     >
                       Previous
                     </Button>
                     <Button
                       variant="outline"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={true} // For mock data
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
                     >
                       Next
                     </Button>
@@ -422,28 +692,57 @@ export default function AdminBookingsPage() {
                   <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
                     <div>
                       <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">1</span> to{' '}
-                        <span className="font-medium">{bookings.length}</span> of{' '}
-                        <span className="font-medium">{bookings.length}</span> results
+                        Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalBookings)}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalBookings)}</span> of{' '}
+                        <span className="font-medium">{totalBookings}</span> results
                       </p>
                     </div>
                     <div>
                       <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentPage(currentPage - 1)}
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                           disabled={currentPage === 1}
                           className="relative inline-flex items-center px-2 py-2 rounded-l-md"
                         >
                           Previous
                         </Button>
-                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                          Page 1 of 1
-                        </span>
+                        {[...Array(totalPages)].map((_, i) => {
+                          const pageNum = i + 1;
+                          // Only show first, last, current, and nearby pages
+                          if (pageNum === 1 || pageNum === totalPages || 
+                              (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                            return (
+                              <Button
+                                key={pageNum}
+                                variant={currentPage === pageNum ? "default" : "outline"}
+                                onClick={() => setCurrentPage(pageNum)}
+                                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
+                                  currentPage === pageNum 
+                                    ? 'z-10 bg-red-600 text-white border-red-600' 
+                                    : 'border-gray-300'
+                                }`}
+                              >
+                                {pageNum}
+                              </Button>
+                            );
+                          } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                            // Show ellipsis for skipped pages
+                            return (
+                              <span 
+                                key={`ellipsis-${pageNum}`}
+                                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700"
+                              >
+                                ...
+                              </span>
+                            );
+                          }
+                          return null;
+                        })}
                         <Button
                           variant="outline"
-                          onClick={() => setCurrentPage(currentPage + 1)}
-                          disabled={true} // For mock data
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
                           className="relative inline-flex items-center px-2 py-2 rounded-r-md"
                         >
                           Next

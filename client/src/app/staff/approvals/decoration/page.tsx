@@ -186,14 +186,14 @@ function StaffDecorationApprovalsContent() {
   };
 
   const handleDelete = async (serviceId: string) => {
-    const confirmed = await sonnerConfirm('Are you sure you want to delete this decoration service? This action cannot be undone.');
+    const confirmed = await sonnerConfirm('Are you sure you want to delete this decoration service? The service will be moved to the trash where it can be restored later.');
     if (!confirmed) {
       return;
     }
 
     try {
       await apiClient.delete(`/decoration/staff/${serviceId}`);
-      toast.success('Decoration service deleted successfully!');
+      toast.success('Decoration service moved to trash successfully!');
       fetchDecorationServices(statusFilter, searchTerm);
     } catch (err: unknown) {
       console.error('Error deleting decoration service:', err);

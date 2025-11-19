@@ -29,6 +29,9 @@ import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface BridalMakeupFormData {
   name: string;
@@ -51,6 +54,7 @@ interface BridalMakeupFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean; category: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -122,7 +126,8 @@ export default function CreateBridalMakeupService() {
     makeupTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const currentTabIndex = tabs.findIndex(tab => tab.id === activeTab);
@@ -211,7 +216,7 @@ export default function CreateBridalMakeupService() {
     return validationErrors.length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -226,7 +231,20 @@ export default function CreateBridalMakeupService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/bridal-makeup', { ...serviceData, status: 'DRAFT' });
+      const response = await apiClient.post('/bridal-makeup', { ...serviceData, status });
+      
+      // Save payment configuration
+      if (response.data?.data?._id) {
+        try {
+          await apiClient.post(`/vendor-service-config/${response.data.data._id}`, {
+            serviceType: 'bridal-makeup',
+            paymentMode: formData.paymentMethod
+          });
+        } catch (configError) {
+          console.error('Failed to save payment configuration:', configError);
+        }
+      }
+      
       toast.success('Bridal makeup service created successfully!');
       router.push('/provider/bridal-makeup');
     } catch (err) {
@@ -245,12 +263,11 @@ export default function CreateBridalMakeupService() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
@@ -419,6 +436,14 @@ export default function CreateBridalMakeupService() {
                    <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Starting Price (₹) *</label>
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 15000" min="0" required className="text-black" />
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
                   </div>
                 </div>
               )}
@@ -604,6 +629,7 @@ export default function CreateBridalMakeupService() {
                       <p><strong>Name:</strong> <span className="text-gray-600">{formData.name}</span></p>
                       <p><strong>Description:</strong> <span className="text-gray-600">{formData.description}</span></p>
                       <p><strong>Base Price:</strong> <span className="text-gray-600">₹{formData.basePrice.toLocaleString()}</span></p>
+                      <p><strong>Payment Method:</strong> <span className="text-gray-600">{formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</span></p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>
@@ -639,9 +665,27 @@ export default function CreateBridalMakeupService() {
                 <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                 
                 {isLastTab ? (
-                  <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                    {loading ? 'Creating…' : 'Create Service'}
-                  </Button>
+                  <div className="flex space-x-3">
+                    {/* Save as Draft Button */}
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      disabled={loading}
+                      onClick={() => handleManualSubmit('DRAFT')}
+                      className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                    >
+                      {loading ? 'Saving…' : 'Save as Draft'}
+                    </Button>
+                    {/* Submit for Approval Button */}
+                    <Button 
+                      type="button" 
+                      disabled={loading}
+                      onClick={() => handleManualSubmit('PENDING')}
+                      className="bg-gradient-to-r from-pink-600 to-purple-600 px-6"
+                    >
+                      {loading ? 'Submitting…' : 'Submit for Approval'}
+                    </Button>
+                  </div>
                 ) : (
                   <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                     <span>Next</span>

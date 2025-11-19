@@ -25,6 +25,8 @@ import { ImageUpload } from '@/components/upload';
 import VenueContactInput from '@/components/ui/VenueContactInput';
 import VenuePolicyInput from '@/components/ui/VenuePolicyInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import { VENUE_TYPES } from '@/constants/venueTypes';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 interface VenueFormData {
   name: string;
@@ -58,16 +60,11 @@ interface VenueFormData {
   foodOptions: Array<{ name: string; description: string; price: number; cuisine: string[]; isVeg: boolean; servingSize: string }>;
   decorationOptions: Array<{ name: string; description: string; price: number; theme: string; includes: string[]; duration: string }>;
   addonServices: Array<{ name: string; description: string; price: number; category: string; includes: string[]; duration: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
-const venueTypes = [
-  'Banquet Hall',
-  'Hotel',
-  'Resort',
-  'Outdoor',
-  'Palace',
-  'Farmhouse'
-];
+// Use shared venue types constant to ensure consistency across the application
+const venueTypes = VENUE_TYPES;
 
 const states = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
@@ -129,7 +126,8 @@ export default function CreateVenuePage() {
     features: [],
     foodOptions: [],
     decorationOptions: [],
-    addonServices: []
+    addonServices: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   // Update email when user data becomes available
@@ -232,7 +230,7 @@ export default function CreateVenuePage() {
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -295,10 +293,18 @@ export default function CreateVenuePage() {
       console.log('Submitting cleaned form data:', cleanFormData);
       console.log('Full API endpoint:', `${apiClient.defaults.baseURL}/venues`);
 
-      const response = await apiClient.post('/venues', { ...cleanFormData, status: 'DRAFT' });
+      const response = await apiClient.post('/venues', { ...cleanFormData, status });
       
-      // Set venue ID for future image uploads
+      // Save payment configuration
       if (response.data.venue?._id) {
+        try {
+          await apiClient.post(`/vendor-service-config/${response.data.venue._id}`, {
+            serviceType: 'venues',
+            paymentMode: formData.paymentMethod
+          });
+        } catch (configError) {
+          console.error('Failed to save payment configuration:', configError);
+        }
         setVenueId(response.data.venue._id);
       }
       
@@ -333,14 +339,12 @@ export default function CreateVenuePage() {
     }
   };
 
-  const handleManualSubmit = () => {
-    console.log('Manual submit button clicked');
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
+    console.log('Manual submit button clicked with status:', status);
     setIsExplicitSubmit(true);
-    // Trigger form submission after setting the flag
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (user?.role !== 'PROVIDER') {
@@ -803,6 +807,14 @@ export default function CreateVenuePage() {
                     </div>
                   </div>
 
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
+                  </div>
+
                   <VenuePolicyInput
                     data={{ cancellationPolicy: formData.cancellationPolicy }}
                     onChange={(data) => {
@@ -1157,6 +1169,7 @@ export default function CreateVenuePage() {
                       <p className="text-black"><strong>Type:</strong> {formData.type}</p>
                       <p className="text-black"><strong>Capacity:</strong> {formData.capacity.min} - {formData.capacity.max} guests</p>
                       <p className="text-black"><strong>Base Price:</strong> ₹{formData.basePrice.toLocaleString()}</p>
+                      <p className="text-black"><strong>Payment Method:</strong> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                     </div>
                     
                     <div className="border border-gray-200 rounded-lg p-4">
@@ -1206,24 +1219,45 @@ export default function CreateVenuePage() {
                   </Button>
                   
                   {isLastTab ? (
-                    <Button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleManualSubmit}
-                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Creating...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Create Venue</span>
-                        </div>
-                      )}
-                    </Button>
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-600"></div>
+                            <span>Saving...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Save as Draft</span>
+                          </div>
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </>
                   ) : (
                     <Button
                       type="button"

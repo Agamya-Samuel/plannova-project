@@ -44,6 +44,7 @@ export interface IPhotography extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number; // Add this line
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -59,6 +60,9 @@ export interface IPhotography extends Document {
     reason?: string;
     blockedAt: Date;
   }>;
+  // Soft Delete Fields
+  isDeleted: boolean;
+  deletedAt?: Date;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -182,6 +186,10 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
     required: true,
     min: 0
   },
+  pricePerGuest: {  // Add this block
+    type: Number,
+    min: 0
+  },
   minGuests: {
     type: Number,
     min: 1
@@ -233,6 +241,16 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
       default: Date.now
     }
   }],
+  // Soft Delete Fields
+  isDeleted: {
+    type: Boolean,
+    default: false,
+    index: true
+  },
+  deletedAt: {
+    type: Date,
+    default: null
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -245,3 +263,6 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
 // Create and export the Photography model
 export const Photography = mongoose.model<IPhotography>('Photography', PhotographySchema);
 export default Photography;
+
+
+

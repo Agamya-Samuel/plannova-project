@@ -40,11 +40,6 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/past-events" className="text-gray-300 hover:text-white transition-colors">
-                  Past Events
-                </Link>
-              </li>
-              <li>
                 <Link href="/about" className="text-gray-300 hover:text-white transition-colors">
                   About Us
                 </Link>
@@ -73,6 +68,16 @@ export default function Footer() {
               <li>
                 <Link href="/cancellation-policy" className="text-gray-300 hover:text-white transition-colors">
                   Cancellation Policy
+                </Link>
+              </li>
+              <li>
+                <Link href="/contact" className="text-gray-300 hover:text-white transition-colors">
+                  Contact Us
+                </Link>
+              </li>
+              <li>
+                <Link href="/shipping" className="text-gray-300 hover:text-white transition-colors">
+                  Shipping & Delivery Policy
                 </Link>
               </li>
             </ul>

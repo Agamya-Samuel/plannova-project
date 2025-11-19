@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X, CreditCard } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { Booking } from '@/types/booking';
 import { useRouter } from 'next/navigation';
-
+import PaymentButton from '@/components/booking/PaymentButton';
+import { toast } from 'sonner';
 
 export default function BookingsPage() {
   const { user } = useAuth();
@@ -18,6 +19,10 @@ export default function BookingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactBooking, setContactBooking] = useState<Booking | null>(null);
+  
+  // State for showing all dates modal
+  const [showAllDatesModal, setShowAllDatesModal] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -142,7 +147,10 @@ export default function BookingsPage() {
     window.location.href = `tel:${phone}`;
   };
 
-
+  const handleViewAllDates = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setShowAllDatesModal(true);
+  };
 
   if (loading) {
     return (
@@ -231,7 +239,24 @@ export default function BookingsPage() {
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div className="flex items-center text-gray-600">
                               <Calendar className="h-5 w-5 mr-3 text-pink-600" />
-                              <span>{new Date(booking.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                              {booking.isGroupBooking ? (
+                                <div>
+                                  <span>{booking.dates?.length} dates selected</span>
+                                  <p className="text-xs text-gray-500">
+                                    First: {new Date(booking.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} at {booking.time}
+                                  </p>
+                                  {booking.dates && booking.dates.length > 1 && (
+                                    <button 
+                                      onClick={() => handleViewAllDates(booking)}
+                                      className="text-xs text-blue-600 hover:text-blue-800 mt-1"
+                                    >
+                                      View all dates
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <span>{new Date(booking.date).toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                              )}
                             </div>
                             
                             <div className="flex items-center text-gray-600">
@@ -261,13 +286,55 @@ export default function BookingsPage() {
                       
                       {/* Provider Information */}
                       <div className="mt-6 pt-6 border-t border-gray-100">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Provider Information</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-3">Booking Information</h3>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                           <div className="flex items-center text-gray-600">
                             <User className="h-5 w-5 mr-3 text-pink-600" />
                             <div>
                               <p className="text-sm text-gray-500">Provider</p>
                               <p className="font-medium text-gray-900">{booking.provider?.name || 'Provider'}</p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-600">
+                            <CheckCircle className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-sm text-gray-500">Provider Status</p>
+                              <p className="font-medium text-gray-900">
+                                {booking.status === 'confirmed' ? 'Approved' : 
+                                 booking.status === 'pending' ? 'Pending Approval' : 
+                                 booking.status === 'rejected' ? 'Rejected' : 
+                                 'Cancelled'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-600">
+                            <IndianRupee className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-sm text-gray-500">Payment Mode</p>
+                              <p className="font-medium text-gray-900">
+                                {booking.paymentMode === 'ONLINE' ? 'Online Payment' : 
+                                 booking.paymentMode === 'CASH' ? 'Cash Payment' : 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center text-gray-600">
+                            <CreditCard className="h-5 w-5 mr-3 text-pink-600" />
+                            <div>
+                              <p className="text-sm text-gray-500">Payment Status</p>
+                              <p className={`font-medium ${
+                                booking.paymentStatus === 'paid' ? 'text-green-600' : 
+                                booking.paymentStatus === 'pending' ? 'text-yellow-600' : 
+                                booking.paymentStatus === 'failed' ? 'text-red-600' : 
+                                'text-gray-900'
+                              }`}>
+                                {booking.paymentStatus === 'paid' ? 'Paid' : 
+                                 booking.paymentStatus === 'pending' ? 'Pending' : 
+                                 booking.paymentStatus === 'failed' ? 'Failed' : 
+                                 booking.paymentStatus === 'refunded' ? 'Refunded' : 'N/A'}
+                              </p>
                             </div>
                           </div>
                           
@@ -300,6 +367,29 @@ export default function BookingsPage() {
                           >
                             Cancel Booking
                           </button>
+                        )}
+                        
+                        {/* Pay Now Button for Pending Online Payments */}
+                        {booking.paymentMode === 'ONLINE' && booking.paymentStatus === 'pending' && (
+                          <div className="w-full md:w-auto">
+                            <PaymentButton
+                              bookingId={booking.id}
+                              amount={booking.totalPrice}
+                              customerName={booking.contactPerson}
+                              customerEmail={booking.contactEmail}
+                              customerPhone={booking.contactPhone}
+                              onPaymentSuccess={async () => {
+                                // Refresh bookings after successful payment
+                                try {
+                                  const response = await apiClient.get<Booking[]>('/bookings');
+                                  setBookings(response.data);
+                                } catch (err) {
+                                  console.error('Error refreshing bookings:', err);
+                                  toast.error('Payment successful but failed to refresh booking status. Please refresh the page.');
+                                }
+                              }}
+                            />
+                          </div>
                         )}
                         
                         <button 
@@ -418,6 +508,69 @@ export default function BookingsPage() {
                     </button>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* View All Dates Modal */}
+        {showAllDatesModal && selectedBooking && selectedBooking.dates && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[80vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">All Booking Dates</h3>
+                <button 
+                  onClick={() => setShowAllDatesModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-gray-600 mb-4">
+                  This booking includes {selectedBooking.dates.length} dates:
+                </p>
+                
+                <div className="space-y-2">
+                  {selectedBooking.dates.map((date, index) => (
+                    <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                      <span className="w-6 h-6 flex items-center justify-center bg-pink-100 text-pink-800 rounded-full text-xs mr-3">
+                        {index + 1}
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {new Date(date).toLocaleDateString('en-IN', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-6 pt-4 border-t border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Event Time:</span>
+                    <span className="font-semibold">{selectedBooking.time}</span>
+                  </div>
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-gray-600">Total Price:</span>
+                    <span className="font-bold text-lg text-gray-900">
+                      ₹{selectedBooking.totalPrice.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-6">
+                <button
+                  onClick={() => setShowAllDatesModal(false)}
+                  className="w-full py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

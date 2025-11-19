@@ -22,6 +22,10 @@ import {
 } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { ImageUpload } from '@/components/upload';
+import { VENUE_TYPES } from '@/constants/venueTypes';
+
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 interface VenueFormData {
   name: string;
@@ -38,6 +42,7 @@ interface VenueFormData {
   amenities: Array<{ name: string; description: string; included: boolean; additionalCost: number }>;
   features: string[];
   foodOptions: Array<{ name: string; description: string; price: number; cuisine: string[]; isVeg: boolean; servingSize: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface Amenity {
@@ -56,7 +61,8 @@ interface FoodOption {
   servingSize: string;
 }
 
-const venueTypes = ['Banquet Hall', 'Hotel', 'Resort', 'Outdoor', 'Palace', 'Farmhouse'];
+// Use shared venue types constant to ensure consistency across the application
+const venueTypes = VENUE_TYPES;
 const states = ['Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'];
 
 const commonFeatures = [
@@ -96,7 +102,8 @@ export default function EditVenuePage() {
     images: [],
     amenities: [],
     features: [],
-    foodOptions: []
+    foodOptions: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchVenueForEdit = React.useCallback(async () => {
@@ -124,7 +131,8 @@ export default function EditVenuePage() {
         images: venueData.images || [],
         amenities: venueData.amenities || [],
         features: venueData.features || [],
-        foodOptions: venueData.foodOptions || []
+        foodOptions: venueData.foodOptions || [],
+        paymentMethod: venueData.paymentMethod || 'ONLINE_CASH'
       });
       
       // Show notification if venue is in pending edit status
@@ -316,7 +324,7 @@ export default function EditVenuePage() {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     e.stopPropagation();
     
@@ -373,12 +381,23 @@ export default function EditVenuePage() {
         images: Array.isArray(formData.images) ? formData.images : [],
         amenities: Array.isArray(formData.amenities) ? formData.amenities : [],
         features: Array.isArray(formData.features) ? formData.features : [],
-        foodOptions: Array.isArray(formData.foodOptions) ? formData.foodOptions : []
+        foodOptions: Array.isArray(formData.foodOptions) ? formData.foodOptions : [],
+        paymentMethod: formData.paymentMethod
       };
       
       console.log('Updating venue with cleaned data:', cleanFormData);
 
-      const response = await apiClient.put(`/venues/${venueId}`, cleanFormData);
+      const response = await apiClient.put(`/venues/${venueId}`, { ...cleanFormData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${venueId}`, {
+          serviceType: 'venues',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
       
       // Show appropriate message based on response
       if (response.data.message.includes('submitted for approval')) {
@@ -407,14 +426,12 @@ export default function EditVenuePage() {
     }
   };
 
-  const handleManualSubmit = () => {
-    console.log('Manual submit button clicked');
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
+    console.log('Manual submit button clicked with status:', status);
     setIsExplicitSubmit(true);
-    // Trigger form submission after setting the flag
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (user?.role !== 'PROVIDER') {
@@ -793,6 +810,14 @@ export default function EditVenuePage() {
                       rows={3}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
+                    />
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
                     />
                   </div>
                 </div>
@@ -1239,24 +1264,37 @@ export default function EditVenuePage() {
                   </Button>
                   
                   {isLastTab ? (
-                    <Button
-                      type="button"
-                      disabled={loading}
-                      onClick={handleManualSubmit}
-                      className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-8 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loading ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          <span>Updating...</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <Save className="h-4 w-4" />
-                          <span>Update Venue</span>
-                        </div>
-                      )}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button
                       type="button"

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CateringService {
   _id: string;
@@ -24,6 +25,7 @@ interface CateringService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -55,6 +57,7 @@ interface CateringService {
 
 export default function CateringDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<CateringService | null>(null);
@@ -62,6 +65,8 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -143,9 +148,18 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
     setSelectedImageIndex(null);
   };
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowBookingModal(true);
+  const handleDateSelect = (date: string | string[]) => {
+    if (typeof date === 'string') {
+      // Single date selection
+      setSelectedDate(date);
+      setSelectedDates([date]); // Also set the array for consistency
+      setShowBookingModal(true);
+    } else if (date.length > 0) {
+      // Multiple dates selection
+      setSelectedDates(date);
+      setSelectedDate(date[0]); // Set first date as primary
+      setShowBookingModal(true);
+    }
   };
 
   const navigateImage = (direction: 'prev' | 'next') => {
@@ -375,7 +389,32 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
               serviceType="catering"
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
+
+            {/* Only show booking button if user is not a provider - providers can only view, not book */}
+            {user?.role !== 'PROVIDER' && selectedDate ? (
+              <Button
+                onClick={() => setShowBookingModal(true)}
+                className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
+              >
+                {selectedDates.length > 1 
+                  ? `Book for ${selectedDates.length} dates` 
+                  : `Book for ${selectedDate}`}
+              </Button>
+            ) : user?.role !== 'PROVIDER' ? (
+              <div className="text-center">
+                <Utensils className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+              </div>
+            ) : (
+              <div className="text-center">
+                <Utensils className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
+              </div>
+            )}
 
             {/* Contact Information */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
@@ -549,8 +588,9 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
           serviceName={service.name}
           serviceType="catering"
           basePrice={service.basePrice}
-          pricePerGuest={service.basePrice}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
+          preselectedDates={selectedDates}
         />
       )}
     </div>

@@ -100,7 +100,7 @@ export const validateS3Connection = async (): Promise<boolean> => {
 // Generate file key for S3 storage
 export const generateFileKey = (
   userId: string,
-  type: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration',
+  type: 'venue' | 'profile' | 'document' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration' | 'blog',
   filename: string,
   venueId?: string
 ): string => {
@@ -114,6 +114,9 @@ export const generateFileKey = (
   }
   if (type === 'decoration') {
     bucketPath = 'decoration';
+  }
+  if (type === 'blog') {
+    bucketPath = 'blog';
   }
   
   if (type === 'venue' && venueId) {
@@ -132,14 +135,31 @@ export const getS3Url = (key: string): string => {
     // Ensure the CDN URL doesn't end with a slash and the key doesn't start with one
     const baseUrl = cdnUrl.endsWith('/') ? cdnUrl.slice(0, -1) : cdnUrl;
     const filePath = key.startsWith('/') ? key.slice(1) : key;
+    
+    // For Tebi and path-style S3 endpoints, include bucket in the path
+    // Check if this is a path-style endpoint (like Tebi) that needs bucket in path
+    // Tebi uses path-style URLs: https://s3.tebi.io/bucket/key
+    const isPathStyleEndpoint = config.endpoint && (
+      config.endpoint.includes('tebi.io') || 
+      config.endpoint.includes('localhost') ||
+      baseUrl.includes('tebi.io')
+    );
+    
+    if (isPathStyleEndpoint) {
+      // Path-style S3: include bucket name in URL path
+      return `${baseUrl}/${config.bucket}/${filePath}`;
+    }
+    
+    // Virtual-hosted style or CDN that handles routing differently
     return `${baseUrl}/${filePath}`;
   }
   
   if (config.endpoint) {
-    // For local development or custom endpoints
+    // For local development or custom endpoints (path-style like Tebi)
+    // Path-style URLs: https://endpoint/bucket/key
     return `${config.endpoint}/${config.bucket}/${key}`;
   }
-  // Standard AWS S3 URL
+  // Standard AWS S3 URL (virtual-hosted style)
   return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
 };
 

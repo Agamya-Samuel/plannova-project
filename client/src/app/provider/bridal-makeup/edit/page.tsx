@@ -29,6 +29,9 @@ import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface BridalMakeupFormData {
   name: string;
@@ -52,6 +55,7 @@ interface BridalMakeupFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -117,7 +121,8 @@ function EditBridalMakeupServiceContent() {
     makeupTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchBridalMakeupService = React.useCallback(async () => {
@@ -137,7 +142,8 @@ function EditBridalMakeupServiceContent() {
         makeupTypes: service.makeupTypes,
         packages: service.packages.map((p: { price: number; }) => ({...p, price: p.price})),
         addons: service.addons.map((a: { price: number; }) => ({...a, price: a.price})),
-        images: service.images
+        images: service.images,
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
       
       // Mark all tabs as visited in edit mode for free navigation
@@ -338,7 +344,7 @@ function EditBridalMakeupServiceContent() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -353,7 +359,18 @@ function EditBridalMakeupServiceContent() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.put(`/bridal-makeup/${serviceId}`, serviceData);
+      await apiClient.put(`/bridal-makeup/${serviceId}`, { ...serviceData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+          serviceType: 'bridal-makeup',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
+      
       toast.success('Bridal makeup service updated successfully!');
       router.push('/provider/bridal-makeup');
     } catch (err: unknown) {
@@ -372,12 +389,11 @@ function EditBridalMakeupServiceContent() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   if (fetching) {
@@ -437,32 +453,26 @@ function EditBridalMakeupServiceContent() {
                 {tabs.map((tab) => {
                   const isCurrent = activeTab === tab.id;
                   const isCompleted = isTabCompleted(tab.id);
-                  const canAccess = isCompleted || isCurrent || visitedTabs.has(tab.id);
                   
                   return (
                     <div key={tab.id} className="flex flex-col items-center space-y-2">
                       <button
                         onClick={() => {
-                          if (canAccess) {
-                            setActiveTab(tab.id);
-                            setError('');
-                          }
+                          setActiveTab(tab.id);
+                          setError('');
                         }}
-                        disabled={!canAccess}
                         className={`w-10 h-10 rounded-full flex items-center justify-center font-medium text-sm transition-all duration-200 ${
                           isCurrent
                             ? 'bg-pink-600 text-white shadow-lg'
                             : isCompleted
                             ? 'bg-green-500 text-white'
-                            : canAccess
-                            ? 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            : 'bg-gray-200 text-gray-600 hover:bg-gray-300 cursor-pointer'
                         }`}
                       >
                         {isCompleted && !isCurrent ? <Check className="h-5 w-5" /> : <tab.icon className="h-5 w-5" />}
                       </button>
                       <span className={`text-xs text-center max-w-16 leading-tight ${
-                        isCurrent ? 'text-pink-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : canAccess ? 'text-gray-600' : 'text-gray-400'
+                        isCurrent ? 'text-pink-600 font-medium' : isCompleted ? 'text-green-600 font-medium' : 'text-gray-600'
                       }`}>
                         {tab.label}
                       </span>
@@ -489,6 +499,14 @@ function EditBridalMakeupServiceContent() {
                    <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Base Price (₹) *</label>
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 15000" min="0" required className="text-black" />
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
                   </div>
                 </div>
               )}
@@ -619,6 +637,7 @@ function EditBridalMakeupServiceContent() {
                       <p><strong>Service Name:</strong> <span className="text-gray-600">{formData.name}</span></p>
                       <p><strong>Description:</strong> <span className="text-gray-600">{formData.description}</span></p>
                       <p><strong>Base Price:</strong> <span className="text-gray-600">₹{formData.basePrice}</span></p>
+                      <p><strong>Payment Method:</strong> <span className="text-gray-600">{formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</span></p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>
@@ -653,9 +672,37 @@ function EditBridalMakeupServiceContent() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                      {loading ? 'Updating...' : 'Update Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6"
+                      >
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                       <span>Next</span>

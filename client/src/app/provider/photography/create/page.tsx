@@ -52,6 +52,7 @@ interface PhotographyServiceFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -112,7 +113,8 @@ export default function CreatePhotographyService() {
     photographyTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   // Update email when user data becomes available
@@ -303,7 +305,7 @@ export default function CreatePhotographyService() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
     if (!isExplicitSubmit) return;
     if (!validateCurrentTab()) {
@@ -318,7 +320,7 @@ export default function CreatePhotographyService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/photography', { ...serviceData, status: 'DRAFT' });
+      await apiClient.post('/photography', { ...serviceData, status });
       toast.success('Photography service created successfully!');
       router.push('/provider/photography');
     } catch (err) {
@@ -337,12 +339,11 @@ export default function CreatePhotographyService() {
     }
   };
 
-  const handleManualSubmit = () => {
+  const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     setIsExplicitSubmit(true);
-    const form = document.querySelector('form');
-    if (form) {
-      form.requestSubmit();
-    }
+    // Create a synthetic event and call handleSubmit directly with the status
+    const event = new Event('submit') as unknown as React.FormEvent;
+    handleSubmit(event, status);
   };
 
   return (
@@ -539,15 +540,32 @@ export default function CreatePhotographyService() {
 
               {activeTab === 'policies' && (
                 <div className="space-y-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies</h2>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Policy</label>
-                        <textarea value={formData.cancellationPolicy} onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)} placeholder="Describe your cancellation policy..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
-                        <textarea value={formData.paymentTerms} onChange={(e) => handleInputChange('paymentTerms', e.target.value)} placeholder="Describe your payment terms..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
-                    </div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">Policies (Optional)</h2>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <p className="text-blue-800 text-sm">
+                      <strong>Note:</strong> These are optional. You can add your policies later from your dashboard.
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Cancellation Policy</label>
+                    <textarea
+                      value={formData.cancellationPolicy}
+                      onChange={(e) => handleInputChange('cancellationPolicy', e.target.value)}
+                      placeholder="e.g., 50% refund if cancelled 7 days before..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
+                    <textarea
+                      value={formData.paymentTerms}
+                      onChange={(e) => handleInputChange('paymentTerms', e.target.value)}
+                      placeholder="e.g., 50% advance booking, balance on service day..."
+                      rows={3}
+                      className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black"
+                    />
+                  </div>
                 </div>
               )}
 
@@ -594,9 +612,27 @@ export default function CreatePhotographyService() {
                   <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
                   
                   {isLastTab ? (
-                    <Button type="button" disabled={loading} onClick={handleManualSubmit} className="bg-gradient-to-r from-pink-600 to-purple-600">
-                      {loading ? 'Creating...' : 'Create Service'}
-                    </Button>
+                    <div className="flex space-x-3">
+                      {/* Save as Draft Button */}
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('DRAFT')}
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                      >
+                        {loading ? 'Saving...' : 'Save as Draft'}
+                      </Button>
+                      {/* Submit for Approval Button */}
+                      <Button 
+                        type="button" 
+                        disabled={loading}
+                        onClick={() => handleManualSubmit('PENDING')}
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 px-6"
+                      >
+                        {loading ? 'Submitting...' : 'Submit for Approval'}
+                      </Button>
+                    </div>
                   ) : (
                     <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
                       <span>Next</span>

@@ -1,255 +1,181 @@
-# Plannova Wedding Planning Platform
+# Plannova Project
 
-A modern wedding planning application built with Next.js, Express.js, MongoDB, and Firebase authentication.
+## Project Overview
 
-## 🚀 Quick Start
+Plannova is a comprehensive event planning platform that connects customers with service providers for various event needs including venues, catering, photography, videography, bridal makeup, decoration, and entertainment.
 
-### Prerequisites
-- Node.js (v18 or higher)
-- MongoDB Atlas account
-- Firebase project
+## Table of Contents
 
-### Installation & Setup
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Payment Integration](#payment-integration)
+- [Testing](#testing)
+- [Deployment](#deployment)
 
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd plannova-project
-   ```
-
-2. **Install all dependencies**
-   ```bash
-   npm install
-   ```
-   This will automatically install dependencies for both client and server.
-
-3. **Setup environment variables**
-   
-   **Client** (`client/.env.local`):
-   ```env
-   NEXT_PUBLIC_API_URL=http://localhost:3000/api
-   NEXT_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-   # ... other Firebase config
-   ```
-   
-   **Server** (`server/.env`):
-   ```env
-   PORT=3000
-   MONGODB_URI=your_mongodb_connection_string
-   FIREBASE_PROJECT_ID=your_project_id
-   FIREBASE_CLIENT_EMAIL=your_service_account_email
-   FIREBASE_PRIVATE_KEY=your_private_key
-   EMAIL_HOST=smtp.gmail.com
-   EMAIL_PORT=587
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASS=your_app_password
-   ```
-
-## 🔧 Development Commands
-
-### Start Development (Recommended)
-```bash
-npm run dev
-```
-This starts both client and server concurrently with colored output:
-- **Backend**: http://localhost:3000 (yellow logs)
-- **Frontend**: http://localhost:3000 (cyan logs)
-
-### Individual Services
-```bash
-# Start only server
-npm run server
-
-# Start only client  
-npm run client
-```
-
-### Installation Commands
-```bash
-# Install all dependencies (client + server)
-npm install
-
-# Install client dependencies only
-npm run install:client
-
-# Install server dependencies only
-npm run install:server
-```
-
-### Build Commands
-```bash
-# Build client and server for production
-npm run build
-
-# Build client only
-npm run build:client
-
-# Build server only
-npm run build:server
-```
-
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 plannova-project/
-├── client/                 # Next.js frontend
-│   ├── src/
-│   │   ├── app/            # Next.js app router pages
-│   │   ├── components/     # React components
-│   │   │   ├── auth/
-│   │   │   ├── debug/
-│   │   │   ├── layout/
-│   │   │   ├── ui/
-│   │   │   └── upload/
-│   │   ├── contexts/       # React contexts
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── lib/            # Utilities & configs
-│   │   │   ├── api.ts
-│   │   │   ├── firebase-auth.ts
-│   │   │   ├── firebase-config-check.ts
-│   │   │   ├── firebase.ts
-│   │   │   ├── imageUpload.ts
-│   │   │   ├── sonner-confirm.tsx
-│   │   │   ├── sonner-prompt.tsx
-│   │   │   └── utils.ts
-│   │   ├── services/       # Service layer
-│   │   └── types/          # TypeScript types
-│   ├── public/             # Static assets
-│   └── package.json
-├── server/                 # Express.js backend
-│   ├── src/
-│   │   ├── app.ts          # Express app setup
-│   │   ├── db.ts           # Database connection
-│   │   ├── firebase-admin.ts # Firebase Admin SDK
-│   │   ├── middleware/     # Express middleware
-│   │   ├── models/         # Mongoose models
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Service layer
-│   │   ├── types/          # TypeScript types
-│   │   └── utils/          # Utility functions
-│   └── package.json
-├── package.json            # Root package.json for scripts
-└── README.md
+├── client/          # Next.js frontend application
+├── server/          # Node.js backend with Express
+└── README.md        # This file
 ```
 
-## 🔥 Firebase Integration
+## Getting Started
 
-This project uses Firebase for:
-- **Authentication**: Email/password + Google Sign-In
-- **Real-time features**: Firestore for live updates
-- **File storage**: Firebase Storage for images
+### Prerequisites
 
-See `FIREBASE_SETUP.md` for detailed Firebase configuration.
+- Node.js (v16 or higher)
+- MongoDB
+- Firebase account
+- Razorpay account
 
-## 🗄️ Database
+### Installation
 
-- **Primary Database**: MongoDB Atlas
-- **Authentication**: Firebase Auth
-- **Hybrid Setup**: MongoDB for data, Firebase for auth & real-time
+1. Clone the repository:
+```bash
+git clone <repository-url>
+```
 
-## 🎨 Tech Stack
+2. Install dependencies for both client and server:
+```bash
+cd server
+npm install
+cd ../client
+npm install
+```
 
-### Frontend
-- **Framework**: Next.js 15 with App Router
-- **Styling**: Tailwind CSS
-- **UI Components**: Custom components with Radix UI
-- **State Management**: React Context
-- **Authentication**: Firebase Auth
-- **Form Handling**: React Hook Form with Zod validation
+3. Set up environment variables (see below)
 
-### Backend
-- **Framework**: Express.js 5.x
-- **Database**: MongoDB with Mongoose
-- **Authentication**: Firebase Admin SDK
-- **Security**: Helmet, CORS, Rate Limiting
-- **File Upload**: AWS S3 with multer
-- **Image Processing**: Sharp for automatic image compression
+4. Start the development servers:
+```bash
+# In server directory
+npm run dev
 
-## 🚀 Deployment
+# In client directory
+npm run dev
+```
 
-1. **Build the application**
-   ```bash
-   npm run build
-   ```
+## Environment Variables
 
-2. **Set production environment variables**
+### Server (.env)
+Create a `.env` file in the `server/` directory based on `.env.example`:
 
-3. **Deploy frontend** (Vercel recommended)
+```bash
+# Required variables
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret
+RAZORPAY_KEY_ID=your_razorpay_key_id
+RAZORPAY_KEY_SECRET=your_razorpay_key_secret
+# ... other variables
+```
 
-4. **Deploy backend** (Railway, Heroku, or VPS)
+### Client (.env.local)
+Create a `.env.local` file in the `client/` directory:
 
-## 🛠️ Development Tips
+```bash
+NEXT_PUBLIC_RAZORPAY_KEY_ID=your_razorpay_key_id
+```
 
-- Use `npm run dev` for the best development experience
-- Both frontend and backend run on port 3000
-- All API calls go to `http://localhost:3000/api`
-- Hot reload is enabled for both frontend and backend
-- Check browser console for debugging information
+## Payment Integration
 
-### Password Reset Feature
+### Razorpay Setup
 
-The application includes a password reset feature that allows users to reset their passwords via email. To use this feature:
+1. Create a Razorpay account at [https://razorpay.com](https://razorpay.com)
+2. Get your API keys from the Razorpay Dashboard:
+   - Go to Settings → API Keys
+   - Generate new keys if needed
+3. Add the keys to your environment variables:
+   - Server: `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
+   - Client: `NEXT_PUBLIC_RAZORPAY_KEY_ID`
 
-1. Users can navigate to the "Forgot Password" page from the login screen
-2. They enter their email address to receive a password reset link
-3. An email is sent with a secure token link
-4. Clicking the link takes them to the password reset page
-5. Users enter a new password to complete the reset process
+### Testing Payments
 
-To configure the email service for password reset:
-1. Set up the email configuration in `server/.env`:
-   ```
-   EMAIL_HOST=smtp.gmail.com
-   EMAIL_PORT=587
-   EMAIL_USER=your_email@gmail.com
-   EMAIL_PASS=your_app_password
-   ```
-2. For Gmail, you'll need to use an App Password instead of your regular password
+For testing payments in development, use Razorpay's test card details:
 
-### Image Compression
+- Card Number: `4111 1111 1111 1111`
+- Expiry: Any future date
+- CVV: `123`
 
-The backend automatically compresses images before uploading them to S3 storage to reduce storage costs and bandwidth usage. This feature uses the Sharp library for high-performance image processing.
+### Payment Flow
 
-Key features:
-- Automatic compression of JPEG, PNG, WebP, TIFF, and AVIF images
-- Configurable quality settings (default: 65%)
-- Automatic resizing to maximum dimensions (default: 1920x1080)
-- Optional conversion to WebP format for better compression
-- Metadata stripping to reduce file size
-- Fallback to original image if compression doesn't reduce size
+1. User creates a booking
+2. User clicks "Pay Now" button
+3. System creates a Razorpay order
+4. User is redirected to Razorpay checkout
+5. User completes payment
+6. Razorpay redirects back to the application
+7. System verifies payment signature
+8. Booking status is updated to "paid"
 
-See `server/docs/image-compression.md` for detailed documentation.
+## Testing
 
-## 📝 Available Scripts
+### Running Tests
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start both client & server with live reload |
-| `npm run server` | Start only the Express.js server |
-| `npm run client` | Start only the Next.js client |
-| `npm install` | Install dependencies for both projects |
-| `npm run build` | Build client and server for production |
-| `npm run build:client` | Build client only |
-| `npm run build:server` | Build server only |
+```bash
+# Server tests
+cd server
+npm test
 
-## 🐛 Troubleshooting
+# Client tests
+cd client
+npm test
+```
 
-### Common Issues
+### Testing Payment Flow
 
-1. **Port conflicts**: If ports 3000 or 3002 are in use, the apps will try to use alternative ports
-2. **MongoDB connection**: Ensure your MongoDB URI is correct and IP is whitelisted
-3. **Firebase auth**: Check that all Firebase environment variables are set correctly
-4. **CORS errors**: Ensure the server CORS settings include your frontend URL
+To test the payment flow without actually making payments:
 
-### Getting Help
+```bash
+cd server
+npm run test:payment-flow
+```
 
-1. Check the console logs (both browser and terminal)
-2. Verify all environment variables are set
-3. Ensure all dependencies are installed with `npm install`
-4. Check that both servers are running on the correct ports
+Or manually test using the test script:
+```bash
+cd server
+npx ts-node scripts/test-payment-flow.ts
+```
 
-## 📄 License
+## Deployment
 
-[Your License Here]
+### Server Deployment
+
+1. Set up environment variables on your server
+2. Build the server:
+```bash
+cd server
+npm run build
+```
+3. Start the server:
+```bash
+npm start
+```
+
+### Client Deployment
+
+1. Set up environment variables
+2. Build the client:
+```bash
+cd client
+npm run build
+```
+3. Start the client:
+```bash
+npm start
+```
+
+Or deploy to Vercel/Netlify for easier deployment.
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
+
+## License
+
+This project is licensed under the MIT License.

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EntertainmentService {
   _id: string;
@@ -24,6 +25,7 @@ interface EntertainmentService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -61,12 +63,15 @@ interface EntertainmentService {
 
 export default function EntertainmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<EntertainmentService | null>(null);
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
+  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -77,9 +82,18 @@ export default function EntertainmentDetailPage({ params }: { params: Promise<{ 
     unwrapParams();
   }, [params]);
 
-  const handleDateSelect = (date: string) => {
-    setSelectedDate(date);
-    setShowBookingModal(true);
+  const handleDateSelect = (date: string | string[]) => {
+    if (typeof date === 'string') {
+      // Single date selection
+      setSelectedDate(date);
+      setSelectedDates([date]); // Also set the array for consistency
+      setShowBookingModal(true);
+    } else if (date.length > 0) {
+      // Multiple dates selection
+      setSelectedDates(date);
+      setSelectedDate(date[0]); // Set first date as primary
+      setShowBookingModal(true);
+    }
   };
 
   const fetchEntertainmentService = React.useCallback(async () => {
@@ -431,6 +445,9 @@ export default function EntertainmentDetailPage({ params }: { params: Promise<{ 
               serviceType="entertainment"
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
+              selectionMode={selectionMode}
+              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Card */}
@@ -442,17 +459,25 @@ export default function EntertainmentDetailPage({ params }: { params: Promise<{ 
                 <p className="text-gray-600">Starting Price</p>
               </div>
 
-              {selectedDate ? (
+              {/* Only show booking button if user is not a provider - providers can only view, not book */}
+              {user?.role !== 'PROVIDER' && selectedDate ? (
                 <Button
                   onClick={() => setShowBookingModal(true)}
                   className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-700 hover:to-orange-700 text-white"
                 >
-                  Book for {selectedDate}
+                  {selectedDates.length > 1 
+                    ? `Book for ${selectedDates.length} dates` 
+                    : `Book for ${selectedDate}`}
                 </Button>
-              ) : (
+              ) : user?.role !== 'PROVIDER' ? (
                 <div className="text-center">
                   <Music className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <Music className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
                 </div>
               )}
             </div>
@@ -467,8 +492,9 @@ export default function EntertainmentDetailPage({ params }: { params: Promise<{ 
           serviceName={service.name}
           serviceType="entertainment"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
+          preselectedDates={selectedDates}
         />
       </div>
     </div>
