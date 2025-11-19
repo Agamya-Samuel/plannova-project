@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { ServiceType } from '@/types/booking';
 import { useAuth } from '@/contexts/AuthContext';
 import { PaymentModeSelector } from '@/components/booking/PaymentModeSelector';
+import PaymentButton from '@/components/booking/PaymentButton';
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -38,6 +39,7 @@ export function BookingModal({
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [paymentMode, setPaymentMode] = useState<'CASH' | 'ONLINE' | null>(null);
+  const [createdBookingId, setCreatedBookingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     date: preselectedDate || (preselectedDates && preselectedDates.length > 0 ? preselectedDates[0] : '') || '',
     dates: preselectedDates || (preselectedDate ? [preselectedDate] : []),
@@ -47,6 +49,9 @@ export function BookingModal({
     contactPhone: '',
     contactEmail: user?.email || ''
   });
+
+  // For online payments, we want to keep the form disabled until payment is completed
+  const isFormDisabled = !!(loading || (createdBookingId && paymentMode === 'ONLINE'));
 
   // Update date when preselectedDate or preselectedDates changes
   useEffect(() => {
@@ -119,6 +124,8 @@ export function BookingModal({
     setLoading(true);
 
     try {
+      let bookingResponse: { data: { id?: string; bookings?: { id: string }[] } };
+      
       // If we have multiple dates, we need to create a grouped booking
       if (formData.dates.length > 1) {
         // Validate that all dates are properly formatted
@@ -142,7 +149,7 @@ export function BookingModal({
         };
       
         console.log('Sending multiple dates booking:', bookingData); // Debug log
-        await apiClient.post('/bookings', bookingData);
+        bookingResponse = await apiClient.post('/bookings', bookingData);
       
         toast.success(`Successfully booked ${formData.dates.length} date(s)! You can view them in "My Bookings".`);
       } else {
@@ -169,28 +176,40 @@ export function BookingModal({
         };
       
         console.log('Sending single date booking:', bookingData); // Debug log
-        await apiClient.post('/bookings', bookingData);
+        bookingResponse = await apiClient.post('/bookings', bookingData);
       
         toast.success('Booking request submitted successfully! You can view it in "My Bookings".');
       }
       
-      // Reset form
-      setFormData({
-        date: '',
-        dates: [],
-        time: '',
-        guestCount: '',
-        contactPerson: '',
-        contactPhone: '',
-        contactEmail: user?.email || ''
-      });
-      
-      onClose();
-      
-      // Optionally redirect to bookings page after a delay
-      setTimeout(() => {
-        router.push('/bookings');
-      }, 2000);
+      // Handle payment flow based on selected payment mode
+      if (paymentMode === 'CASH') {
+        // For cash payments, booking is created directly
+        // Reset form
+        setFormData({
+          date: '',
+          dates: [],
+          time: '',
+          guestCount: '',
+          contactPerson: '',
+          contactPhone: '',
+          contactEmail: user?.email || ''
+        });
+        
+        onClose();
+        
+        // Optionally redirect to bookings page after a delay
+        setTimeout(() => {
+          router.push('/bookings');
+        }, 2000);
+      } else {
+        // For online payments, store the booking ID and show payment button
+        const bookingId = bookingResponse.data.id || bookingResponse.data.bookings?.[0]?.id;
+        if (bookingId) {
+          setCreatedBookingId(bookingId);
+        } else {
+          throw new Error('Failed to get booking ID');
+        }
+      }
       
     } catch (error: unknown) {
       console.error('Error creating booking:', error);
@@ -243,6 +262,7 @@ export function BookingModal({
                     min={new Date().toISOString().split('T')[0]}
                     className="pl-10 w-full"
                     required
+                    disabled={isFormDisabled}
                   />
                 </div>
               </div>
@@ -260,6 +280,7 @@ export function BookingModal({
                     onChange={(e) => setFormData({ ...formData, time: e.target.value })}
                     className="pl-10 w-full"
                     required
+                    disabled={isFormDisabled}
                   />
                 </div>
               </div>
@@ -278,6 +299,7 @@ export function BookingModal({
                     onChange={(e) => setFormData({ ...formData, guestCount: e.target.value })}
                     className="pl-10 w-full"
                     required
+                    disabled={isFormDisabled}
                   />
                 </div>
               </div>
@@ -296,6 +318,7 @@ export function BookingModal({
                     className="pl-10 w-full"
                     placeholder="Full name"
                     required
+                    disabled={isFormDisabled}
                   />
                 </div>
               </div>
@@ -314,6 +337,7 @@ export function BookingModal({
                     className="pl-10 w-full"
                     placeholder="+91XXXXXXXXXX"
                     required
+                    disabled={isFormDisabled}
                   />
                 </div>
               </div>
@@ -332,6 +356,7 @@ export function BookingModal({
                     className="pl-10 w-full"
                     placeholder="your@email.com"
                     required
+                    disabled={isFormDisabled}
                   />
                 </div>
               </div>
@@ -346,6 +371,7 @@ export function BookingModal({
                   serviceType={serviceType}
                   onPaymentModeSelect={setPaymentMode}
                   selectedMode={paymentMode}
+                  disabled={isFormDisabled}
                 />
               </div>
               
@@ -359,21 +385,68 @@ export function BookingModal({
                 </div>
               </div>
               
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Processing...
-                  </>
-                ) : (
-                  'Confirm Booking'
-                )}
-              </Button>
+              {/* Payment Button for Online Bookings */}
+              {createdBookingId && paymentMode === 'ONLINE' ? (
+                <div className="space-y-4">
+                  <p className="text-center text-gray-600">
+                    Your booking has been created. Please complete the payment to confirm your booking.
+                  </p>
+                  <PaymentButton
+                    bookingId={createdBookingId}
+                    amount={calculateTotal()}
+                    customerName={formData.contactPerson}
+                    customerEmail={formData.contactEmail}
+                    customerPhone={formData.contactPhone}
+                    onPaymentSuccess={() => {
+                      // Reset form and close modal after successful payment
+                      setFormData({
+                        date: '',
+                        dates: [],
+                        time: '',
+                        guestCount: '',
+                        contactPerson: '',
+                        contactPhone: '',
+                        contactEmail: user?.email || ''
+                      });
+                      setCreatedBookingId(null);
+                      onClose();
+                      
+                      // Optionally redirect to bookings page after a delay
+                      setTimeout(() => {
+                        router.push('/bookings');
+                      }, 2000);
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setCreatedBookingId(null);
+                      onClose();
+                      router.push('/bookings');
+                    }}
+                    className="w-full"
+                  >
+                    Pay Later (View in Bookings)
+                  </Button>
+                </div>
+              ) : (
+                /* Submit Button */
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                      Processing...
+                    </div>
+                  ) : (
+                    'Confirm Booking'
+                  )}
+                </Button>
+              )}
             </form>
           </div>
         </div>

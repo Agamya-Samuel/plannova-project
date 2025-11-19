@@ -9,13 +9,15 @@ interface PaymentModeSelectorProps {
   serviceType: string;
   onPaymentModeSelect: (mode: 'CASH' | 'ONLINE' | null) => void;
   selectedMode: 'CASH' | 'ONLINE' | null;
+  disabled?: boolean; // Add this line
 }
 
 export function PaymentModeSelector({
   serviceId,
   serviceType,
   onPaymentModeSelect,
-  selectedMode
+  selectedMode,
+  disabled = false // Add this line
 }: PaymentModeSelectorProps) {
   const [paymentOptions, setPaymentOptions] = useState({
     cash: true,
@@ -64,6 +66,7 @@ export function PaymentModeSelector({
             variant={selectedMode === 'CASH' ? 'default' : 'outline'}
             className={`flex-1 ${selectedMode === 'CASH' ? 'bg-blue-600 hover:bg-blue-700' : ''}`}
             onClick={() => onPaymentModeSelect('CASH')}
+            disabled={disabled} // Add this line
           >
             <span className="font-medium">Cash Payment</span>
           </Button>
@@ -75,6 +78,7 @@ export function PaymentModeSelector({
             variant={selectedMode === 'ONLINE' ? 'default' : 'outline'}
             className={`flex-1 ${selectedMode === 'ONLINE' ? 'bg-green-600 hover:bg-green-700' : ''}`}
             onClick={() => onPaymentModeSelect('ONLINE')}
+            disabled={disabled} // Add this line
           >
             <span className="font-medium">Online Payment</span>
           </Button>
