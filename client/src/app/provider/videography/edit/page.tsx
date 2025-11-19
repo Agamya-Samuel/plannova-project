@@ -359,7 +359,7 @@ function EditVideographyServiceContent() {
         basePrice: Number(formData.basePrice),
         minGuests: Number(formData.minGuests)
       };
-      const response = await apiClient.put(`/videography/${serviceId}`, { ...serviceData, status });
+      await apiClient.put(`/videography/${serviceId}`, { ...serviceData, status });
       
       // Save payment configuration
       try {

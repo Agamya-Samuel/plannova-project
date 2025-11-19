@@ -114,7 +114,7 @@ function EditCateringServiceContent() {
         try {
           const paymentConfigResponse = await apiClient.get(`/vendor-service-config/catering`);
           paymentMethod = paymentConfigResponse.data.paymentMode || 'ONLINE_CASH';
-        } catch (paymentConfigError) {
+        } catch (err) {
           console.log('No payment configuration found, using default');
         }
         

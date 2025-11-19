@@ -31,8 +31,6 @@ import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
-import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
-
 interface PackageFormData {
   name: string;
   description: string;
@@ -295,7 +293,7 @@ function EditEntertainmentServiceContent() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({ ...a, price: Number(a.price) })),
         basePrice: Number(formData.basePrice)
       };
-      const response = await apiClient.put(`/entertainment/${serviceId}`, { ...serviceData, status });
+      await apiClient.put(`/entertainment/${serviceId}`, { ...serviceData, status });
       
       // Save payment configuration
       try {

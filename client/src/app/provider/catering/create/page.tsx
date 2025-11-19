@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import apiClient from '../../../../lib/api';
 import { ImageUpload } from '../../../../components/upload';
-import BasicInfoInput from '../../../../components/ui/BasicInfoInput';
 import LocationInput from '../../../../components/ui/LocationInput';
 import ContactInput from '../../../../components/ui/ContactInput';
 import PolicyInput from '../../../../components/ui/PolicyInput';

@@ -26,7 +26,6 @@ import type { VenueImageWithUpload } from '@/types/upload';
 import BasicInfoInput from '@/components/ui/BasicInfoInput';
 import LocationInput from '@/components/ui/LocationInput';
 import ContactInput from '@/components/ui/ContactInput';
-import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';

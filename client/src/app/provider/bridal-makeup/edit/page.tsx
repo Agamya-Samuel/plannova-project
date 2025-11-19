@@ -359,7 +359,7 @@ function EditBridalMakeupServiceContent() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      const response = await apiClient.put(`/bridal-makeup/${serviceId}`, { ...serviceData, status });
+      await apiClient.put(`/bridal-makeup/${serviceId}`, { ...serviceData, status });
       
       // Save payment configuration
       try {

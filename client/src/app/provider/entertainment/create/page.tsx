@@ -16,8 +16,6 @@ import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
-import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
-
 interface PackageFormData { name: string; description: string; includes: string[]; duration: string; price: number; isPopular: boolean; }
 interface AddonFormData { name: string; description: string; price: number; }
 
