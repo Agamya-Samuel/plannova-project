@@ -41,39 +41,6 @@ export default function Home() {
   // Track current image index for each venue category to enable image cycling
   const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   
-  // Convert common sharing links to direct image URLs so background works from
-  // services like Google Drive or Dropbox. If parsing fails, we return the
-  // original URL.
-  function normalizeImageUrl(input?: string): string {
-    if (!input) return '';
-    try {
-      // Google Drive share link patterns
-      if (/drive\.google\.com/.test(input)) {
-        // e.g., https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-        const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (match?.[1]) {
-          return `https://drive.google.com/uc?id=${match[1]}`;
-        }
-        // e.g., https://drive.google.com/open?id=FILE_ID or uc?id=FILE_ID
-        const idParam = new URL(input).searchParams.get('id');
-        if (idParam) {
-          return `https://drive.google.com/uc?id=${idParam}`;
-        }
-      }
-      // Dropbox shared links
-      if (/dropbox\.com/.test(input)) {
-        // Force direct download/raw host
-        const url = new URL(input);
-        url.hostname = 'dl.dropboxusercontent.com';
-        url.searchParams.set('raw', '1');
-        url.searchParams.delete('dl');
-        return url.toString();
-      }
-    } catch {
-      // Fall through and return original
-    }
-    return input;
-  }
   // Typing effect state for the typing options (not the title).
   // The title "Welcome to Plannova" is static, but options cycle through with typing effect.
   const [typedOption, setTypedOption] = useState<string>('');
@@ -527,7 +494,7 @@ export default function Home() {
           return (
             <div 
               className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-sm transform-gpu scale-105"
-              style={currentImage ? { backgroundImage: `url(${normalizeImageUrl(currentImage)})` } : undefined}
+              style={currentImage ? { backgroundImage: `url(${currentImage})` } : undefined}
             />
           );
         })()}
