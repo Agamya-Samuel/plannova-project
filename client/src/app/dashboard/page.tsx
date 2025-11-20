@@ -1423,7 +1423,7 @@ function DashboardCard({ title, description, icon, action, href, onClick, stats,
 
   return (
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group cursor-pointer" onClick={handleClick}>
-      <div className="p-6">
+      <div className="p-6 flex flex-col h-full">
         <div className="flex items-start justify-between mb-4">
           <div className="p-2 rounded-xl bg-gray-50 group-hover:bg-gray-100 transition-colors">
             {icon}
@@ -1438,12 +1438,12 @@ function DashboardCard({ title, description, icon, action, href, onClick, stats,
         <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors">
           {title}
         </h3>
-        <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+        <p className="text-gray-600 mb-6 text-sm leading-relaxed flex-grow">
           {description}
         </p>
         
         <div
-          className={`inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r ${getColorClasses(color)} text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105`}
+          className={`inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r ${getColorClasses(color)} text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105 mt-auto`}
         >
           {action}
           <svg
