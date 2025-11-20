@@ -221,10 +221,10 @@ export default function AdminPaymentsPage() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                    Payment Management
+                    Online Payment Management
                   </h1>
                   <p className="text-gray-600 text-lg">
-                    Track all payments and revenue across the platform
+                    Track all online payments and revenue across the platform
                   </p>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">

@@ -639,8 +639,8 @@ function AdminDashboard() {
           color="yellow"
         />
         <DashboardCard
-          title="Payment Management"
-          description="Track all payments and revenue across the platform"
+          title="Online Payment Management"
+          description="Track all online payments and revenue across the platform"
           icon={<IndianRupee className="h-8 w-8 text-green-600" />}
           action="Manage Payments"
           href="/admin/payments"
