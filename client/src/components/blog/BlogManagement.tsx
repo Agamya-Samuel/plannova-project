@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 import BlogEditor from '@/components/blog/BlogEditor';
@@ -17,6 +18,7 @@ interface BlogManagementProps {
 
 export default function BlogManagement({ initialTab = 'my' }: BlogManagementProps) {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [activeSection, setActiveSection] = useState<'all' | 'my' | 'drafts' | 'create'>(initialTab);
   const [refreshKey, setRefreshKey] = useState(0);
   const [editingBlog, setEditingBlog] = useState<{ 
@@ -31,6 +33,16 @@ export default function BlogManagement({ initialTab = 'my' }: BlogManagementProp
 
   // Check if user is admin
   const isAdmin = user?.role === 'ADMIN';
+
+  // Check for query parameter to auto-open create section
+  // This allows navigation from "Write Your First Blog" button
+  useEffect(() => {
+    const createParam = searchParams.get('create');
+    if (createParam === 'true') {
+      setActiveSection('create');
+      setEditingBlog(null); // Clear any editing state
+    }
+  }, [searchParams]);
 
   // Handle blog saved/updated - refresh the lists
   const handleBlogSaved = () => {
