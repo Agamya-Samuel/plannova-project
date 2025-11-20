@@ -599,9 +599,9 @@ export default function BookingsPage() {
         {/* New Booking Options Modal */}
         {showNewBookingModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop - blurred white overlay */}
+            {/* Backdrop - grey blurred background for white modal */}
             <div 
-              className="absolute inset-0 bg-white/80 backdrop-blur-md"
+              className="absolute inset-0 bg-gray-500/50 backdrop-blur-md"
               onClick={() => setShowNewBookingModal(false)}
             ></div>
             

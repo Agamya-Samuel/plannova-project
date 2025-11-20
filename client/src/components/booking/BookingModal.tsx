@@ -231,228 +231,233 @@ export function BookingModal({
     <>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
+          {/* Backdrop - grey blurred background for white modal */}
           <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-gray-500/50 backdrop-blur-md"
             onClick={onClose}
           ></div>
           
-          {/* Modal */}
-          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+          {/* Modal - portrait on mobile, landscape on laptop/desktop */}
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md md:max-w-3xl lg:max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h3 className="text-xl font-bold text-gray-900">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-gray-200">
+              <h3 className="text-lg md:text-xl font-bold text-gray-900">
                 Book {serviceName}
               </h3>
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-500 transition-colors"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5 md:h-6 md:w-6" />
               </button>
             </div>
             
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Date Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="pl-10 w-full"
-                    required
+            {/* Form - single column on mobile, two columns on larger screens */}
+            <form onSubmit={handleSubmit} className="p-4 md:p-6 space-y-4 md:space-y-6">
+              {/* Form Fields Grid - single column on mobile, two columns on larger screens */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                {/* Date Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Date
+                  </label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="pl-10 w-full"
+                      required
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Time Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Time
+                  </label>
+                  <div className="relative">
+                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="time"
+                      value={formData.time}
+                      onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                      className="pl-10 w-full"
+                      required
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Guest Count */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Number of Guests
+                  </label>
+                  <div className="relative">
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="number"
+                      min="1"
+                      value={formData.guestCount}
+                      onChange={(e) => setFormData({ ...formData, guestCount: e.target.value })}
+                      className="pl-10 w-full"
+                      required
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Contact Person */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Person
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="text"
+                      value={formData.contactPerson}
+                      onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
+                      className="pl-10 w-full"
+                      placeholder="Full name"
+                      required
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="tel"
+                      value={formData.contactPhone}
+                      onChange={handlePhoneChange}
+                      className="pl-10 w-full"
+                      placeholder="+91XXXXXXXXXX"
+                      required
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="email"
+                      value={formData.contactEmail}
+                      onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
+                      className="pl-10 w-full"
+                      placeholder="your@email.com"
+                      required
+                      disabled={isFormDisabled}
+                    />
+                  </div>
+                </div>
+                
+                {/* Payment Mode Selection - full width */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payment Mode
+                  </label>
+                  <PaymentModeSelector
+                    serviceId={serviceId}
+                    serviceType={serviceType}
+                    onPaymentModeSelect={setPaymentMode}
+                    selectedMode={paymentMode}
                     disabled={isFormDisabled}
                   />
                 </div>
-              </div>
-              
-              {/* Time Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Time
-                </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="time"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    className="pl-10 w-full"
-                    required
-                    disabled={isFormDisabled}
-                  />
+                
+                {/* Total - full width */}
+                <div className="md:col-span-2 bg-gray-50 rounded-lg p-4">
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">Total Amount:</span>
+                    <span className="text-xl font-bold text-gray-900">
+                      ₹{calculateTotal().toLocaleString('en-IN')}
+                    </span>
+                  </div>
                 </div>
-              </div>
-              
-              {/* Guest Count */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Number of Guests
-                </label>
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="number"
-                    min="1"
-                    value={formData.guestCount}
-                    onChange={(e) => setFormData({ ...formData, guestCount: e.target.value })}
-                    className="pl-10 w-full"
-                    required
-                    disabled={isFormDisabled}
-                  />
-                </div>
-              </div>
-              
-              {/* Contact Person */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Contact Person
-                </label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="text"
-                    value={formData.contactPerson}
-                    onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                    className="pl-10 w-full"
-                    placeholder="Full name"
-                    required
-                    disabled={isFormDisabled}
-                  />
-                </div>
-              </div>
-              
-              {/* Phone */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="tel"
-                    value={formData.contactPhone}
-                    onChange={handlePhoneChange}
-                    className="pl-10 w-full"
-                    placeholder="+91XXXXXXXXXX"
-                    required
-                    disabled={isFormDisabled}
-                  />
-                </div>
-              </div>
-              
-              {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="email"
-                    value={formData.contactEmail}
-                    onChange={(e) => setFormData({ ...formData, contactEmail: e.target.value })}
-                    className="pl-10 w-full"
-                    placeholder="your@email.com"
-                    required
-                    disabled={isFormDisabled}
-                  />
-                </div>
-              </div>
-              
-              {/* Payment Mode Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Payment Mode
-                </label>
-                <PaymentModeSelector
-                  serviceId={serviceId}
-                  serviceType={serviceType}
-                  onPaymentModeSelect={setPaymentMode}
-                  selectedMode={paymentMode}
-                  disabled={isFormDisabled}
-                />
-              </div>
-              
-              {/* Total */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-gray-700">Total Amount:</span>
-                  <span className="text-xl font-bold text-gray-900">
-                    ₹{calculateTotal().toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-              
-              {/* Payment Button for Online Bookings */}
-              {createdBookingId && paymentMode === 'ONLINE' ? (
-                <div className="space-y-4">
-                  <p className="text-center text-gray-600">
-                    Your booking has been created. Please complete the payment to confirm your booking.
-                  </p>
-                  <PaymentButton
-                    bookingId={createdBookingId}
-                    amount={calculateTotal()}
-                    customerName={formData.contactPerson}
-                    customerEmail={formData.contactEmail}
-                    customerPhone={formData.contactPhone}
-                    onPaymentSuccess={() => {
-                      // Reset form and close modal after successful payment
-                      setFormData({
-                        date: '',
-                        dates: [],
-                        time: '',
-                        guestCount: '',
-                        contactPerson: '',
-                        contactPhone: '',
-                        contactEmail: user?.email || ''
-                      });
-                      setCreatedBookingId(null);
-                      onClose();
-                      
-                      // Optionally redirect to bookings page after a delay
-                      setTimeout(() => {
+                
+                {/* Payment Button for Online Bookings - full width */}
+                <div className="md:col-span-2">
+                {createdBookingId && paymentMode === 'ONLINE' ? (
+                  <div className="space-y-4">
+                    <p className="text-center text-gray-600">
+                      Your booking has been created. Please complete the payment to confirm your booking.
+                    </p>
+                    <PaymentButton
+                      bookingId={createdBookingId}
+                      amount={calculateTotal()}
+                      customerName={formData.contactPerson}
+                      customerEmail={formData.contactEmail}
+                      customerPhone={formData.contactPhone}
+                      onPaymentSuccess={() => {
+                        // Reset form and close modal after successful payment
+                        setFormData({
+                          date: '',
+                          dates: [],
+                          time: '',
+                          guestCount: '',
+                          contactPerson: '',
+                          contactPhone: '',
+                          contactEmail: user?.email || ''
+                        });
+                        setCreatedBookingId(null);
+                        onClose();
+                        
+                        // Optionally redirect to bookings page after a delay
+                        setTimeout(() => {
+                          router.push('/bookings');
+                        }, 2000);
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setCreatedBookingId(null);
+                        onClose();
                         router.push('/bookings');
-                      }, 2000);
-                    }}
-                  />
+                      }}
+                      className="w-full"
+                    >
+                      Pay Later (View in Bookings)
+                    </Button>
+                  </div>
+                ) : (
+                  /* Submit Button */
                   <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setCreatedBookingId(null);
-                      onClose();
-                      router.push('/bookings');
-                    }}
-                    className="w-full"
+                    type="submit"
+                    disabled={loading}
+                    className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
                   >
-                    Pay Later (View in Bookings)
+                    {loading ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Processing...
+                      </div>
+                    ) : (
+                      'Confirm Booking'
+                    )}
                   </Button>
+                )}
                 </div>
-              ) : (
-                /* Submit Button */
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-semibold py-3 rounded-lg transition-all duration-300"
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Processing...
-                    </div>
-                  ) : (
-                    'Confirm Booking'
-                  )}
-                </Button>
-              )}
+              </div>
             </form>
           </div>
         </div>
