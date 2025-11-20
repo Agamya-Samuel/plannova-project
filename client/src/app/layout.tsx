@@ -8,14 +8,22 @@ import { Toaster } from "@/components/ui/sonner";
 import Script from "next/script";
 import { UMAMI_WEBSITE_ID, UMAMI_SCRIPT_URL } from "@/constants/umami";
 
+// Configure Geist Sans font with fallbacks for better resilience
+// If Google Fonts is unavailable during build, these fallbacks will be used
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap", // Use fallback font until custom font loads
+  fallback: ["system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Arial", "sans-serif"],
 });
 
+// Configure Geist Mono font with fallbacks for better resilience
+// If Google Fonts is unavailable during build, these fallbacks will be used
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap", // Use fallback font until custom font loads
+  fallback: ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "monospace"],
 });
 
 export const metadata: Metadata = {

@@ -28,6 +28,18 @@ export enum ServiceType {
   ENTERTAINMENT = 'entertainment'
 }
 
+// Define BookingType enum
+export enum BookingType {
+  ONLINE = 'ONLINE',
+  CASH = 'CASH'
+}
+
+// Define PaymentMode enum
+export enum PaymentMode {
+  CASH = 'CASH',
+  ONLINE = 'ONLINE'
+}
+
 // Interface for Booking
 export interface IBooking extends Document {
   customerId: mongoose.Types.ObjectId;
@@ -38,6 +50,8 @@ export interface IBooking extends Document {
   time: string;
   status: BookingStatus;
   paymentStatus: PaymentStatus;
+  bookingType: BookingType;
+  paymentMode: PaymentMode;
   totalPrice: number;
   advanceAmount?: number;
   remainingAmount?: number;
@@ -106,6 +120,16 @@ const BookingSchema: Schema<IBooking> = new Schema({
     enum: Object.values(PaymentStatus),
     default: PaymentStatus.PENDING
   },
+  bookingType: {
+    type: String,
+    enum: Object.values(BookingType),
+    default: BookingType.ONLINE
+  },
+  paymentMode: {
+    type: String,
+    enum: Object.values(PaymentMode),
+    default: PaymentMode.ONLINE
+  },
   totalPrice: {
     type: Number,
     required: true,
@@ -165,6 +189,8 @@ BookingSchema.index({ date: 1 });
 BookingSchema.index({ providerId: 1, status: 1 });
 BookingSchema.index({ serviceType: 1, serviceId: 1 });
 BookingSchema.index({ serviceId: 1, date: 1, status: 1 }); // For availability checks
+BookingSchema.index({ bookingType: 1 });
+BookingSchema.index({ paymentMode: 1 });
 
 // Create and export the model
 const Booking = mongoose.model<IBooking>('Booking', BookingSchema);

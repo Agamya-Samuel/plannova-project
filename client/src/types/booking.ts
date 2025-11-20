@@ -1,5 +1,9 @@
 export type ServiceType = 'venue' | 'catering' | 'photography' | 'videography' | 'bridal-makeup' | 'decoration' | 'entertainment';
 
+export type BookingType = 'ONLINE' | 'CASH';
+export type PaymentMode = 'ONLINE' | 'CASH';
+export type PaymentStatus = 'pending' | 'paid' | 'refunded' | 'failed';
+
 export interface Booking {
   id: string;
   serviceType: ServiceType;
@@ -11,6 +15,9 @@ export interface Booking {
   date: string;
   time: string;
   status: 'confirmed' | 'pending' | 'cancelled' | 'rejected' | 'completed';
+  bookingType?: BookingType;
+  paymentMode?: PaymentMode;
+  paymentStatus?: PaymentStatus;
   totalPrice: number;
   guestCount: number;
   contactPerson: string;
@@ -26,6 +33,9 @@ export interface Booking {
     id: string;
     date: string;
     status: 'confirmed' | 'pending' | 'cancelled' | 'rejected' | 'completed';
+    bookingType?: BookingType;
+    paymentMode?: PaymentMode;
+    paymentStatus?: PaymentStatus;
     totalPrice: number;
   }[];
   // For provider view
@@ -52,6 +62,7 @@ export interface CreateBookingRequest {
   contactPerson: string;
   contactPhone: string;
   contactEmail: string;
+  paymentMode: PaymentMode;
   dates?: string[]; // For multiple date bookings
 }
 

@@ -1,8 +1,9 @@
 import { Router, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
-import Booking, { BookingStatus, IBooking, ServiceType } from '../models/Booking.js';
+import Booking, { BookingStatus, IBooking, ServiceType, BookingType, PaymentMode, PaymentStatus } from '../models/Booking.js';
 import { authenticateToken, AuthRequest, requireProvider, requireStaffOrAdmin } from '../middleware/auth.js';
+import { UserRole } from '../models/User.js';
 import Venue, { IVenue } from '../models/Venue.js';
 import Catering from '../models/Catering.js';
 import Photography from '../models/Photography.js';
@@ -15,7 +16,7 @@ const router = Router();
 
 // Validation middleware for booking creation
 const createBookingValidation = [
-  body('time').notEmpty().withMessage('Time is required'),
+  body('time').optional(), // Make time optional since it's not used in frontend
   body('guestCount').isInt({ min: 1 }).withMessage('Guest count must be at least 1'),
   body('contactPerson').trim().notEmpty().withMessage('Contact person is required'),
   body('contactPhone').trim().notEmpty().withMessage('Contact phone is required'),
@@ -89,7 +90,7 @@ const transformBooking = (booking: IPopulatedBooking) => {
   return {
     id: (booking._id as Types.ObjectId).toString(),
     venueName: booking.venueId?.name || 'Unknown Venue',
-    venueImage: booking.venueId?.images?.[0]?.url || 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400',
+    venueImage: booking.venueId?.images?.[0]?.url || '',
     date: booking.date.toISOString().split('T')[0],
     time: booking.time,
     status: booking.status,
@@ -173,6 +174,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         time: primaryBooking.time,
         status: primaryBooking.status,
         paymentStatus: primaryBooking.paymentStatus,
+        paymentMode: primaryBooking.paymentMode,
+        bookingType: primaryBooking.bookingType,
         totalPrice,
         guestCount: primaryBooking.guestCount,
         contactPerson: primaryBooking.contactPerson,
@@ -186,6 +189,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
           id: (b._id as Types.ObjectId).toString(),
           date: b.date.toISOString().split('T')[0],
           status: b.status,
+          paymentStatus: b.paymentStatus,
+          paymentMode: b.paymentMode,
+          bookingType: b.bookingType,
           totalPrice: b.totalPrice
         }))
       };
@@ -194,7 +200,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
     // Transform ungrouped bookings
     const transformedUngroupedBookings = await Promise.all(ungroupedBookings.map(async (booking) => {
       let serviceName = 'Unknown Service';
-      let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+      let serviceImage = '';
       let providerContact = {
         name: 'Provider',
         email: '',
@@ -270,6 +276,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         time: booking.time,
         status: booking.status,
         paymentStatus: booking.paymentStatus,
+        paymentMode: booking.paymentMode,
+        bookingType: booking.bookingType,
         totalPrice: booking.totalPrice,
         guestCount: booking.guestCount,
         contactPerson: booking.contactPerson,
@@ -292,7 +300,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
       }
       
       let serviceName = 'Unknown Service';
-      let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+      let serviceImage = '';
       
       try {
                 let service: IService | null = null;
@@ -371,7 +379,7 @@ router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: Aut
     const transformed = await Promise.all(
       bookings.map(async (booking) => {
         let serviceName = 'Unknown Service';
-        let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+        let serviceImage = '';
         let providerContact = {
           name: 'Provider',
           email: '',
@@ -445,6 +453,8 @@ router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: Aut
           time: booking.time,
           status: booking.status,
           paymentStatus: booking.paymentStatus,
+          paymentMode: booking.paymentMode,
+          bookingType: booking.bookingType,
           totalPrice: booking.totalPrice,
           guestCount: booking.guestCount,
           contactPerson: booking.contactPerson,
@@ -643,6 +653,8 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
         time: primaryBooking.time,
         status: primaryBooking.status,
         paymentStatus: primaryBooking.paymentStatus,
+        bookingType: primaryBooking.bookingType,
+        paymentMode: primaryBooking.paymentMode,
         totalPrice,
         guestCount: primaryBooking.guestCount,
         contactPerson: primaryBooking.contactPerson,
@@ -655,6 +667,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
           id: (b._id as Types.ObjectId).toString(),
           date: b.date.toISOString().split('T')[0],
           status: b.status,
+          paymentStatus: b.paymentStatus,
+          bookingType: b.bookingType,
+          paymentMode: b.paymentMode,
           totalPrice: b.totalPrice
         }))
       };
@@ -676,6 +691,8 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
       time: booking.time,
       status: booking.status,
       paymentStatus: booking.paymentStatus,
+      bookingType: booking.bookingType,
+      paymentMode: booking.paymentMode,
       totalPrice: booking.totalPrice,
       guestCount: booking.guestCount,
       contactPerson: booking.contactPerson,
@@ -691,7 +708,7 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
     // Transform bookings to include service details
     const transformedBookings = await Promise.all(allBookings.map(async (booking) => {
       let serviceName = 'Unknown Service';
-      let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+      let serviceImage = '';
       
       try {
                 let service: IService | null = null;
@@ -1061,12 +1078,22 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
 // POST /api/bookings - Create a new booking
 router.post('/', authenticateToken, createBookingValidation, validateBookingDates, async (req: AuthRequest, res: Response) => {
   try {
+    // Prevent providers from creating bookings - they can only view/manage bookings for their services
+    if (req.user?.role === UserRole.PROVIDER) {
+      return res.status(403).json({ error: 'Providers cannot create bookings. They can only view bookings for their services.' });
+    }
+
+    // Prevent staff from creating bookings
+    if (req.user?.role === UserRole.STAFF) {
+      return res.status(403).json({ error: 'Staff members cannot create bookings' });
+    }
+
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { venueId, serviceId, serviceType, date, time, guestCount, contactPerson, contactPhone, contactEmail, specialRequests, dates } = req.body;
+    const { venueId, serviceId, serviceType, date, time, guestCount, contactPerson, contactPhone, contactEmail, specialRequests, dates, paymentMode } = req.body;
 
     // Support both old (venueId) and new (serviceId + serviceType) formats
     const actualServiceId = serviceId || venueId;
@@ -1095,42 +1122,48 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
           service = await Catering.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.PHOTOGRAPHY:
           service = await Photography.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.VIDEOGRAPHY:
           service = await Videography.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.BRIDAL_MAKEUP:
           service = await BridalMakeup.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.DECORATION:
           service = await Decoration.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
         case ServiceType.ENTERTAINMENT:
           service = await Entertainment.findOne({ _id: actualServiceId, status: 'APPROVED', isActive: true });
           if (service) {
             providerId = service.provider;
-            totalPrice = service.basePrice;
+            // Calculate total price including per-guest pricing if applicable
+            totalPrice = service.basePrice + (guestCount * (service.pricePerGuest || 0));
           }
           break;
       }
@@ -1145,6 +1178,15 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
     // Prevent self-booking: Check if the user is trying to book their own service
     if (req.user!.id === providerId.toString()) {
       return res.status(400).json({ error: 'Providers cannot book their own services' });
+    }
+
+    // Validate payment mode
+    let bookingPaymentMode = PaymentMode.ONLINE;
+    let bookingType = BookingType.ONLINE;
+    
+    if (paymentMode === 'CASH') {
+      bookingPaymentMode = PaymentMode.CASH;
+      bookingType = BookingType.CASH;
     }
 
     // Handle multiple dates - create a booking group
@@ -1169,7 +1211,11 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
           contactPhone,
           contactEmail,
           specialRequests,
-          bookingGroupId // Group all related bookings together
+          bookingGroupId, // Group all related bookings together
+          paymentMode: bookingPaymentMode,
+          bookingType: bookingType,
+          // For cash bookings, set payment status to pending
+          paymentStatus: paymentMode === 'CASH' ? PaymentStatus.PENDING : PaymentStatus.PENDING
         };
         
         return Booking.create(bookingData);
@@ -1189,6 +1235,9 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
           date: booking.date.toISOString().split('T')[0],
           time: booking.time,
           status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          bookingType: booking.bookingType,
+          paymentMode: booking.paymentMode,
           totalPrice: booking.totalPrice,
           guestCount: booking.guestCount,
           contactPerson: booking.contactPerson,
@@ -1212,7 +1261,11 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
         contactPerson,
         contactPhone,
         contactEmail,
-        specialRequests
+        specialRequests,
+        paymentMode: bookingPaymentMode,
+        bookingType: bookingType,
+        // For cash bookings, set payment status to pending
+        paymentStatus: paymentMode === 'CASH' ? PaymentStatus.PENDING : PaymentStatus.PENDING
       });
 
       // Return success response
@@ -1223,6 +1276,9 @@ router.post('/', authenticateToken, createBookingValidation, validateBookingDate
         date: booking.date.toISOString().split('T')[0],
         time: booking.time,
         status: booking.status,
+        paymentStatus: booking.paymentStatus,
+        bookingType: booking.bookingType,
+        paymentMode: booking.paymentMode,
         totalPrice: booking.totalPrice,
         guestCount: booking.guestCount,
         contactPerson: booking.contactPerson,

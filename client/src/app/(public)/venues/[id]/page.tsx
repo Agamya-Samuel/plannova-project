@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { 
-  MapPin, Users, Star, Heart, ArrowLeft, Calendar, Phone, Mail, Shield, CheckCircle,
+  MapPin, Users, Star, Heart, ArrowLeft, Phone, Mail, Shield, CheckCircle,
   DollarSign, User, Building, Navigation, ChefHat, Sparkles, Plus, Palette, Clock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { BookingModal } from '@/components/booking/BookingModal';
-import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import { BookingButton } from '@/components/booking/BookingButton';
 import SocialShare from '@/components/ui/SocialShare';
 
 interface FoodOption {
@@ -74,6 +74,7 @@ interface Venue {
     max: number;
   };
   basePrice: number;
+  pricePerGuest?: number;
   images: Array<{
     url: string;
     alt: string;
@@ -295,7 +296,7 @@ export default function VenueDetailsPage() {
             <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
               <div className="relative">
                 <Image 
-                  src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : 'https://images.unsplash.com/photo-1542665952-14513db15293?q=80&w=1170&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'} 
+                  src={venue.images.length > 0 ? venue.images[selectedImageIndex]?.url : ''} 
                   alt={venue.name}
                   width={1170}
                   height={600}
@@ -725,10 +726,11 @@ export default function VenueDetailsPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Availability Calendar */}
-            <AvailabilityCalendar
+            {/* Booking Button - Replaces initial calendar */}
+            <BookingButton
               serviceId={venue._id}
               serviceType="venue"
+              basePrice={venue.basePrice}
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
               selectedDates={selectedDates}
@@ -736,56 +738,11 @@ export default function VenueDetailsPage() {
               onSelectionModeChange={setSelectionMode}
             />
 
-            {/* Booking Card */}
+            {/* Booking Information */}
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-gray-900 mb-2">
-                  {/* Show pending price if there are pending edits, otherwise show current price */}
-                  ₹{(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.basePrice
-                    ? venue.pendingEdits.basePrice
-                    : venue.basePrice).toLocaleString()}
-                </div>
-                <p className="text-gray-600">per event</p>
-              </div>
-
-              {selectedDate ? (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white rounded-lg transition-colors mb-4"
-                >
-                  {selectedDates.length > 1 
-                    ? `Book for ${selectedDates.length} dates` 
-                    : `Book for ${selectedDate}`}
-                </button>
-              ) : (
-                <div className="text-center mb-4">
-                  <Calendar className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
-                </div>
-              )}
-
-              {/* Instruction to use calendar */}
-              <div className="bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4 mb-4">
-                <div className="flex items-start">
-                  <Calendar className="h-5 w-5 text-pink-600 mr-2 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 mb-1">How to Book</p>
-                    <p className="text-xs text-gray-600">
-                      Select an available date from the calendar above to start your booking
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-center">
-                <p className="text-sm text-gray-500">
-                  Contact provider for custom pricing
-                </p>
-              </div>
-              
               {/* Show a note when there are pending edits */}
               {venue.status === 'PENDING_EDIT' && (
-                <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex items-center">
                     <Clock className="h-5 w-5 text-blue-600 mr-2" />
                     <p className="text-sm text-blue-800">
@@ -794,6 +751,12 @@ export default function VenueDetailsPage() {
                   </div>
                 </div>
               )}
+              
+              <div className="text-center">
+                <p className="text-sm text-gray-500">
+                  Contact provider for custom pricing
+                </p>
+              </div>
             </div>
 
             {/* Contact Information */}
@@ -862,7 +825,7 @@ export default function VenueDetailsPage() {
           serviceName={venue.name}
           serviceType="venue"
           basePrice={venue.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={venue.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

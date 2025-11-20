@@ -31,6 +31,7 @@ interface EntertainmentServiceFormData {
   packages: PackageFormData[];
   addons: AddonFormData[];
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 const entertainmentTypeOptions = ['DJ', 'Live Band', 'Dhol', 'MC/Host', 'Sound System', 'Lighting'];
@@ -55,7 +56,8 @@ export default function CreateEntertainmentService() {
     entertainmentTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   React.useEffect(() => {
@@ -165,7 +167,20 @@ export default function CreateEntertainmentService() {
         addons: formData.addons.filter(a => a.name.trim()).map(a => ({ ...a, price: Number(a.price) })),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/entertainment', { ...payload, status });
+      const response = await apiClient.post('/entertainment', { ...payload, status });
+      
+      // Save payment configuration
+      if (response.data?.data?._id) {
+        try {
+          await apiClient.post(`/vendor-service-config/${response.data.data._id}`, {
+            serviceType: 'entertainment',
+            paymentMode: formData.paymentMethod
+          });
+        } catch (configError) {
+          console.error('Failed to save payment configuration:', configError);
+        }
+      }
+      
       toast.success('Entertainment service created successfully!');
       router.push('/provider/entertainment');
     } catch {
@@ -242,8 +257,8 @@ export default function CreateEntertainmentService() {
             <div className="bg-white rounded-xl shadow-lg p-8">
               {activeTab === 'basic' && (
                 <BasicInfoInput
-                  data={{ name: formData.name, description: formData.description, basePrice: formData.basePrice }}
-                  onChange={(d) => setFormData(prev => ({ ...prev, name: d.name, description: d.description, basePrice: d.basePrice || prev.basePrice }))}
+                  data={{ name: formData.name, description: formData.description, basePrice: formData.basePrice, paymentMethod: formData.paymentMethod }}
+                  onChange={(d) => setFormData(prev => ({ ...prev, name: d.name, description: d.description, basePrice: d.basePrice || prev.basePrice, paymentMethod: d.paymentMethod || prev.paymentMethod }))}
                   serviceType="Entertainment"
                 />
               )}
@@ -342,6 +357,7 @@ export default function CreateEntertainmentService() {
                       <p><strong>Service Name:</strong> {formData.name}</p>
                       <p><strong>Description:</strong> {formData.description}</p>
                       <p><strong>Base Price:</strong> ₹{formData.basePrice}</p>
+                      <p><strong>Payment Method:</strong> {formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>

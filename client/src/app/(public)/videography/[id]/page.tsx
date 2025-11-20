@@ -16,7 +16,7 @@ import {
   Loader2
 } from 'lucide-react';
 import apiClient from '@/lib/api';
-import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import { BookingButton } from '@/components/booking/BookingButton';
 import { BookingModal } from '@/components/booking/BookingModal';
 
 interface VideographyService {
@@ -54,6 +54,7 @@ interface VideographyService {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -357,10 +358,11 @@ export default function VideographyDetailPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Availability Calendar */}
-            <AvailabilityCalendar
+            {/* Booking Button - Replaces initial calendar */}
+            <BookingButton
               serviceId={service._id}
               serviceType="videography"
+              basePrice={service.basePrice}
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
               selectedDates={selectedDates}
@@ -368,31 +370,7 @@ export default function VideographyDetailPage() {
               onSelectionModeChange={setSelectionMode}
             />
 
-            {/* Booking Card */}
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-gray-900 mb-2">
-                  ₹{service.basePrice.toLocaleString()}
-                </div>
-                <p className="text-gray-600">Starting Price</p>
-              </div>
-
-              {selectedDate ? (
-                <button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-lg transition-colors mb-4"
-                >
-                  {selectedDates.length > 1 
-                    ? `Book for ${selectedDates.length} dates` 
-                    : `Book for ${selectedDate}`}
-                </button>
-              ) : (
-                <div className="text-center mb-4">
-                  <Video className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
-                </div>
-              )}
-              
               <h3 className="text-lg font-bold text-gray-900 mb-4">Contact Videographer</h3>
               
               <div className="space-y-3 mb-6">
@@ -485,7 +463,7 @@ export default function VideographyDetailPage() {
           serviceName={service.name}
           serviceType="videography"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

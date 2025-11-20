@@ -10,26 +10,88 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET || ''
 });
 
+// Define error interface for Razorpay responses
+interface RazorpayError extends Error {
+  response?: {
+    data?: unknown;
+  };
+}
+
 /**
  * Create a Razorpay order
  * @param amount - Amount in smallest currency unit (paise for INR)
  * @param currency - Currency code (e.g., 'INR')
  * @param receipt - Unique receipt ID for the order
+ * @param notes - Additional notes for the order
  * @returns Promise resolving to the created order
  */
-export const createOrder = async (amount: number, currency: string, receipt: string) => {
+export const createOrder = async (amount: number, currency: string, receipt: string, notes?: Record<string, string>) => {
   try {
+    // Validate inputs
+    if (amount <= 0) {
+      throw new Error('Amount must be greater than zero');
+    }
+    
+    if (!currency) {
+      throw new Error('Currency is required');
+    }
+    
+    if (!receipt) {
+      throw new Error('Receipt is required');
+    }
+
+    // Validate receipt length (Razorpay has limits on receipt length)
+    if (receipt.length > 40) {
+      // Truncate receipt to 40 characters to comply with Razorpay limits
+      receipt = receipt.substring(0, 40);
+      console.log(`[Razorpay] Receipt truncated to comply with limits: ${receipt}`);
+    }
+
     const options = {
       amount: amount, // amount in the smallest currency unit
       currency: currency,
-      receipt: receipt
+      receipt: receipt,
+      notes: notes || {}
     };
 
     const order = await razorpay.orders.create(options);
+    console.log(`[Razorpay] Order created successfully: ${order.id}`);
     return order;
   } catch (error) {
-    console.error('Error creating Razorpay order:', error);
-    throw new Error('Failed to create payment order');
+    // Log the raw error for better debugging
+    console.error('[Razorpay] Raw error object:', error);
+    console.error('[Razorpay] Error object keys:', error ? Object.keys(error) : 'No error object');
+    
+    // Handle different types of errors
+    let errorMessage = 'Unknown error occurred';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message || errorMessage;
+    } else if (error && typeof error === 'object') {
+      // Try to extract error message from different possible properties
+      const objError = error as Record<string, unknown>;
+      errorMessage = (objError.message as string) || 
+                    (objError.description as string) || 
+                    (objError.error as string) || 
+                    JSON.stringify(error);
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error === null || error === undefined) {
+      errorMessage = 'No error information provided';
+    }
+    
+    const errorObj = error as Record<string, unknown>;
+    const errorData = errorObj?.response ? (errorObj.response as Record<string, unknown>)?.data : undefined;
+    
+    console.error(`[Razorpay] Error creating order: ${errorMessage}`, { 
+      amount, 
+      currency, 
+      receipt,
+      error: errorData || errorMessage
+    });
+    
+    // Throw a more descriptive error
+    throw new Error(`Failed to create payment order: ${errorMessage}`);
   }
 };
 
@@ -42,14 +104,41 @@ export const createOrder = async (amount: number, currency: string, receipt: str
  */
 export const verifyPayment = (orderId: string, paymentId: string, signature: string): boolean => {
   try {
+    // Validate inputs
+    if (!orderId || !paymentId || !signature) {
+      console.error('[Razorpay] Missing required parameters for payment verification', { orderId, paymentId, signature });
+      return false;
+    }
+
+    // Check if Razorpay key secret is configured
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!keySecret) {
+      console.error('[Razorpay] Key secret not configured for payment verification');
+      return false;
+    }
+
     const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+      .createHmac('sha256', keySecret)
       .update(orderId + '|' + paymentId)
       .digest('hex');
 
-    return expectedSignature === signature;
+    const isValid = expectedSignature === signature;
+    console.log(`[Razorpay] Payment verification ${isValid ? 'successful' : 'failed'} for order: ${orderId}`);
+    
+    if (!isValid) {
+      console.error('[Razorpay] Payment signature verification failed', {
+        orderId,
+        paymentId,
+        receivedSignature: signature,
+        expectedSignature,
+        match: isValid
+      });
+    }
+    
+    return isValid;
   } catch (error) {
-    console.error('Error verifying payment:', error);
+    const errorMessage = (error as Error).message;
+    console.error(`[Razorpay] Error verifying payment: ${errorMessage}`, { orderId, paymentId, error });
     return false;
   }
 };
@@ -58,15 +147,33 @@ export const verifyPayment = (orderId: string, paymentId: string, signature: str
  * Capture a payment
  * @param paymentId - Razorpay payment ID
  * @param amount - Amount to capture in smallest currency unit
+ * @param currency - Currency code
  * @returns Promise resolving to the captured payment details
  */
-export const capturePayment = async (paymentId: string, amount: number) => {
+export const capturePayment = async (paymentId: string, amount: number, currency: string) => {
   try {
-    const payment = await razorpay.payments.capture(paymentId, amount, 'INR');
+    // Validate inputs
+    if (!paymentId) {
+      throw new Error('Payment ID is required');
+    }
+    
+    if (amount <= 0) {
+      throw new Error('Amount must be greater than zero');
+    }
+
+    const payment = await razorpay.payments.capture(paymentId, amount, currency);
+    console.log(`[Razorpay] Payment captured successfully: ${paymentId}`);
     return payment;
   } catch (error) {
-    console.error('Error capturing payment:', error);
-    throw new Error('Failed to capture payment');
+    const razorpayError = error as RazorpayError;
+    const errorMessage = razorpayError.message;
+    const errorData = razorpayError.response?.data;
+    console.error(`[Razorpay] Error capturing payment: ${errorMessage}`, { 
+      paymentId, 
+      amount,
+      error: errorData || errorMessage
+    });
+    throw new Error(`Failed to capture payment: ${errorMessage}`);
   }
 };
 
@@ -74,23 +181,87 @@ export const capturePayment = async (paymentId: string, amount: number) => {
  * Refund a payment
  * @param paymentId - Razorpay payment ID
  * @param amount - Amount to refund in smallest currency unit
+ * @param notes - Additional notes for the refund
  * @returns Promise resolving to the refund details
  */
-export const refundPayment = async (paymentId: string, amount: number) => {
+export const refundPayment = async (paymentId: string, amount: number, notes?: Record<string, string>) => {
   try {
+    // Validate inputs
+    if (!paymentId) {
+      throw new Error('Payment ID is required');
+    }
+    
+    if (amount <= 0) {
+      throw new Error('Refund amount must be greater than zero');
+    }
+
     const refund = await razorpay.payments.refund(paymentId, {
-      amount: amount
+      amount: amount,
+      notes: notes || {}
     });
+    console.log(`[Razorpay] Payment refunded successfully: ${paymentId}`);
     return refund;
   } catch (error) {
-    console.error('Error refunding payment:', error);
-    throw new Error('Failed to process refund');
+    const razorpayError = error as RazorpayError;
+    const errorMessage = razorpayError.message;
+    const errorData = razorpayError.response?.data;
+    console.error(`[Razorpay] Error refunding payment: ${errorMessage}`, { 
+      paymentId, 
+      amount,
+      error: errorData || errorMessage
+    });
+    throw new Error(`Failed to process refund: ${errorMessage}`);
   }
+};
+
+/**
+ * Fetch payment details
+ * @param paymentId - Razorpay payment ID
+ * @returns Promise resolving to the payment details
+ */
+export const fetchPayment = async (paymentId: string) => {
+  try {
+    // Validate inputs
+    if (!paymentId) {
+      throw new Error('Payment ID is required');
+    }
+
+    const payment = await razorpay.payments.fetch(paymentId);
+    console.log(`[Razorpay] Payment details fetched successfully: ${paymentId}`);
+    return payment;
+  } catch (error) {
+    const razorpayError = error as RazorpayError;
+    const errorMessage = razorpayError.message;
+    const errorData = razorpayError.response?.data;
+    console.error(`[Razorpay] Error fetching payment: ${errorMessage}`, { 
+      paymentId,
+      error: errorData || errorMessage
+    });
+    throw new Error(`Failed to fetch payment: ${errorMessage}`);
+  }
+};
+
+/**
+ * Validate Razorpay configuration
+ * @returns Boolean indicating if configuration is valid
+ */
+export const isConfigured = (): boolean => {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET;
+  
+  const configured = !!(keyId && keySecret);
+  if (!configured) {
+    console.warn('[Razorpay] Payment gateway is not properly configured');
+  }
+  
+  return configured;
 };
 
 export default {
   createOrder,
   verifyPayment,
   capturePayment,
-  refundPayment
+  refundPayment,
+  fetchPayment,
+  isConfigured
 };

@@ -30,6 +30,9 @@ import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface DecorationFormData {
   name: string;
@@ -52,6 +55,7 @@ interface DecorationFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean; category: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -133,21 +137,9 @@ function EditDecorationServiceContent() {
     decorationTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
-
-  // Update email when user data becomes available
-  useEffect(() => {
-    if (user?.email && !formData.contact.email) {
-      setFormData(prev => ({
-        ...prev,
-        contact: {
-          ...prev.contact,
-          email: user.email
-        }
-      }));
-    }
-  }, [user?.email, formData.contact.email]);
 
   // Load existing service data
   useEffect(() => {
@@ -183,7 +175,8 @@ function EditDecorationServiceContent() {
           decorationTypes: service.decorationTypes || [],
           packages: service.packages?.length > 0 ? service.packages : [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
           addons: service.addons?.length > 0 ? service.addons : [{ name: '', description: '', price: 0 }],
-          images: service.images || []
+          images: service.images || [],
+          paymentMethod: service.paymentMethod || 'ONLINE_CASH'
         });
         
         // Mark all tabs as visited in edit mode for free navigation
@@ -303,6 +296,17 @@ function EditDecorationServiceContent() {
         basePrice: Number(formData.basePrice)
       };
       await apiClient.put(`/decoration/${serviceId}`, { ...serviceData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+          serviceType: 'decoration',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
+      
       toast.success('Decoration service updated successfully!');
       router.push('/provider/decoration');
     } catch (err) {
@@ -525,6 +529,14 @@ function EditDecorationServiceContent() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Starting Price (₹) *</label>
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 25000" min="0" required className="text-black" />
                   </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -714,6 +726,7 @@ function EditDecorationServiceContent() {
                       <p><strong>Name:</strong> <span className="text-gray-600">{formData.name}</span></p>
                       <p><strong>Description:</strong> <span className="text-gray-600">{formData.description}</span></p>
                       <p><strong>Base Price:</strong> <span className="text-gray-600">₹{formData.basePrice.toLocaleString()}</span></p>
+                      <p><strong>Payment Method:</strong> <span className="text-gray-600">{formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</span></p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>

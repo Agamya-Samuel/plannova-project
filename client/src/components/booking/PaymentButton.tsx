@@ -7,6 +7,13 @@ import { processPayment, getPaymentStatus } from '@/lib/paymentService';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 
+// Define the PaymentError type to match what's thrown by paymentService
+interface PaymentError {
+  type: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
 interface PaymentButtonProps {
   bookingId: string;
   amount: number;
@@ -46,11 +53,12 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
       if (paymentStatus.paymentStatus === 'paid') {
         toast.success('This booking has already been paid');
         onPaymentSuccess?.();
+        setIsProcessing(false);
         return;
       }
 
       // Process payment
-      await processPayment(
+      const result = await processPayment(
         bookingId,
         amount,
         currency,
@@ -59,19 +67,75 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
         customerPhone
       );
       
-      toast.success('Payment successful!');
-      onPaymentSuccess?.();
-      
-      // Refresh the page to show updated payment status
-      router.refresh();
-    } catch (error) {
-      console.error('Payment error:', error);
-      if (error instanceof Error) {
-        toast.error(error.message || 'Payment failed. Please try again.');
+      // Check if payment was successful
+      if (result.success) {
+        toast.success('Payment successful!');
+        onPaymentSuccess?.();
       } else {
-        toast.error('Payment failed. Please try again.');
+        // This shouldn't happen with the current implementation, but just in case
+        toast.error('Payment processing completed but status is unclear. Please check your bookings.');
+        onPaymentSuccess?.();
       }
+    } catch (error) {
+      // Handle case where error is null, undefined, or empty object (user cancellation)
+      if (!error || (typeof error === 'object' && Object.keys(error).length === 0)) {
+        toast.info('Payment was cancelled. You can complete the payment later from your bookings.');
+        setIsProcessing(false);
+        return;
+      }
+      // Handle specific payment error types
+      else if (error && typeof error === 'object' && 'type' in error) {
+        const paymentError = error as PaymentError;
+        
+        switch (paymentError.type) {
+          case 'user_cancelled':
+            toast.info(paymentError.message);
+            setIsProcessing(false);
+            return;
+          case 'payment_failed':
+            toast.error(paymentError.message);
+            break;
+          case 'network_error':
+            toast.error(paymentError.message);
+            break;
+          case 'verification_failed':
+            toast.error(paymentError.message);
+            break;
+          case 'unknown_error':
+          default:
+            toast.error(paymentError.message || 'Payment failed. Please try again.');
+            break;
+        }
+      } 
+      // Handle generic errors
+      else if (error instanceof Error) {
+        // Check if it's a network error
+        if (error.message.includes('fetch') || error.message.includes('network')) {
+          toast.error('Network error. Please check your connection and try again.');
+        } 
+        // Check if it's a payment verification error
+        else if (error.message.includes('verification')) {
+          toast.error('Payment processed but verification failed. Please contact support.');
+        }
+        // Check if it's a general payment error
+        else if (error.message.includes('Payment failed')) {
+          toast.error('Payment was not completed. Please try again or use a different payment method.');
+        }
+        // Other errors
+        else {
+          toast.error(error.message || 'Payment failed. Please try again.');
+        }
+      } else {
+        // Treat any other unknown error as a user cancellation to prevent stuck UI
+        toast.info('Payment was cancelled. You can complete the payment later from your bookings.');
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Log error for debugging (except for user cancellations which we handled above)
+      console.error('Payment error:', error);
     } finally {
+      // Always reset loading state unless we've already done so
       setIsProcessing(false);
     }
   };
@@ -83,10 +147,10 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
       className="w-full bg-green-600 hover:bg-green-700 text-white"
     >
       {isProcessing ? (
-        <>
+        <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
           Processing Payment...
-        </>
+        </div>
       ) : (
         `Pay ₹${amount.toLocaleString('en-IN')}`
       )}

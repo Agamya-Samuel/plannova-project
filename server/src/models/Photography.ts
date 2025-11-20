@@ -44,6 +44,7 @@ export interface IPhotography extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number; // Add this line
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -185,6 +186,10 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
     required: true,
     min: 0
   },
+  pricePerGuest: {  // Add this block
+    type: Number,
+    min: 0
+  },
   minGuests: {
     type: Number,
     min: 1
@@ -258,3 +263,6 @@ const PhotographySchema: Schema<IPhotography> = new Schema({
 // Create and export the Photography model
 export const Photography = mongoose.model<IPhotography>('Photography', PhotographySchema);
 export default Photography;
+
+
+

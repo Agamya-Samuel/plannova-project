@@ -3,10 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { ArrowLeft, Utensils, MapPin, Phone, Mail, PlusCircle, Star, X, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { ArrowLeft, Utensils, MapPin, Phone, Mail, PlusCircle, Star, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
-import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import { BookingButton } from '@/components/booking/BookingButton';
 import { BookingModal } from '@/components/booking/BookingModal';
 
 interface CateringService {
@@ -24,6 +24,7 @@ interface CateringService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -380,10 +381,11 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Availability Calendar */}
-            <AvailabilityCalendar
+            {/* Booking Button - Replaces initial calendar */}
+            <BookingButton
               serviceId={service._id}
               serviceType="catering"
+              basePrice={service.basePrice}
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
               selectedDates={selectedDates}
@@ -391,21 +393,7 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
               onSelectionModeChange={setSelectionMode}
             />
 
-            {selectedDate ? (
-              <Button
-                onClick={() => setShowBookingModal(true)}
-                className="w-full bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white"
-              >
-                {selectedDates.length > 1 
-                  ? `Book for ${selectedDates.length} dates` 
-                  : `Book for ${selectedDate}`}
-              </Button>
-            ) : (
-              <div className="text-center">
-                <Utensils className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
-              </div>
-            )}
+
 
             {/* Contact Information */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
@@ -443,38 +431,9 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               </div>
               
-              {/* Instruction to use calendar */}
-              <div className="mt-6 bg-gradient-to-br from-pink-50 to-purple-50 rounded-lg p-4">
-                <div className="flex items-start">
-                  <Calendar className="h-5 w-5 text-pink-600 mr-2 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900 mb-1">How to Book</p>
-                    <p className="text-xs text-gray-600">
-                      Select an available date from the calendar above to start your booking
-                    </p>
-                  </div>
-                </div>
-              </div>
             </div>
 
-            {/* Pricing */}
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-gray-900 mb-2">
-                  ₹{service.basePrice.toLocaleString('en-IN')}
-                </div>
-                <p className="text-gray-600">per plate</p>
-              </div>
-
-              {service.minGuests && (
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-4 mb-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">Minimum Guests</span>
-                    <span className="text-lg font-bold text-gray-900">{service.minGuests} guests</span>
-                  </div>
-                </div>
-              )}
-
               <div className="text-center">
                 <p className="text-sm text-gray-500">
                   Contact provider for custom pricing
@@ -579,7 +538,7 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
           serviceName={service.name}
           serviceType="catering"
           basePrice={service.basePrice}
-          pricePerGuest={service.basePrice}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

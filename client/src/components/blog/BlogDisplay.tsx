@@ -262,7 +262,13 @@ export default function BlogDisplay({
           </div>
         ) : displayBlogs.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-600 text-lg">No blogs found.</p>
+            <p className="text-gray-600 text-lg mb-6">No blogs found.</p>
+            <button
+              onClick={() => router.push('/my-blogs?create=true')}
+              className="px-6 py-3 bg-pink-600 text-white font-medium rounded-lg hover:bg-pink-700 transition-colors shadow-md hover:shadow-lg"
+            >
+              Write Your First Blog
+            </button>
           </div>
         ) : (
           <>
