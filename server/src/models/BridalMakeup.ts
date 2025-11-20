@@ -43,6 +43,7 @@ export interface IBridalMakeup extends Document {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -192,6 +193,10 @@ const BridalMakeupSchema = new Schema<IBridalMakeup>({
     required: true,
     min: 0
   },
+  pricePerGuest: {
+    type: Number,
+    min: 0
+  },
   minGuests: {
     type: Number,
     min: 1
@@ -289,6 +294,10 @@ BridalMakeupSchema.pre('save', function(next) {
 });
 
 export default mongoose.model<IBridalMakeup>('BridalMakeup', BridalMakeupSchema);
+
+
+
+
 
 
 

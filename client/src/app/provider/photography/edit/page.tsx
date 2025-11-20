@@ -28,6 +28,7 @@ import 'react-phone-number-input/style.css';
 import PhoneInput, { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
 
 // Define the structure of the form data
 interface PhotographyServiceFormData {
@@ -51,6 +52,7 @@ interface PhotographyServiceFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -122,7 +124,8 @@ export default function EditPhotographyService() {
     photographyTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchPhotographyService = React.useCallback(async () => {
@@ -141,7 +144,8 @@ export default function EditPhotographyService() {
         photographyTypes: service.photographyTypes,
         packages: service.packages.map((p: { price: { toString: () => string; }; }) => ({...p, price: p.price.toString()})),
         addons: service.addons.map((a: { price: { toString: () => string; }; }) => ({...a, price: a.price.toString()})),
-        images: service.images
+        images: service.images,
+        paymentMethod: service.paymentMethod || 'ONLINE_CASH'
       });
     } catch (err: unknown) {
       let errorMessage = 'Failed to fetch photography service';
@@ -482,13 +486,33 @@ export default function EditPhotographyService() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
                     <textarea value={formData.description} onChange={(e) => handleInputChange('description', e.target.value)} placeholder="Describe your photography service in detail..." rows={4} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" required minLength={10} />
                   </div>
-                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Base Price (₹) *</label>
-                    <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 15000" min="0" required className="text-black" />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Base Price (₹) *
+                    </label>
+                    <Input
+                      type="number"
+                      value={formData.basePrice}
+                      onChange={(e) => handleInputChange('basePrice', parseFloat(e.target.value) || 0)}
+                      placeholder="Enter starting price"
+                      min="0"
+                      required
+                      className="text-black"
+                    />
                   </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
+                  </div>
+
                 </div>
               )}
 
+              {/* Location Tab */}
               {activeTab === 'location' && (
                 <LocationInput
                   data={formData.serviceLocation}
@@ -581,6 +605,9 @@ export default function EditPhotographyService() {
                                     <Button type="button" size="sm" onClick={() => handleAddPackageInclude(index)} className="mt-2">Add Item</Button>
                                 </div>
                                 <div className="flex items-center mt-4">
+                                  {/* Removed minGuests field as it doesn't exist in PhotographyServiceFormData */}
+                                </div>
+                                <div className="flex items-center mt-4">
                                     <input type="checkbox" checked={pkg.isPopular} onChange={e => handlePackageChange(index, 'isPopular', e.target.checked)} />
                                     <label className="ml-2">Mark as Popular</label>
                                 </div>
@@ -588,8 +615,18 @@ export default function EditPhotographyService() {
                             </div>
                         ))}
                     </div>
+                    
+
                   </div>
                 </div>
+              )}
+
+              {/* Location Tab */}
+              {activeTab === 'location' && (
+                <LocationInput
+                  data={formData.serviceLocation}
+                  onChange={(data) => setFormData(prev => ({ ...prev, serviceLocation: data }))}
+                />
               )}
 
               {activeTab === 'policies' && (
@@ -603,6 +640,7 @@ export default function EditPhotographyService() {
                         <label className="block text-sm font-medium text-gray-700 mb-2">Payment Terms</label>
                         <textarea value={formData.paymentTerms} onChange={(e) => handleInputChange('paymentTerms', e.target.value)} placeholder="Describe your payment terms..." rows={3} className="w-full px-4 py-3 border border-gray-200 rounded-xl text-black" />
                     </div>
+                    {/* Payment Method Selector moved to services tab where pricing is set */}
                 </div>
               )}
 

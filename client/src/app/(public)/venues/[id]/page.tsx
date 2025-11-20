@@ -74,6 +74,7 @@ interface Venue {
     max: number;
   };
   basePrice: number;
+  pricePerGuest?: number;
   images: Array<{
     url: string;
     alt: string;
@@ -868,7 +869,7 @@ export default function VenueDetailsPage() {
           serviceName={venue.name}
           serviceType="venue"
           basePrice={venue.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={venue.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

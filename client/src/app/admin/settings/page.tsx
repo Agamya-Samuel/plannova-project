@@ -8,6 +8,7 @@ import {
   Settings,
   Save,
   Shield,
+  Bell,
   CreditCard,
   Globe,
   Database,
@@ -18,9 +19,6 @@ import { toast } from 'sonner';
 export default function AdminSettingsPage() {
   const { user: currentUser, isLoading } = useAuth();
   const [saving, setSaving] = useState(false);
-  
-  // Active tab state - controls which settings section is displayed
-  const [activeTab, setActiveTab] = useState<'general' | 'security' | 'payments'>('general');
   
   // Form states
   const [generalSettings, setGeneralSettings] = useState({
@@ -38,6 +36,13 @@ export default function AdminSettingsPage() {
     maxLoginAttempts: 5
   });
   
+  const [notificationSettings, setNotificationSettings] = useState({
+    emailNotifications: true,
+    smsNotifications: true,
+    pushNotifications: true,
+    adminAlerts: true
+  });
+  
   const [paymentSettings, setPaymentSettings] = useState({
     currency: 'INR',
     taxRate: 18,
@@ -45,32 +50,12 @@ export default function AdminSettingsPage() {
     payoutSchedule: 'weekly'
   });
 
-  // Handle saving settings based on active tab
   const handleSaveSettings = async () => {
     setSaving(true);
     try {
-      // TODO: Implement API calls for each settings type
-      // This is a placeholder - you'll need to create the endpoints
-      // When implementing, use endpoint and data variables based on activeTab
-      switch (activeTab) {
-        case 'general':
-          // endpoint = '/admin/settings/general';
-          // data = generalSettings;
-          break;
-        case 'security':
-          // endpoint = '/admin/settings/security';
-          // data = securitySettings;
-          break;
-        case 'payments':
-          // endpoint = '/admin/settings/payments';
-          // data = paymentSettings;
-          break;
-      }
-      
       // Simulate API call
-      // TODO: Replace with actual API call: await apiClient.post(endpoint, data);
       await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success(`${activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} settings saved successfully!`);
+      toast.success('Settings saved successfully!');
     } catch {
       toast.error('Failed to save settings');
     } finally {
@@ -149,34 +134,16 @@ export default function AdminSettingsPage() {
           <div className="bg-white rounded-xl shadow-lg overflow-hidden">
             <div className="border-b border-gray-200">
               <nav className="flex overflow-x-auto">
-                <button 
-                  onClick={() => setActiveTab('general')}
-                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeTab === 'general'
-                      ? 'text-red-600 border-b-2 border-red-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
+                <button className="px-6 py-4 text-sm font-medium text-red-600 border-b-2 border-red-600 whitespace-nowrap">
                   General
                 </button>
-                <button 
-                  onClick={() => setActiveTab('security')}
-                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeTab === 'security'
-                      ? 'text-red-600 border-b-2 border-red-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
+                <button className="px-6 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
                   Security
                 </button>
-                <button 
-                  onClick={() => setActiveTab('payments')}
-                  className={`px-6 py-4 text-sm font-medium whitespace-nowrap transition-colors ${
-                    activeTab === 'payments'
-                      ? 'text-red-600 border-b-2 border-red-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
+                <button className="px-6 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
+                  Notifications
+                </button>
+                <button className="px-6 py-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap">
                   Payments
                 </button>
               </nav>
@@ -185,7 +152,6 @@ export default function AdminSettingsPage() {
             <div className="p-6">
               <div className="space-y-8">
                 {/* General Settings */}
-                {activeTab === 'general' && (
                 <div>
                   <div className="flex items-center mb-6">
                     <Globe className="h-5 w-5 text-gray-500 mr-2" />
@@ -258,10 +224,8 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
                 </div>
-                )}
                 
                 {/* Security Settings */}
-                {activeTab === 'security' && (
                 <div>
                   <div className="flex items-center mb-6">
                     <Shield className="h-5 w-5 text-gray-500 mr-2" />
@@ -322,10 +286,82 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
                 </div>
-                )}
+                
+                {/* Notification Settings */}
+                <div>
+                  <div className="flex items-center mb-6">
+                    <Bell className="h-5 w-5 text-gray-500 mr-2" />
+                    <h2 className="text-xl font-semibold text-gray-900">Notification Settings</h2>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Email Notifications</h3>
+                        <p className="text-sm text-gray-500">Send system notifications via email</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.emailNotifications}
+                          onChange={(e) => setNotificationSettings({...notificationSettings, emailNotifications: e.target.checked})}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <h3 className="font-medium text-gray-900">SMS Notifications</h3>
+                        <p className="text-sm text-gray-500">Send critical alerts via SMS</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.smsNotifications}
+                          onChange={(e) => setNotificationSettings({...notificationSettings, smsNotifications: e.target.checked})}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Push Notifications</h3>
+                        <p className="text-sm text-gray-500">Send browser push notifications</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.pushNotifications}
+                          onChange={(e) => setNotificationSettings({...notificationSettings, pushNotifications: e.target.checked})}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                      </label>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                      <div>
+                        <h3 className="font-medium text-gray-900">Admin Alerts</h3>
+                        <p className="text-sm text-gray-500">Receive alerts for critical system events</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={notificationSettings.adminAlerts}
+                          onChange={(e) => setNotificationSettings({...notificationSettings, adminAlerts: e.target.checked})}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-red-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 
                 {/* Payment Settings */}
-                {activeTab === 'payments' && (
                 <div>
                   <div className="flex items-center mb-6">
                     <CreditCard className="h-5 w-5 text-gray-500 mr-2" />
@@ -390,10 +426,9 @@ export default function AdminSettingsPage() {
                     </div>
                   </div>
                 </div>
-                )}
                 
                 {/* Save Button */}
-                <div className="flex justify-end pt-4 border-t border-gray-200">
+                <div className="flex justify-end">
                   <Button 
                     onClick={handleSaveSettings}
                     disabled={saving}
@@ -407,7 +442,7 @@ export default function AdminSettingsPage() {
                     ) : (
                       <>
                         <Save className="h-4 w-4" />
-                        <span>Save {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Settings</span>
+                        <span>Save Settings</span>
                       </>
                     )}
                   </Button>

@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import User, { UserRole, IUser } from '../models/User.js';
 import Venue from '../models/Venue.js';
 import Catering from '../models/Catering.js';
@@ -7,8 +7,9 @@ import Photography from '../models/Photography.js';
 import Videography from '../models/Videography.js';
 import BridalMakeup from '../models/BridalMakeup.js';
 import Decoration from '../models/Decoration.js';
-import Booking, { BookingStatus } from '../models/Booking.js';
+import Booking, { BookingStatus, BookingType, PaymentStatus, ServiceType } from '../models/Booking.js';
 import Blog from '../models/Blog.js';
+import Entertainment from '../models/Entertainment.js';
 import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -644,8 +645,491 @@ router.delete('/trash/:id/permanent', authenticateToken, requireAdmin, async (re
   }
 });
 
+// GET /api/admin/bookings - Get all bookings with filters (Admin only)
+router.get('/bookings', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { 
+      page = '1', 
+      limit = '20', 
+      vendor, 
+      serviceType, 
+      paymentType, 
+      paymentStatus, 
+      dateFrom, 
+      dateTo,
+      search 
+    } = req.query as { 
+      page?: string; 
+      limit?: string; 
+      vendor?: string; 
+      serviceType?: string; 
+      paymentType?: string; 
+      paymentStatus?: string; 
+      dateFrom?: string; 
+      dateTo?: string;
+      search?: string;
+    };
+
+    const pageNum = Math.max(parseInt(page || '1', 10), 1);
+    const limitNum = Math.min(Math.max(parseInt(limit || '20', 10), 1), 100);
+
+    const filter: Record<string, unknown> = {};
+
+    // Apply vendor filter
+    if (vendor && Types.ObjectId.isValid(vendor)) {
+      filter.providerId = new Types.ObjectId(vendor);
+    }
+
+    // Apply service type filter
+    if (serviceType && Object.values(ServiceType).includes(serviceType as ServiceType)) {
+      filter.serviceType = serviceType;
+    }
+
+    // Apply payment type filter
+    if (paymentType && Object.values(BookingType).includes(paymentType as BookingType)) {
+      filter.bookingType = paymentType;
+    }
+
+    // Apply payment status filter
+    if (paymentStatus && Object.values(PaymentStatus).includes(paymentStatus as PaymentStatus)) {
+      filter.paymentStatus = paymentStatus;
+    }
+
+    // Apply date range filter
+    if (dateFrom || dateTo) {
+      filter.date = {};
+      if (dateFrom) {
+        (filter.date as Record<string, unknown>).$gte = new Date(dateFrom);
+      }
+      if (dateTo) {
+        (filter.date as Record<string, unknown>).$lte = new Date(dateTo);
+      }
+    }
+
+    // Apply search filter
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      const userSearchFilter = {
+        $or: [
+          { firstName: { $regex: searchTerm, $options: 'i' } },
+          { lastName: { $regex: searchTerm, $options: 'i' } },
+          { email: { $regex: searchTerm, $options: 'i' } }
+        ]
+      };
+
+      // Find users matching the search term
+      const matchingUsers = await User.find(userSearchFilter, '_id');
+      const userIds = matchingUsers.map(user => user._id);
+
+      // Filter bookings by customer or provider
+      filter.$or = [
+        { customerId: { $in: userIds } },
+        { providerId: { $in: userIds } },
+        { contactPerson: { $regex: searchTerm, $options: 'i' } },
+        { contactEmail: { $regex: searchTerm, $options: 'i' } },
+        { contactPhone: { $regex: searchTerm, $options: 'i' } }
+      ];
+    }
+
+    const bookings = await Booking.find(filter)
+      .sort({ createdAt: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .populate('customerId', 'firstName lastName email phone')
+      .populate('providerId', 'firstName lastName email phone')
+      .lean();
+
+    // Build rich response including service details
+    const transformed = await Promise.all(
+      bookings.map(async (booking) => {
+        let serviceName = 'Unknown Service';
+        let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+        let providerContact = {
+          name: 'Provider',
+          email: '',
+          phone: ''
+        };
+
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let service: any = null;
+          switch (booking.serviceType) {
+            case ServiceType.VENUE:
+              service = await Venue.findById(booking.serviceId);
+              break;
+            case ServiceType.CATERING:
+              service = await Catering.findById(booking.serviceId);
+              break;
+            case ServiceType.PHOTOGRAPHY:
+              service = await Photography.findById(booking.serviceId);
+              break;
+            case ServiceType.VIDEOGRAPHY:
+              service = await Videography.findById(booking.serviceId);
+              break;
+            case ServiceType.BRIDAL_MAKEUP:
+              service = await BridalMakeup.findById(booking.serviceId);
+              break;
+            case ServiceType.DECORATION:
+              service = await Decoration.findById(booking.serviceId);
+              break;
+            case ServiceType.ENTERTAINMENT:
+              service = await Entertainment.findById(booking.serviceId);
+              break;
+          }
+
+          if (service) {
+            serviceName = service.name;
+            serviceImage = service.images?.[0]?.url || serviceImage;
+
+            if (service.contact) {
+              providerContact = {
+                name: service.contact.name || serviceName,
+                email: service.contact.email || '',
+                phone: service.contact.phone || ''
+              };
+            }
+          }
+
+          // Fallback to populated provider user if service lacks contact
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const provider = (booking as any).providerId;
+          if (provider && !providerContact.email) {
+            providerContact = {
+              name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+              email: provider.email || '',
+              phone: provider.phone || ''
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching service/provider details (admin/bookings):', error);
+        }
+
+        return {
+          id: (booking._id as Types.ObjectId).toString(),
+          serviceId: booking.serviceId?.toString(),
+          serviceType: booking.serviceType,
+          serviceName,
+          serviceImage,
+          date: booking.date,
+          time: booking.time,
+          status: booking.status,
+          paymentStatus: booking.paymentStatus,
+          bookingType: booking.bookingType,
+          paymentMode: booking.paymentMode,
+          totalPrice: booking.totalPrice,
+          guestCount: booking.guestCount,
+          contactPerson: booking.contactPerson,
+          contactPhone: booking.contactPhone,
+          contactEmail: booking.contactEmail,
+          specialRequests: booking.specialRequests,
+          provider: providerContact,
+          createdAt: booking.createdAt
+        };
+      })
+    );
+
+    const total = await Booking.countDocuments(filter);
+
+    res.json({
+      bookings: transformed,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        pages: Math.ceil(total / limitNum)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching all bookings for admin:', error);
+    res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+});
+
+// GET /api/admin/payments - Get all payments for admin (Admin only)
+router.get('/payments', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Get query parameters for filtering
+    const { paymentMode, serviceType } = req.query;
+
+    // Build filter object
+    const filter: Record<string, unknown> = {
+      paymentStatus: { $ne: PaymentStatus.PENDING }
+    };
+
+    // Add payment mode filter if provided
+    if (paymentMode && paymentMode !== 'all') {
+      filter.paymentMode = paymentMode;
+    }
+
+    // Add service type filter if provided
+    if (serviceType && serviceType !== 'all') {
+      filter.serviceType = serviceType;
+    }
+
+    // Get all bookings with populated service details and filters applied
+    const bookings = await Booking.find(filter)
+    .populate('customerId', 'firstName lastName')
+    .populate('providerId', 'firstName lastName')
+    .sort({ createdAt: -1 });
+
+    // Transform bookings to payment objects
+    const payments = await Promise.all(bookings.map(async (booking) => {
+      // Get service details
+      let serviceName = 'Unknown Service';
+      let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+      let providerName = 'Unknown Provider';
+      let customerName = 'Unknown Customer';
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let service: any = null;
+        switch (booking.serviceType) {
+          case ServiceType.VENUE:
+            service = await Venue.findById(booking.serviceId);
+            break;
+          case ServiceType.CATERING:
+            service = await Catering.findById(booking.serviceId);
+            break;
+          case ServiceType.PHOTOGRAPHY:
+            service = await Photography.findById(booking.serviceId);
+            break;
+          case ServiceType.VIDEOGRAPHY:
+            service = await Videography.findById(booking.serviceId);
+            break;
+          case ServiceType.BRIDAL_MAKEUP:
+            service = await BridalMakeup.findById(booking.serviceId);
+            break;
+          case ServiceType.DECORATION:
+            service = await Decoration.findById(booking.serviceId);
+            break;
+          case ServiceType.ENTERTAINMENT:
+            service = await Entertainment.findById(booking.serviceId);
+            break;
+        }
+
+        if (service) {
+          serviceName = service.name;
+          serviceImage = service.images?.[0]?.url || serviceImage;
+        }
+      } catch (error) {
+        console.error('Error fetching service details:', error);
+      }
+
+      // Get provider and customer names
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const provider = booking.providerId as any;
+        if (provider && provider.firstName) {
+          providerName = `${provider.firstName} ${provider.lastName || ''}`.trim();
+        }
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const customer = booking.customerId as any;
+        if (customer && customer.firstName) {
+          customerName = `${customer.firstName} ${customer.lastName || ''}`.trim();
+        }
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+      }
+
+      return {
+        id: booking._id,
+        paymentId: booking._id, // Using booking ID as payment ID
+        orderId: booking._id, // Using booking ID as order ID
+        serviceType: booking.serviceType,
+        serviceName,
+        serviceImage,
+        providerName,
+        customerName,
+        amount: booking.totalPrice,
+        status: booking.paymentStatus,
+        date: booking.createdAt
+      };
+    }));
+
+    res.json({
+      payments
+    });
+  } catch (error) {
+    console.error('Error fetching payments:', error);
+    res.status(500).json({ error: 'Failed to fetch payments' });
+  }
+});
+
+// GET /api/admin/revenue - Get revenue statistics (Admin only)
+router.get('/revenue', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Get all paid bookings
+    const paidBookings = await Booking.find({ 
+      paymentStatus: PaymentStatus.PAID 
+    }).select('totalPrice paymentMode serviceType createdAt');
+
+    // Calculate revenue statistics
+    let totalPlatformRevenue = 0;
+    let totalOnlineRevenue = 0;
+    let totalCashRevenue = 0;
+
+    paidBookings.forEach(booking => {
+      totalPlatformRevenue += booking.totalPrice;
+      
+      if (booking.paymentMode === 'ONLINE') {
+        totalOnlineRevenue += booking.totalPrice;
+      } else if (booking.paymentMode === 'CASH') {
+        totalCashRevenue += booking.totalPrice;
+      }
+    });
+
+    res.json({
+      summary: {
+        totalPlatformRevenue,
+        totalOnlineRevenue,
+        totalCashRevenue
+      },
+      bookings: paidBookings.map(booking => ({
+        id: booking._id,
+        totalPrice: booking.totalPrice,
+        paymentMode: booking.paymentMode,
+        serviceType: booking.serviceType,
+        date: booking.createdAt
+      }))
+    });
+  } catch (error) {
+    console.error('Error fetching revenue data:', error);
+    res.status(500).json({ error: 'Failed to fetch revenue data' });
+  }
+});
+
+// PUT /api/admin/bookings/:id/payment-status - Update booking payment status (Admin only)
+router.put('/bookings/:id/payment-status', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { paymentStatus } = req.body;
+
+    // Validate payment status
+    if (!Object.values(PaymentStatus).includes(paymentStatus)) {
+      return res.status(400).json({ error: 'Invalid payment status' });
+    }
+
+    // Find the booking
+    const booking = await Booking.findById(id);
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    // Store previous status for response
+    const previousStatus = booking.paymentStatus;
+
+    // Update payment status
+    booking.paymentStatus = paymentStatus;
+    booking.updatedAt = new Date();
+    
+    // If payment is marked as paid, also update advance and remaining amounts
+    if (paymentStatus === PaymentStatus.PAID) {
+      booking.advanceAmount = booking.totalPrice;
+      booking.remainingAmount = 0;
+    }
+    
+    await booking.save();
+
+    // Populate related data for response
+    const populatedBooking = await Booking.findById(id)
+      .populate('customerId', 'firstName lastName email phone')
+      .populate('providerId', 'firstName lastName email phone')
+      .lean();
+
+    // Get service details
+    let serviceName = 'Unknown Service';
+    let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+    let providerContact = {
+      name: 'Provider',
+      email: '',
+      phone: ''
+    };
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let service: any = null;
+      switch (booking.serviceType) {
+        case ServiceType.VENUE:
+          service = await Venue.findById(booking.serviceId);
+          break;
+        case ServiceType.CATERING:
+          service = await Catering.findById(booking.serviceId);
+          break;
+        case ServiceType.PHOTOGRAPHY:
+          service = await Photography.findById(booking.serviceId);
+          break;
+        case ServiceType.VIDEOGRAPHY:
+          service = await Videography.findById(booking.serviceId);
+          break;
+        case ServiceType.BRIDAL_MAKEUP:
+          service = await BridalMakeup.findById(booking.serviceId);
+          break;
+        case ServiceType.DECORATION:
+          service = await Decoration.findById(booking.serviceId);
+          break;
+        case ServiceType.ENTERTAINMENT:
+          service = await Entertainment.findById(booking.serviceId);
+          break;
+      }
+
+      if (service) {
+        serviceName = service.name;
+        serviceImage = service.images?.[0]?.url || serviceImage;
+
+        if (service.contact) {
+          providerContact = {
+            name: service.contact.name || serviceName,
+            email: service.contact.email || '',
+            phone: service.contact.phone || ''
+          };
+        }
+      }
+
+      // Fallback to populated provider user if service lacks contact
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const provider = (populatedBooking as any)?.providerId;
+      if (provider && !providerContact.email) {
+        providerContact = {
+          name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+          email: provider.email || '',
+          phone: provider.phone || ''
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching service/provider details (admin/bookings/payment-status):', error);
+    }
+
+    const transformedBooking = {
+      id: (populatedBooking?._id as mongoose.Types.ObjectId).toString(),
+      serviceId: populatedBooking?.serviceId?.toString(),
+      serviceType: populatedBooking?.serviceType,
+      serviceName,
+      serviceImage,
+      date: populatedBooking?.date,
+      time: populatedBooking?.time,
+      status: populatedBooking?.status,
+      paymentStatus: populatedBooking?.paymentStatus,
+      bookingType: populatedBooking?.bookingType,
+      paymentMode: populatedBooking?.paymentMode,
+      totalPrice: populatedBooking?.totalPrice,
+      guestCount: populatedBooking?.guestCount,
+      contactPerson: populatedBooking?.contactPerson,
+      contactPhone: populatedBooking?.contactPhone,
+      contactEmail: populatedBooking?.contactEmail,
+      specialRequests: populatedBooking?.specialRequests,
+      provider: providerContact,
+      createdAt: populatedBooking?.createdAt
+    };
+
+    res.json({
+      message: `Payment status updated from ${previousStatus} to ${paymentStatus}`,
+      booking: transformedBooking
+    });
+  } catch (error) {
+    console.error('Error updating booking payment status:', error);
+    res.status(500).json({ error: 'Failed to update booking payment status' });
+  }
+});
+
 export default router;
-
-
-
-

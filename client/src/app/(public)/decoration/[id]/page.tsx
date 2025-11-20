@@ -25,6 +25,7 @@ interface DecorationService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -491,7 +492,7 @@ export default function DecorationDetailPage({ params }: { params: Promise<{ id:
           serviceName={service.name}
           serviceType="decoration"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

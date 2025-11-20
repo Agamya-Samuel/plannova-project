@@ -85,7 +85,9 @@ export default function AccountSettingsPage() {
   const { user, isLoading, updateServiceCategories } = useAuth();
   const router = useRouter();
   
-  // Active section state - default to 'account' as it's now first
+  // Active section state
+  // Removed 'notifications' and 'privacy' sections as per user request
+  // Account is set as default and appears first in navigation
   const [activeSection, setActiveSection] = useState<'security' | 'account' | 'blogs' | 'services'>('account');
   
   // Security settings
@@ -99,6 +101,7 @@ export default function AccountSettingsPage() {
   });
   const [changingPassword, setChangingPassword] = useState(false);
   
+  // Removed notification and privacy state variables as per user request
   
   // Account preferences
   const [preferences, setPreferences] = useState({
@@ -403,6 +406,8 @@ export default function AccountSettingsPage() {
     }
   };
 
+  // Removed handleSaveNotifications and handleSavePrivacy functions as per user request
+
   // Handle account preferences save
   const handleSavePreferences = async () => {
     try {
@@ -508,6 +513,7 @@ export default function AccountSettingsPage() {
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl shadow-lg p-4 sticky top-4">
                 <nav className="space-y-2">
+                  {/* Account section appears first as per user request */}
                   <button
                     onClick={() => setActiveSection('account')}
                     className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
@@ -519,20 +525,6 @@ export default function AccountSettingsPage() {
                     <User className="h-5 w-5 mr-3" />
                     Account
                   </button>
-                  
-                  {canManageBlogs() && (
-                    <button
-                      onClick={() => setActiveSection('blogs')}
-                      className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                        activeSection === 'blogs'
-                          ? 'bg-pink-100 text-pink-600 font-medium'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <BookOpen className="h-5 w-5 mr-3" />
-                      Manage Blogs
-                    </button>
-                  )}
                   
                   <button
                     onClick={() => setActiveSection('security')}
@@ -559,6 +551,22 @@ export default function AccountSettingsPage() {
                       Services
                     </button>
                   )}
+                  
+                  {canManageBlogs() && (
+                    <button
+                      onClick={() => setActiveSection('blogs')}
+                      className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
+                        activeSection === 'blogs'
+                          ? 'bg-pink-100 text-pink-600 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <BookOpen className="h-5 w-5 mr-3" />
+                      Manage Blogs
+                    </button>
+                  )}
+
+                  {/* Removed Notifications and Privacy navigation buttons as per user request */}
                 </nav>
               </div>
             </div>
@@ -875,6 +883,8 @@ export default function AccountSettingsPage() {
                   </div>
                 </div>
               )}
+
+              {/* Removed Notifications and Privacy sections as per user request */}
 
               {/* Account Section */}
               {activeSection === 'account' && (

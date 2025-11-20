@@ -55,6 +55,7 @@ interface VideographyService {
     price: number;
   }>;
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -493,7 +494,7 @@ export default function VideographyDetailPage() {
           serviceName={service.name}
           serviceType="videography"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

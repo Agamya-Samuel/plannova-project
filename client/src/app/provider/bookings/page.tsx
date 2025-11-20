@@ -165,7 +165,49 @@ export default function ProviderBookingsPage() {
     window.location.href = `tel:${phone}`;
   };
 
+  const getPaymentModeText = (paymentMode?: string) => {
+    switch (paymentMode) {
+      case 'CASH':
+        return 'Cash Payment';
+      case 'ONLINE':
+        return 'Online Payment';
+      default:
+        return 'Not specified';
+    }
+  };
 
+  const getPaymentModeClass = (paymentMode?: string) => {
+    switch (paymentMode) {
+      case 'CASH':
+        return 'bg-blue-100 text-blue-800';
+      case 'ONLINE':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const getBookingTypeText = (bookingType?: string) => {
+    switch (bookingType) {
+      case 'CASH':
+        return 'Cash Booking';
+      case 'ONLINE':
+        return 'Online Booking';
+      default:
+        return 'Not specified';
+    }
+  };
+
+  const getBookingTypeClass = (bookingType?: string) => {
+    switch (bookingType) {
+      case 'CASH':
+        return 'bg-blue-100 text-blue-800';
+      case 'ONLINE':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   const getStatusIcon = (status: Booking['status']) => {
     switch (status) {
@@ -480,6 +522,20 @@ export default function ProviderBookingsPage() {
                                 {getStatusIcon(booking.status)}
                                 <span className="ml-1">{getStatusText(booking.status)}</span>
                               </span>
+                              
+                              {/* Payment Mode Badge */}
+                              {booking.paymentMode && (
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ml-2 ${getPaymentModeClass(booking.paymentMode)}`}>
+                                  {getPaymentModeText(booking.paymentMode)}
+                                </span>
+                              )}
+                              
+                              {/* Booking Type Badge */}
+                              {booking.bookingType && (
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ml-2 ${getBookingTypeClass(booking.bookingType)}`}>
+                                  {getBookingTypeText(booking.bookingType)}
+                                </span>
+                              )}
                             </div>
                             <div className="mb-4">
                               <span className="inline-block px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">
@@ -536,6 +592,19 @@ export default function ProviderBookingsPage() {
                                   <p className="font-semibold">₹{booking.totalPrice.toLocaleString('en-IN')}</p>
                                 </div>
                               </div>
+                              
+                              {/* Payment Status */}
+                              {booking.paymentStatus && (
+                                <div className="flex items-center text-gray-900">
+                                  <div className="h-5 w-5 mr-3 text-pink-600 flex items-center justify-center">
+                                    <div className="h-4 w-4 rounded-full bg-pink-600"></div>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-gray-500 mb-0.5">Payment Status</p>
+                                    <p className="font-semibold capitalize">{booking.paymentStatus}</p>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                           

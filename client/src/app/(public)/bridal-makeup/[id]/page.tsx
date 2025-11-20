@@ -25,6 +25,7 @@ interface BridalMakeupService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -477,7 +478,7 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
           serviceName={service.name}
           serviceType="bridal-makeup"
           basePrice={service.basePrice}
-          pricePerGuest={0}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />

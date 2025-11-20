@@ -24,6 +24,9 @@ import apiClient from '@/lib/api';
 import { ImageUpload } from '@/components/upload';
 import { VENUE_TYPES } from '@/constants/venueTypes';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 interface VenueFormData {
   name: string;
   description: string;
@@ -39,6 +42,7 @@ interface VenueFormData {
   amenities: Array<{ name: string; description: string; included: boolean; additionalCost: number }>;
   features: string[];
   foodOptions: Array<{ name: string; description: string; price: number; cuisine: string[]; isVeg: boolean; servingSize: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface Amenity {
@@ -98,7 +102,8 @@ export default function EditVenuePage() {
     images: [],
     amenities: [],
     features: [],
-    foodOptions: []
+    foodOptions: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   const fetchVenueForEdit = React.useCallback(async () => {
@@ -126,7 +131,8 @@ export default function EditVenuePage() {
         images: venueData.images || [],
         amenities: venueData.amenities || [],
         features: venueData.features || [],
-        foodOptions: venueData.foodOptions || []
+        foodOptions: venueData.foodOptions || [],
+        paymentMethod: venueData.paymentMethod || 'ONLINE_CASH'
       });
       
       // Show notification if venue is in pending edit status
@@ -375,12 +381,23 @@ export default function EditVenuePage() {
         images: Array.isArray(formData.images) ? formData.images : [],
         amenities: Array.isArray(formData.amenities) ? formData.amenities : [],
         features: Array.isArray(formData.features) ? formData.features : [],
-        foodOptions: Array.isArray(formData.foodOptions) ? formData.foodOptions : []
+        foodOptions: Array.isArray(formData.foodOptions) ? formData.foodOptions : [],
+        paymentMethod: formData.paymentMethod
       };
       
       console.log('Updating venue with cleaned data:', cleanFormData);
 
       const response = await apiClient.put(`/venues/${venueId}`, { ...cleanFormData, status });
+      
+      // Save payment configuration
+      try {
+        await apiClient.post(`/vendor-service-config/${venueId}`, {
+          serviceType: 'venues',
+          paymentMode: formData.paymentMethod
+        });
+      } catch (configError) {
+        console.error('Failed to save payment configuration:', configError);
+      }
       
       // Show appropriate message based on response
       if (response.data.message.includes('submitted for approval')) {
@@ -793,6 +810,14 @@ export default function EditVenuePage() {
                       rows={3}
                       className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-black placeholder-gray-400"
                       required
+                    />
+                  </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
                     />
                   </div>
                 </div>

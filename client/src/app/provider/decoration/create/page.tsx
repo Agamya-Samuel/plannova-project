@@ -30,6 +30,9 @@ import PolicyInput from '@/components/ui/PolicyInput';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 
+// Add PaymentMethodSelector import
+import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+
 // Define the structure of the form data
 interface DecorationFormData {
   name: string;
@@ -52,6 +55,7 @@ interface DecorationFormData {
   packages: Array<PackageFormData>;
   addons: Array<AddonFormData>;
   images: Array<{ url: string; alt: string; isPrimary: boolean; category: string }>;
+  paymentMethod: 'ONLINE_CASH' | 'CASH';
 }
 
 interface PackageFormData {
@@ -122,7 +126,8 @@ export default function CreateDecorationService() {
     decorationTypes: [],
     packages: [{ name: '', description: '', includes: [''], duration: '', price: 0, isPopular: false }],
     addons: [{ name: '', description: '', price: 0 }],
-    images: []
+    images: [],
+    paymentMethod: 'ONLINE_CASH'
   });
 
   // Update email when user data becomes available
@@ -239,7 +244,20 @@ export default function CreateDecorationService() {
         addons: formData.addons.filter(a => a.name.trim() !== '').map(a => ({...a, price: Number(a.price)})),
         basePrice: Number(formData.basePrice)
       };
-      await apiClient.post('/decoration', { ...serviceData, status });
+      const response = await apiClient.post('/decoration', { ...serviceData, status });
+      
+      // Save payment configuration
+      if (response.data?.data?._id) {
+        try {
+          await apiClient.post(`/vendor-service-config/${response.data.data._id}`, {
+            serviceType: 'decoration',
+            paymentMode: formData.paymentMethod
+          });
+        } catch (configError) {
+          console.error('Failed to save payment configuration:', configError);
+        }
+      }
+      
       toast.success('Decoration service created successfully!');
       router.push('/provider/decoration');
     } catch (err) {
@@ -432,6 +450,14 @@ export default function CreateDecorationService() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Starting Price (₹) *</label>
                     <Input type="number" value={formData.basePrice} onChange={(e) => handleInputChange('basePrice', Number(e.target.value))} placeholder="e.g., 25000" min="0" required className="text-black" />
                   </div>
+                  
+                  {/* Payment Method Selector */}
+                  <div className="mt-8">
+                    <PaymentMethodSelector 
+                      value={formData.paymentMethod}
+                      onChange={(value) => setFormData(prev => ({ ...prev, paymentMethod: value }))}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -582,6 +608,7 @@ export default function CreateDecorationService() {
                       <p><strong>Name:</strong> <span className="text-gray-600">{formData.name}</span></p>
                       <p><strong>Description:</strong> <span className="text-gray-600">{formData.description}</span></p>
                       <p><strong>Base Price:</strong> <span className="text-gray-600">₹{formData.basePrice.toLocaleString()}</span></p>
+                      <p><strong>Payment Method:</strong> <span className="text-gray-600">{formData.paymentMethod === 'ONLINE_CASH' ? 'Online + Cash Payment' : 'Cash Payment Only'}</span></p>
                     </div>
                     <div className="border border-gray-200 rounded-lg p-4">
                       <h3 className="font-semibold text-gray-900 mb-2">Location & Contact</h3>

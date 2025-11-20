@@ -25,6 +25,7 @@ interface CateringService {
     email: string;
   };
   basePrice: number;
+  pricePerGuest?: number;
   minGuests?: number;
   cancellationPolicy?: string;
   paymentTerms?: string;
@@ -587,7 +588,7 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
           serviceName={service.name}
           serviceType="catering"
           basePrice={service.basePrice}
-          pricePerGuest={service.basePrice}
+          pricePerGuest={service.pricePerGuest || 0}
           preselectedDate={selectedDate}
           preselectedDates={selectedDates}
         />
