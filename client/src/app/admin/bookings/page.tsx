@@ -557,7 +557,7 @@ export default function AdminBookingsPage() {
                         Customer
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date & Time
+                        Date
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
@@ -621,9 +621,6 @@ export default function AdminBookingsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {new Date(booking.date).toLocaleDateString()}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {booking.time}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
