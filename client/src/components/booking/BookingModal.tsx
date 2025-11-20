@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Calendar, Clock, Users, User, Phone, Mail, X } from 'lucide-react';
+import { Clock, Users, User, Phone, Mail, X } from 'lucide-react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
@@ -50,15 +50,26 @@ export function BookingModal({
     contactEmail: user?.email || ''
   });
 
+  // Store the selected dates information for display
+  const [selectedDatesInfo, setSelectedDatesInfo] = useState({
+    date: preselectedDate || (preselectedDates && preselectedDates.length > 0 ? preselectedDates[0] : '') || '',
+    dates: preselectedDates || (preselectedDate ? [preselectedDate] : [])
+  });
+
   // For online payments, we want to keep the form disabled until payment is completed
   const isFormDisabled = !!(loading || (createdBookingId && paymentMode === 'ONLINE'));
+        
+  // Make date and time fields optional since they're preselected
+  // Time is optional now
 
   // Update date when preselectedDate or preselectedDates changes
   useEffect(() => {
     if (preselectedDates && preselectedDates.length > 0) {
       setFormData(prev => ({ ...prev, dates: preselectedDates, date: preselectedDates[0] }));
+      setSelectedDatesInfo({ dates: preselectedDates, date: preselectedDates[0] });
     } else if (preselectedDate) {
       setFormData(prev => ({ ...prev, dates: [preselectedDate], date: preselectedDate }));
+      setSelectedDatesInfo({ dates: [preselectedDate], date: preselectedDate });
     }
   }, [preselectedDate, preselectedDates]);
 
@@ -97,9 +108,15 @@ export function BookingModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validation
-    if ((!formData.date && formData.dates.length === 0) || !formData.time || !formData.guestCount || !formData.contactPerson || !formData.contactPhone || !formData.contactEmail) {
+    // Validation - only check guest count, contact info since date/time are preselected
+    if (!formData.guestCount || !formData.contactPerson || !formData.contactPhone || !formData.contactEmail) {
       toast.error('Please fill in all required fields');
+      return;
+    }
+    
+    // Ensure at least one date is selected
+    if (formData.dates.length === 0 && !formData.date) {
+      toast.error('Please select at least one date');
       return;
     }
 
@@ -144,7 +161,7 @@ export function BookingModal({
           serviceId,
           serviceType,
           dates: validDates, // Send array of dates
-          time: formData.time,
+          time: formData.time || 'Not specified',
           guestCount: parseInt(formData.guestCount),
           contactPerson: formData.contactPerson,
           contactPhone: formData.contactPhone,
@@ -171,7 +188,7 @@ export function BookingModal({
           serviceId,
           serviceType,
           date: dateToUse,
-          time: formData.time,
+          time: formData.time || 'Not specified',
           guestCount: parseInt(formData.guestCount),
           contactPerson: formData.contactPerson,
           contactPhone: formData.contactPhone,
@@ -254,41 +271,42 @@ export function BookingModal({
             
             {/* Form */}
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              {/* Date Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Date
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="date"
-                    value={formData.date}
-                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="pl-10 w-full"
-                    required
-                    disabled={isFormDisabled}
-                  />
-                </div>
-              </div>
-              
-              {/* Time Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Time
-                </label>
-                <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <Input
-                    type="time"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    className="pl-10 w-full"
-                    required
-                    disabled={isFormDisabled}
-                  />
-                </div>
+              {/* Selected Date Information */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <h4 className="font-medium text-gray-700 mb-2 flex items-center">
+                  <Clock className="h-5 w-5 text-gray-400 mr-2" />
+                  Selected Date{selectedDatesInfo.dates.length > 1 ? 's' : ''}
+                </h4>
+                {selectedDatesInfo.dates.length > 1 ? (
+                  <div>
+                    <ul className="list-disc pl-5 space-y-1">
+                      {selectedDatesInfo.dates.map((date, index) => (
+                        <li key={index} className="text-gray-900">
+                          {new Date(date).toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            year: 'numeric', 
+                            month: 'short', 
+                            day: 'numeric' 
+                          })}
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="text-sm text-gray-600 mt-2">
+                      {selectedDatesInfo.dates.length} dates selected
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-900">
+                    {selectedDatesInfo.date 
+                      ? new Date(selectedDatesInfo.date).toLocaleDateString('en-US', { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })
+                      : 'No date selected'}
+                  </p>
+                )}
               </div>
               
               {/* Guest Count */}

@@ -16,7 +16,7 @@ const router = Router();
 
 // Validation middleware for booking creation
 const createBookingValidation = [
-  body('time').notEmpty().withMessage('Time is required'),
+  body('time').optional(), // Make time optional since it's not used in frontend
   body('guestCount').isInt({ min: 1 }).withMessage('Guest count must be at least 1'),
   body('contactPerson').trim().notEmpty().withMessage('Contact person is required'),
   body('contactPhone').trim().notEmpty().withMessage('Contact phone is required'),
