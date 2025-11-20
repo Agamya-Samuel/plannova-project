@@ -464,6 +464,19 @@ function AdminDashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
+  interface ApiError extends Error {
+    response?: {
+      status?: number;
+      data?: {
+        error?: string;
+      };
+    };
+    config?: {
+      url?: string;
+    };
+    code?: string;
+  }
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -471,8 +484,28 @@ function AdminDashboard() {
         const res = await apiClient.get('/admin/stats');
         setStats(res.data);
         setError('');
-      } catch {
-        setError('Failed to load stats');
+      } catch (err: unknown) {
+        const apiError = err as ApiError;
+        console.error('📡 Admin Dashboard Stats Error:', {
+          message: apiError.message,
+          status: apiError.response?.status,
+          data: apiError.response?.data,
+          url: apiError.config?.url,
+          config: apiError.config
+        });
+        
+        // More descriptive error messages based on error type
+        if (apiError.response?.status === 401) {
+          setError('Unauthorized: Please log in again');
+        } else if (apiError.response?.status === 403) {
+          setError('Access denied: Insufficient permissions');
+        } else if (apiError.response?.status === 500) {
+          setError('Server error: Unable to fetch statistics');
+        } else if (apiError.code === 'ERR_NETWORK') {
+          setError('Network error: Unable to connect to server');
+        } else {
+          setError(`Failed to load stats: ${apiError.response?.data?.error || apiError.message || 'Unknown error'}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -551,7 +584,11 @@ function AdminDashboard() {
         </div>
       </div>
       {error && (
-        <div className="text-sm text-red-600">{error}</div>
+        <div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg">
+          <strong>Error:</strong> {error}
+          <br />
+          <small>Please check your connection and try again.</small>
+        </div>
       )}
       
       {/* Admin Cards */}
