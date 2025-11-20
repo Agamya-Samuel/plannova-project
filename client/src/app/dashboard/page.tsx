@@ -648,15 +648,6 @@ function AdminDashboard() {
           color="orange"
         />
         <DashboardCard
-          title="System Settings"
-          description="Configure system-wide settings"
-          icon={<Settings className="h-8 w-8 text-gray-600" />}
-          action="System Settings"
-          href="/admin/settings"
-          stats="All Systems OK"
-          color="gray"
-        />
-        <DashboardCard
           title="Trash Management"
           description="Manage deleted items and restore or permanently delete them"
           icon={<Trash2 className="h-8 w-8 text-red-600" />}
