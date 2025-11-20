@@ -1,9 +1,10 @@
 'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X, CreditCard } from 'lucide-react';
+import { Calendar, Clock, MapPin, User, Phone, Mail, IndianRupee, CheckCircle, XCircle, AlertCircle, MessageCircle, Eye, X, CreditCard, Users } from 'lucide-react';
 import Image from 'next/image';
 import apiClient from '@/lib/api';
 import { Booking } from '@/types/booking';
@@ -23,6 +24,9 @@ export default function BookingsPage() {
   // State for showing all dates modal
   const [showAllDatesModal, setShowAllDatesModal] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  
+  // State for showing new booking options modal
+  const [showNewBookingModal, setShowNewBookingModal] = useState(false);
 
   useEffect(() => {
     const fetchBookings = async () => {
@@ -152,6 +156,23 @@ export default function BookingsPage() {
     setShowAllDatesModal(true);
   };
 
+  // Handle opening new booking modal
+  const handleNewBookingClick = () => {
+    setShowNewBookingModal(true);
+  };
+
+  // Handle navigation to venues page
+  const handleSelectVenues = () => {
+    setShowNewBookingModal(false);
+    router.push('/venues');
+  };
+
+  // Handle navigation to vendors page
+  const handleSelectVendors = () => {
+    setShowNewBookingModal(false);
+    router.push('/vendors');
+  };
+
   if (loading) {
     return (
       <ProtectedRoute allowedRoles={['CUSTOMER']}>
@@ -177,7 +198,10 @@ export default function BookingsPage() {
                   </p>
                 </div>
                 <div className="mt-4 md:mt-0">
-                  <button className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
+                  <button 
+                    onClick={handleNewBookingClick}
+                    className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300"
+                  >
                     <Calendar className="h-5 w-5 mr-2" />
                     New Booking
                   </button>
@@ -420,18 +444,14 @@ export default function BookingsPage() {
             <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
               <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings yet</h3>
-              <p className="text-gray-600 mb-6">You haven{`'`}t made any service bookings yet.</p>
-              <button className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-pink-600 to-purple-600 text-white font-semibold rounded-lg hover:from-pink-700 hover:to-purple-700 transition-all duration-300">
-                <MapPin className="h-5 w-5 mr-2" />
-                Browse Services
-              </button>
+              <p className="text-gray-600">You haven{`'`}t made any service bookings yet.</p>
             </div>
           )}
         </div>
 
         {/* Contact Provider Modal */}
         {showContactModal && contactBooking && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900">Contact Provider</h3>
@@ -515,7 +535,7 @@ export default function BookingsPage() {
 
         {/* View All Dates Modal */}
         {showAllDatesModal && selectedBooking && selectedBooking.dates && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-white/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-bold text-gray-900">All Booking Dates</h3>
@@ -570,6 +590,74 @@ export default function BookingsPage() {
                   className="w-full py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 transition-colors"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* New Booking Options Modal */}
+        {showNewBookingModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop - grey blurred background for white modal */}
+            <div 
+              className="absolute inset-0 bg-gray-500/50 backdrop-blur-md"
+              onClick={() => setShowNewBookingModal(false)}
+            ></div>
+            
+            {/* Modal */}
+            <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-gray-900">Choose Booking Type</h3>
+                <button 
+                  onClick={() => setShowNewBookingModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-6 text-center">
+                Select whether you want to book a venue or browse vendor services
+              </p>
+
+              <div className="space-y-3">
+                {/* Venues Option */}
+                <button
+                  onClick={handleSelectVenues}
+                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 hover:from-pink-100 hover:to-purple-100 rounded-lg transition-all duration-300 group border-2 border-transparent hover:border-pink-300"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-gradient-to-r from-pink-600 to-purple-600 p-3 rounded-full">
+                      <MapPin className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-gray-900 text-lg">Venues</p>
+                      <p className="text-sm text-gray-600">Book event venues and spaces</p>
+                    </div>
+                  </div>
+                  <div className="text-pink-600 group-hover:translate-x-1 transition-transform">
+                    →
+                  </div>
+                </button>
+
+                {/* Vendors Option */}
+                <button
+                  onClick={handleSelectVendors}
+                  className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-pink-50 to-purple-50 hover:from-pink-100 hover:to-purple-100 rounded-lg transition-all duration-300 group border-2 border-transparent hover:border-pink-300"
+                >
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-gradient-to-r from-pink-600 to-purple-600 p-3 rounded-full">
+                      <Users className="h-6 w-6 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <p className="font-semibold text-gray-900 text-lg">Vendors</p>
+                      <p className="text-sm text-gray-600">Browse and book vendor services</p>
+                    </div>
+                  </div>
+                  <div className="text-pink-600 group-hover:translate-x-1 transition-transform">
+                    →
+                  </div>
                 </button>
               </div>
             </div>
