@@ -6,9 +6,8 @@ import Image from 'next/image';
 import { ArrowLeft, Heart, MapPin, Phone, Mail, PlusCircle, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
-import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import { BookingButton } from '@/components/booking/BookingButton';
 import { BookingModal } from '@/components/booking/BookingModal';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface BridalMakeupService {
   _id: string;
@@ -63,7 +62,6 @@ interface BridalMakeupService {
 
 export default function BridalMakeupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
-  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [service, setService] = useState<BridalMakeupService | null>(null);
@@ -425,10 +423,11 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Availability Calendar */}
-            <AvailabilityCalendar
+            {/* Booking Button - Replaces initial calendar */}
+            <BookingButton
               serviceId={service._id}
               serviceType="bridal-makeup"
+              basePrice={service.basePrice}
               onDateSelect={handleDateSelect}
               selectedDate={selectedDate}
               selectedDates={selectedDates}
@@ -436,36 +435,12 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
               onSelectionModeChange={setSelectionMode}
             />
 
-            {/* Booking Card */}
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">
-              <div className="text-center mb-6">
-                <div className="text-3xl font-bold text-gray-900 mb-2">
-                  ₹{service.basePrice.toLocaleString()}
-                </div>
-                <p className="text-gray-600">Starting Price</p>
+              <div className="text-center">
+                <p className="text-sm text-gray-500">
+                  Contact provider for custom pricing
+                </p>
               </div>
-
-              {/* Only show booking button if user is not a provider - providers can only view, not book */}
-              {user?.role !== 'PROVIDER' && selectedDate ? (
-                <Button
-                  onClick={() => setShowBookingModal(true)}
-                  className="w-full bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-700 hover:to-rose-700 text-white"
-                >
-                  {selectedDates.length > 1 
-                    ? `Book for ${selectedDates.length} dates` 
-                    : `Book for ${selectedDate}`}
-                </Button>
-              ) : user?.role !== 'PROVIDER' ? (
-                <div className="text-center">
-                  <Heart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-xs text-gray-600">Select an available date from the calendar above to start your booking</p>
-                </div>
-              ) : (
-                <div className="text-center">
-                  <Heart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-xs text-gray-600">Providers can view service details but cannot make bookings</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
