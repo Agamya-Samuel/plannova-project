@@ -33,6 +33,12 @@ const resetPasswordValidation = [
   body('password').isLength({ min: 6 }),
 ];
 
+// Validation middleware for change password
+const changePasswordValidation = [
+  body('oldPassword').notEmpty().withMessage('Current password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long'),
+];
+
 // Register endpoint
 router.post('/register', registerValidation, async (req: Request, res: Response) => {
   try {
@@ -566,6 +572,57 @@ router.post('/reset-password', resetPasswordValidation, async (req: Request, res
     res.status(200).json({ message: 'Password has been reset successfully' });
   } catch (error) {
     console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Change password endpoint (for authenticated users)
+router.post('/change-password', authenticateToken, changePasswordValidation, async (req: AuthRequest, res: Response) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      // Format validation errors for better user experience
+      const errorMessages = errors.array().map(err => err.msg || 'Validation error');
+      return res.status(400).json({ error: errorMessages.join(', ') });
+    }
+
+    if (!req.user) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const { oldPassword, newPassword } = req.body;
+
+    // Find user by ID
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check if user has a password (not Google-only users)
+    if (!user.password || typeof user.password !== 'string') {
+      return res.status(400).json({ 
+        error: 'This account does not have a password set. Please use "Forgot Password" to set one.' 
+      });
+    }
+
+    // Verify old password
+    const isOldPasswordValid = await comparePassword(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    // Hash new password (allow same password - user can re-confirm their password)
+    const hashedPassword = await hashPassword(newPassword);
+
+    // Update user password
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ 
+      message: 'Password changed successfully' 
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

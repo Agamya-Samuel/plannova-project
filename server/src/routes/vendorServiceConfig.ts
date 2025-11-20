@@ -3,7 +3,14 @@ import { body, validationResult } from 'express-validator';
 import { Types } from 'mongoose';
 import { authenticateToken, AuthRequest, requireProvider } from '../middleware/auth.js';
 import VendorServiceConfig, { PaymentMode, ServiceType } from '../models/VendorServiceConfig.js';
-import Booking from '../models/Booking.js';
+// Import all service models to find the service by serviceType and serviceId
+import Venue from '../models/Venue.js';
+import Catering from '../models/Catering.js';
+import Photography from '../models/Photography.js';
+import Videography from '../models/Videography.js';
+import BridalMakeup from '../models/BridalMakeup.js';
+import Decoration from '../models/Decoration.js';
+import Entertainment from '../models/Entertainment.js';
 
 const router = Router();
 
@@ -73,7 +80,8 @@ router.post('/', authenticateToken, requireProvider, vendorServiceConfigValidati
   }
 });
 
-// GET /api/vendor-service-config/:serviceType/payment-options - Get available payment options for a service
+// GET /api/vendor-service-config/:serviceType/payment-options/:serviceId - Get available payment options for a service
+// This endpoint finds the service document directly (not a Booking) to get the provider's payment config
 router.get('/:serviceType/payment-options/:serviceId', async (req, res: Response) => {
   try {
     const { serviceType, serviceId } = req.params;
@@ -88,18 +96,75 @@ router.get('/:serviceType/payment-options/:serviceId', async (req, res: Response
       return res.status(400).json({ error: 'Invalid service ID' });
     }
     
-    // Get the vendor service config
-    const service = await Booking.findOne({ serviceId: new Types.ObjectId(serviceId) });
+    // Find the service document based on serviceType
+    // Note: Venue uses providerId, while other services use provider field
+    // Using unknown type to avoid importing all service interfaces
+    let service: unknown = null;
+    let providerId: Types.ObjectId | null = null;
     
-    if (!service) {
+    const serviceObjectId = new Types.ObjectId(serviceId);
+    
+    // Query the appropriate service model based on serviceType
+    switch (serviceType) {
+      case ServiceType.VENUE: {
+        const venueService = await Venue.findById(serviceObjectId);
+        service = venueService;
+        providerId = venueService?.providerId || null;
+        break;
+      }
+      case ServiceType.CATERING: {
+        const cateringService = await Catering.findById(serviceObjectId);
+        service = cateringService;
+        providerId = cateringService?.provider || null;
+        break;
+      }
+      case ServiceType.PHOTOGRAPHY: {
+        const photographyService = await Photography.findById(serviceObjectId);
+        service = photographyService;
+        providerId = photographyService?.provider || null;
+        break;
+      }
+      case ServiceType.VIDEOGRAPHY: {
+        const videographyService = await Videography.findById(serviceObjectId);
+        service = videographyService;
+        providerId = videographyService?.provider || null;
+        break;
+      }
+      case ServiceType.BRIDAL_MAKEUP: {
+        const bridalMakeupService = await BridalMakeup.findById(serviceObjectId);
+        service = bridalMakeupService;
+        providerId = bridalMakeupService?.provider || null;
+        break;
+      }
+      case ServiceType.DECORATION: {
+        const decorationService = await Decoration.findById(serviceObjectId);
+        service = decorationService;
+        providerId = decorationService?.provider || null;
+        break;
+      }
+      case ServiceType.ENTERTAINMENT: {
+        const entertainmentService = await Entertainment.findById(serviceObjectId);
+        service = entertainmentService;
+        providerId = entertainmentService?.provider || null;
+        break;
+      }
+      default:
+        return res.status(400).json({ error: 'Unsupported service type' });
+    }
+    
+    // Check if service was found
+    if (!service || !providerId) {
       return res.status(404).json({ error: 'Service not found' });
     }
     
+    // Find the vendor service config for this provider and service type
     const config = await VendorServiceConfig.findOne({ 
-      vendorId: service.providerId, 
+      vendorId: providerId, 
       serviceType 
     });
     
+    // Return payment options
+    // cash is always available, online depends on the config
     const paymentOptions = {
       cash: true,
       online: config ? config.paymentMode === PaymentMode.ONLINE_CASH : true
