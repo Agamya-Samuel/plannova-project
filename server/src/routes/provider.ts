@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { Types } from 'mongoose';
-import Booking, { BookingStatus, BookingType, PaymentStatus, ServiceType } from '../models/Booking.js';
+import Booking, { BookingType, PaymentStatus, ServiceType } from '../models/Booking.js';
 import Venue from '../models/Venue.js';
 import Catering from '../models/Catering.js';
 import Photography from '../models/Photography.js';

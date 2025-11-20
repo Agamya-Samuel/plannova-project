@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { 
   Search,
   X,
@@ -16,7 +17,6 @@ import {
   Download
 } from 'lucide-react';
 import apiClient from '@/lib/api';
-import { toast } from 'sonner';
 
 interface Payment {
   id: string;
@@ -460,10 +460,13 @@ export default function ProviderPaymentsPage() {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-12 w-12">
-                                <img
-                                  className="h-12 w-12 rounded-lg object-cover"
+                                <Image
                                   src={payment.serviceImage}
                                   alt={payment.serviceName}
+                                  width={48}
+                                  height={48}
+                                  className="rounded-lg object-cover"
+                                  style={{ width: 'auto', height: 'auto' }}
                                 />
                               </div>
                               <div className="ml-4">

@@ -244,10 +244,6 @@ function ProviderDashboard() {
     setActiveView('services');
   };
 
-  const handleMyBookingsClick = () => {
-    setActiveView('bookings');
-  };
-
   const handleBackToDashboard = () => {
     setActiveView('dashboard');
   };
