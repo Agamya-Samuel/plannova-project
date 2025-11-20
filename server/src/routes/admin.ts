@@ -10,7 +10,7 @@ import Decoration from '../models/Decoration.js';
 import Booking, { BookingStatus, BookingType, PaymentStatus, ServiceType } from '../models/Booking.js';
 import Blog from '../models/Blog.js';
 import Entertainment from '../models/Entertainment.js';
-import { authenticateToken, requireAdmin, AuthRequest } from '../middleware/auth.js';
+import { authenticateToken, requireAdmin, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -645,8 +645,8 @@ router.delete('/trash/:id/permanent', authenticateToken, requireAdmin, async (re
   }
 });
 
-// GET /api/admin/bookings - Get all bookings with filters (Admin only)
-router.get('/bookings', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+// GET /api/admin/bookings - Get all bookings with filters (Staff/Admin only)
+router.get('/bookings', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { 
       page = '1', 
@@ -999,8 +999,8 @@ router.get('/revenue', authenticateToken, requireAdmin, async (req: AuthRequest,
   }
 });
 
-// PUT /api/admin/bookings/:id/payment-status - Update booking payment status (Admin only)
-router.put('/bookings/:id/payment-status', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+// PUT /api/admin/bookings/:id/payment-status - Update booking payment status (Staff/Admin only)
+router.put('/bookings/:id/payment-status', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { paymentStatus } = req.body;
