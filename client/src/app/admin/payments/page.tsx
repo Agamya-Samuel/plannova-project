@@ -8,9 +8,6 @@ import {
   Search,
   X,
   Filter,
-  CheckCircle,
-  XCircle,
-  Clock,
   IndianRupee,
   Calendar,
   Download
