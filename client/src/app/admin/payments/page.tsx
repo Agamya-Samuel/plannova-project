@@ -16,6 +16,7 @@ import {
   Download
 } from 'lucide-react';
 import apiClient from '@/lib/api';
+import { toast } from 'sonner';
 
 interface Payment {
   id: string;
@@ -45,6 +46,23 @@ export default function AdminPaymentsPage() {
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [onlineRevenue, setOnlineRevenue] = useState(0);
   const [cashRevenue, setCashRevenue] = useState(0);
+
+  const handleStatusChange = async (paymentId: string, newStatus: string) => {
+    try {
+      await apiClient.put(`/admin/bookings/${paymentId}/payment-status`, {
+        paymentStatus: newStatus
+      });
+      
+      setPayments(prev => prev.map(p => 
+        p.id === paymentId ? { ...p, status: newStatus } : p
+      ));
+      
+      toast.success(`Payment status updated to ${newStatus}`);
+    } catch (err) {
+      console.error('Error updating payment status:', err);
+      toast.error('Failed to update payment status');
+    }
+  };
 
   // Fetch payments from API
   const fetchPayments = useCallback(async (status: string = 'all', paymentMode: string = 'all', serviceType: string = 'all', search: string = '') => {
@@ -95,7 +113,7 @@ export default function AdminPaymentsPage() {
   }, []);
 
   useEffect(() => {
-    if (currentUser?.role === 'ADMIN') {
+    if (currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') {
       fetchPayments(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm);
     }
   }, [statusFilter, paymentModeFilter, serviceTypeFilter, currentUser, searchTerm, fetchPayments]);
@@ -207,12 +225,12 @@ export default function AdminPaymentsPage() {
     alert('Export functionality would be implemented here');
   };
 
-  if (!isLoading && currentUser?.role !== 'ADMIN') {
+  if (!isLoading && !(currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF')) {
     return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (
-    <ProtectedRoute allowedRoles={['ADMIN']}>
+    <ProtectedRoute allowedRoles={['ADMIN', 'STAFF']}>
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-purple-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -487,10 +505,17 @@ export default function AdminPaymentsPage() {
                           {new Date(payment.date).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
-                            {getStatusIcon(payment.status)}
-                            <span className="ml-1">{getStatusText(payment.status)}</span>
-                          </span>
+                          <select
+                            value={payment.status}
+                            onChange={(e) => handleStatusChange(payment.id, e.target.value)}
+                            className={`text-xs font-medium rounded-full px-2.5 py-0.5 border-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${getStatusColor(payment.status)}`}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="paid">Paid</option>
+                            <option value="pending">Pending</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                          </select>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           ₹{payment.amount.toLocaleString()}

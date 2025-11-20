@@ -700,9 +700,18 @@ function StaffDashboard() {
       <DashboardCard
         title="Bookings Overview"
         description="Monitor bookings across the platform"
-        icon={<Calendar className="h-8 w-8 text-green-600" />}
+        icon={<Calendar className="h-8 w-8 text-yellow-600" />}
         action="View Bookings"
         href="/admin/bookings"
+        color="yellow"
+      />
+      <DashboardCard
+        title="Online Payment Management"
+        description="Track all online payments and revenue across the platform"
+        icon={<IndianRupee className="h-8 w-8 text-green-600" />}
+        action="Manage Payments"
+        href="/admin/payments"
+        stats="View Transactions"
         color="green"
       />
       {/* Removed Analytics & Reports and Content Management for staff */}
