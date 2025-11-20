@@ -10,7 +10,7 @@
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\" --names \"server,client\" --prefix-colors \"yellow,cyan\"",
     "dev:server": "cd server && npm run dev",
     "dev:client": "cd client && npm run dev",
-    "status": "echo \"🚀 Backend API: http://localhost:3000\" && echo \"🌐 Frontend: http://localhost:3000\"",
+    "status": "echo \" Backend API: http://localhost:3001\" && echo \" Frontend: http://localhost:3000\"",
     "build": "concurrently \"npm run build:server\" \"npm run build:client\" --names \"server,client\" --prefix-colors \"yellow,cyan\"",
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
