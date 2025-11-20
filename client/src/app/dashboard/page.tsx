@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2, User, Phone, Mail, IndianRupee, Check, X, Search, Eye } from 'lucide-react';
+import { Calendar, Heart, MapPin, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2, User, Phone, Mail, IndianRupee, Check, X, Search, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
 import apiClient from '@/lib/api';
@@ -142,15 +142,6 @@ function CustomerDashboard() {
         href="/favorites"
         stats="12 Saved"
         color="red"
-      />
-      <DashboardCard
-        title="Messages"
-        description="Communication with venue providers"
-        icon={<MessageCircle className="h-8 w-8 text-blue-600" />}
-        action="View Messages"
-        href="/messages"
-        stats="2 New"
-        color="blue"
       />
       <DashboardCard
         title="Profile"
