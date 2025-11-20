@@ -419,7 +419,7 @@ function ProviderDashboard() {
         </div>
         
         {/* Main Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <DashboardCard
             title="My Services"
             description="View and manage all your service offerings"
@@ -433,8 +433,16 @@ function ProviderDashboard() {
             description="View and manage all your bookings"
             icon={<Calendar className="h-8 w-8 text-pink-600" />}
             action="View Bookings"
-            onClick={handleMyBookingsClick}
+            href="/provider/bookings"
             color="pink"
+          />
+          <DashboardCard
+            title="My Payments"
+            description="Track all payments and revenue for your services"
+            icon={<IndianRupee className="h-8 w-8 text-green-600" />}
+            action="View Payments"
+            href="/provider/payments"
+            color="green"
           />
         </div>
       </div>
@@ -1389,6 +1397,8 @@ interface DashboardCardProps {
 }
 
 function DashboardCard({ title, description, icon, action, href, onClick, stats, color }: DashboardCardProps) {
+  const router = useRouter();
+  
   const getColorClasses = (color: string) => {
     const colors = {
       pink: 'from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700',
@@ -1408,7 +1418,7 @@ function DashboardCard({ title, description, icon, action, href, onClick, stats,
     if (onClick) {
       onClick();
     } else if (href) {
-      window.location.href = href;
+      router.push(href);
     }
   };
 

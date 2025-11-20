@@ -21,6 +21,7 @@ import blogRoutes from "./routes/blogs.js";
 import staffRoutes from "./routes/staff.js";
 import paymentsRoutes from "./routes/payments.js";
 import vendorServiceConfigRoutes from "./routes/vendorServiceConfig.js";
+import providerRoutes from "./routes/provider.js";
 import connectDB from "./db.js";
 
 // Load environment variables
@@ -115,6 +116,7 @@ app.use("/api/blogs", blogRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/payments", paymentsRoutes);
 app.use("/api/vendor-service-config", vendorServiceConfigRoutes);
+app.use("/api/provider", providerRoutes);
 
 // Health check endpoint for database
 app.get("/api/health/db", async (req, res) => {
