@@ -10,6 +10,7 @@ import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
 import BlogSection from '@/components/home/BlogSection';
 import { VENUE_TYPES } from '@/constants/venueTypes';
+// States and cities are now loaded from API routes (server-side)
 // Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
@@ -47,6 +48,97 @@ export default function Home() {
   const [typeIndex, setTypeIndex] = useState<number>(0);
   const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
   const [currentOptionIndex, setCurrentOptionIndex] = useState<number>(0); // Which option we're currently typing
+  
+  // State and city selection state (India is fixed, no country selection needed)
+  // Store selected state code and city name
+  // India country code (IN) is hardcoded since we only show Indian states
+  const selectedCountry = 'IN'; // Fixed to India
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  // Store list of states for India
+  const [states, setStates] = useState<Array<{ iso2: string; name: string }>>([]);
+  // Store list of cities for selected state
+  const [cities, setCities] = useState<Array<{ name: string }>>([]);
+
+  // Load India's states from API route (server-side)
+  useEffect(() => {
+    const loadStates = async () => {
+      try {
+        console.log('Fetching states from /api/states...');
+        // Fetch states from our API route (runs server-side where package works)
+        const response = await fetch('/api/states');
+        console.log('Response status:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API error response:', response.status, errorData);
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message || errorData.error || 'Unknown error'}`);
+        }
+        
+        const data = await response.json();
+        console.log('API response data:', JSON.stringify(data, null, 2));
+        console.log('Data success:', data.success);
+        console.log('Data states type:', typeof data.states, 'isArray:', Array.isArray(data.states), 'length:', data.states?.length);
+        
+        if (data.success && Array.isArray(data.states)) {
+          if (data.states.length > 0) {
+            console.log('Successfully loaded Indian states:', data.states.length);
+            console.log('First state:', data.states[0]);
+            setStates(data.states);
+          } else {
+            console.warn('States array is empty - API returned success but no states');
+            setStates([]);
+          }
+        } else {
+          console.error('API returned unsuccessful response:', data);
+          console.error('Success flag:', data.success);
+          console.error('States value:', data.states);
+          console.error('Error message from API:', data.message);
+          console.error('Error stack from API:', data.stack);
+          setStates([]);
+        }
+      } catch (error) {
+        console.error('Failed to load states - Full error:', error);
+        console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
+        setStates([]);
+      }
+    };
+    
+    loadStates();
+  }, []);
+
+  // Load cities when state is selected (from API route)
+  useEffect(() => {
+    const loadCities = async () => {
+      // Reset city selection when state changes
+      setSelectedCity('');
+      
+      if (!selectedCountry || !selectedState) {
+        setCities([]);
+        return;
+      }
+      
+      try {
+        // Fetch cities from our API route
+        const response = await fetch(`/api/cities?country=${selectedCountry}&state=${selectedState}`);
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.cities) && data.cities.length > 0) {
+          console.log('Loaded cities:', data.cities.length);
+          setCities(data.cities);
+        } else {
+          console.error('Failed to load cities:', data);
+          setCities([]);
+        }
+      } catch (error) {
+        console.error('Failed to load cities:', error);
+        setCities([]);
+      }
+    };
+    
+    loadCities();
+  }, [selectedCountry, selectedState]);
 
   // Detect if device is mobile or laptop/desktop
   useEffect(() => {
@@ -535,23 +627,57 @@ export default function Home() {
             ) : null}
             
             {/* Search Bar */}
-            <div className="bg-background rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8 border border-border">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background">
-                    <option>Select city</option>
-                    <option>Mumbai</option>
-                    <option>Delhi</option>
-                    <option>Bangalore</option>
-                    <option>Chennai</option>
-                    <option>Pune</option>
+            <div className="bg-background rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8 border border-border relative z-20">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                {/* State Selection Dropdown - Shows India's states directly from package */}
+                <div className="relative z-30">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                  <select 
+                    value={selectedState}
+                    onChange={(e) => {
+                      console.log('State selected:', e.target.value);
+                      setSelectedState(e.target.value);
+                    }}
+                    className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer"
+                  >
+                    <option value="">Select state</option>
+                    {states.length > 0 ? (
+                      states.map((state, index) => (
+                        <option key={`${state.iso2}-${index}`} value={state.iso2}>
+                          {state.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>Loading states... ({states.length})</option>
+                    )}
                   </select>
                 </div>
                 
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background">
+                {/* City Selection Dropdown - Only enabled when state is selected */}
+                <div className="relative z-30">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                  <select 
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    disabled={!selectedState || cities.length === 0}
+                    className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ WebkitAppearance: 'menulist' }}
+                  >
+                    <option value="">Select city</option>
+                    {cities.map((city, index) => (
+                      <option key={index} value={city.name}>
+                        {city.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* Venue Type Selection */}
+                <div className="relative z-30">
+                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer appearance-none"
+                    style={{ WebkitAppearance: 'menulist' }}
+                  >
                     <option>Select venue type</option>
                     {/* Only show venue types available in the creation form */}
                     {VENUE_TYPES.map(type => (
@@ -560,6 +686,7 @@ export default function Home() {
                   </select>
                 </div>
                 
+                {/* Get Started Button */}
                 <Button 
                   size="lg" 
                   className="bg-gradient-to-r from-primary to-secondary hover:from-primary-dark hover:to-secondary-dark text-white py-3 px-8 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
