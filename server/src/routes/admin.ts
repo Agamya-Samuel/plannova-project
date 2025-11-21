@@ -845,8 +845,8 @@ router.get('/bookings', authenticateToken, requireStaffOrAdmin, async (req: Auth
   }
 });
 
-// GET /api/admin/payments - Get all payments for admin (Admin only)
-router.get('/payments', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+// GET /api/admin/payments - Get all payments for admin (Staff/Admin only)
+router.get('/payments', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     // Get query parameters for filtering
     const { paymentMode, serviceType } = req.query;
@@ -956,8 +956,8 @@ router.get('/payments', authenticateToken, requireAdmin, async (req: AuthRequest
   }
 });
 
-// GET /api/admin/revenue - Get revenue statistics (Admin only)
-router.get('/revenue', authenticateToken, requireAdmin, async (req: AuthRequest, res: Response) => {
+// GET /api/admin/revenue - Get revenue statistics (Staff/Admin only)
+router.get('/revenue', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     // Get all paid bookings
     const paidBookings = await Booking.find({ 

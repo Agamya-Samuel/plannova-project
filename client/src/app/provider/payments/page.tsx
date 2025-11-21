@@ -4,16 +4,19 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 import { 
   Search,
   X,
   Filter,
+  CheckCircle,
+  XCircle,
+  Clock,
   IndianRupee,
   Calendar,
   Download
 } from 'lucide-react';
 import apiClient from '@/lib/api';
-import { toast } from 'sonner';
 
 interface Payment {
   id: string;
@@ -26,10 +29,11 @@ interface Payment {
   customerName: string;
   amount: number;
   status: string;
+  paymentMode?: string; // Payment mode: ONLINE or CASH
   date: string;
 }
 
-export default function AdminPaymentsPage() {
+export default function ProviderPaymentsPage() {
   const { user: currentUser, isLoading } = useAuth();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,48 +43,38 @@ export default function AdminPaymentsPage() {
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [totalPayments, setTotalPayments] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [onlineRevenue, setOnlineRevenue] = useState(0);
   const [cashRevenue, setCashRevenue] = useState(0);
-
-  const handleStatusChange = async (paymentId: string, newStatus: string) => {
-    try {
-      await apiClient.put(`/admin/bookings/${paymentId}/payment-status`, {
-        paymentStatus: newStatus
-      });
-      
-      setPayments(prev => prev.map(p => 
-        p.id === paymentId ? { ...p, status: newStatus } : p
-      ));
-      
-      toast.success(`Payment status updated to ${newStatus}`);
-    } catch (err) {
-      console.error('Error updating payment status:', err);
-      toast.error('Failed to update payment status');
-    }
-  };
 
   // Fetch payments from API
   const fetchPayments = useCallback(async (status: string = 'all', paymentMode: string = 'all', serviceType: string = 'all', search: string = '') => {
     try {
       setLoading(true);
       
-      // Fetch payments with filters
+      // Fetch payments with filters - provider can only see their own payments
       const params = new URLSearchParams();
       if (paymentMode !== 'all') params.append('paymentMode', paymentMode);
       if (serviceType !== 'all') params.append('serviceType', serviceType);
       
-      const response = await apiClient.get(`/admin/payments?${params.toString()}`);
+      const response = await apiClient.get(`/provider/payments?${params.toString()}`);
       const apiPayments: Payment[] = response.data.payments || [];
-      
-      // Fetch revenue statistics
-      const revenueResponse = await apiClient.get('/admin/revenue');
-      const revenueData = revenueResponse.data;
-      
-      setTotalRevenue(revenueData.summary.totalPlatformRevenue || 0);
-      setOnlineRevenue(revenueData.summary.totalOnlineRevenue || 0);
-      setCashRevenue(revenueData.summary.totalCashRevenue || 0);
+
+      // Calculate revenue statistics for this provider only
+      // Note: We calculate from all payments, not filtered ones, to show accurate totals
+      const allPaidPayments = apiPayments.filter(p => p.status === 'PAID' || p.status === 'paid');
+      const totalRev = allPaidPayments.reduce((sum, p) => sum + p.amount, 0);
+      // Calculate online and cash revenue separately based on payment mode
+      const onlineRev = allPaidPayments
+        .filter(p => p.paymentMode === 'ONLINE')
+        .reduce((sum, p) => sum + p.amount, 0);
+      const cashRev = allPaidPayments
+        .filter(p => p.paymentMode === 'CASH')
+        .reduce((sum, p) => sum + p.amount, 0);
+
+      setTotalRevenue(totalRev);
+      setOnlineRevenue(onlineRev);
+      setCashRevenue(cashRev);
 
       // Apply filters on frontend as well (for consistency)
       let filteredPayments = apiPayments;
@@ -93,7 +87,6 @@ export default function AdminPaymentsPage() {
         const searchLower = search.toLowerCase();
         filteredPayments = filteredPayments.filter(payment => 
           payment.serviceName.toLowerCase().includes(searchLower) ||
-          payment.providerName.toLowerCase().includes(searchLower) ||
           payment.customerName.toLowerCase().includes(searchLower)
         );
       }
@@ -110,35 +103,49 @@ export default function AdminPaymentsPage() {
   }, []);
 
   useEffect(() => {
-    if (currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF') {
+    if (currentUser?.role === 'PROVIDER') {
       fetchPayments(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm);
     }
   }, [statusFilter, paymentModeFilter, serviceTypeFilter, currentUser, searchTerm, fetchPayments]);
 
   const handleSearchTermChange = (value: string) => {
     setSearchTerm(value);
-    setCurrentPage(1);
     fetchPayments(statusFilter, paymentModeFilter, serviceTypeFilter, value);
   };
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
-    setCurrentPage(1);
     fetchPayments(value, paymentModeFilter, serviceTypeFilter, searchTerm);
   };
 
   const handlePaymentModeFilterChange = (value: string) => {
     setPaymentModeFilter(value);
-    setCurrentPage(1);
     fetchPayments(statusFilter, value, serviceTypeFilter, searchTerm);
   };
 
   const handleServiceTypeFilterChange = (value: string) => {
     setServiceTypeFilter(value);
-    setCurrentPage(1);
     fetchPayments(statusFilter, paymentModeFilter, value, searchTerm);
   };
 
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'PAID':
+      case 'paid':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'PENDING':
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'FAILED':
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'REFUNDED':
+      case 'refunded':
+        return <XCircle className="h-4 w-4 text-purple-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -204,12 +211,12 @@ export default function AdminPaymentsPage() {
     alert('Export functionality would be implemented here');
   };
 
-  if (!isLoading && !(currentUser?.role === 'ADMIN' || currentUser?.role === 'STAFF')) {
+  if (!isLoading && currentUser?.role !== 'PROVIDER') {
     return <div>Your session timed out. Please log in again.</div>;
   }
 
   return (
-    <ProtectedRoute allowedRoles={['ADMIN', 'STAFF']}>
+    <ProtectedRoute allowedRoles={['PROVIDER']}>
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-purple-50">
         <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -218,10 +225,10 @@ export default function AdminPaymentsPage() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
                 <div>
                   <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                    Online Payment Management
+                    My Payments
                   </h1>
                   <p className="text-gray-600 text-lg">
-                    Track all online payments and revenue across the platform
+                    Track all payments and revenue for your services
                   </p>
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
@@ -293,7 +300,7 @@ export default function AdminPaymentsPage() {
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
                     <input
                       type="text"
-                      placeholder="Search by service name, provider, or customer..."
+                      placeholder="Search by service name or customer..."
                       value={searchTerm}
                       onChange={(e) => handleSearchTermChange(e.target.value)}
                       className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent text-gray-900 placeholder-gray-500"
@@ -392,7 +399,6 @@ export default function AdminPaymentsPage() {
                     setStatusFilter('all');
                     setPaymentModeFilter('all');
                     setServiceTypeFilter('all');
-                    setCurrentPage(1);
                     fetchPayments('all', 'all', 'all', '');
                   }}
                   className="text-red-600 hover:text-red-800 text-sm font-medium"
@@ -425,150 +431,81 @@ export default function AdminPaymentsPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Payment
+                        Service
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Customer
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Provider
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Service Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
+                        Amount
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Amount
+                        Date
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {payments.map((payment) => (
-                      <tr key={payment.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-10 h-10" />
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {payment.serviceName}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                ID: {payment.id}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {payment.customerName}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
-                            {payment.providerName}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                            {getServiceTypeLabel(payment.serviceType)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(payment.date).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <select
-                            value={payment.status}
-                            onChange={(e) => handleStatusChange(payment.id, e.target.value)}
-                            className={`text-xs font-medium rounded-full px-2.5 py-0.5 border-none focus:ring-2 focus:ring-offset-1 cursor-pointer ${getStatusColor(payment.status)}`}
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <option value="paid">Paid</option>
-                            <option value="pending">Pending</option>
-                            <option value="failed">Failed</option>
-                            <option value="refunded">Refunded</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ₹{payment.amount.toLocaleString()}
+                    {payments.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                          No payments found
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      payments.map((payment) => (
+                        <tr key={payment.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-12 w-12">
+                                <Image
+                                  src={payment.serviceImage}
+                                  alt={payment.serviceName}
+                                  width={48}
+                                  height={48}
+                                  className="rounded-lg object-cover"
+                                  style={{ width: 'auto', height: 'auto' }}
+                                />
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">
+                                  {payment.serviceName}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {getServiceTypeLabel(payment.serviceType)}
+                                </div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{payment.customerName}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">
+                              ₹{payment.amount.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(payment.status)}`}>
+                              {getStatusIcon(payment.status)}
+                              <span className="ml-1">{getStatusText(payment.status)}</span>
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(payment.date).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric'
+                            })}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
-              
-              {/* Pagination */}
-              {payments.length > 0 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between sm:hidden">
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={true} // For mock data
-                    >
-                      Next
-                    </Button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">1</span> to{' '}
-                        <span className="font-medium">{payments.length}</span> of{' '}
-                        <span className="font-medium">{payments.length}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <Button
-                          variant="outline"
-                          onClick={() => setCurrentPage(currentPage - 1)}
-                          disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md"
-                        >
-                          Previous
-                        </Button>
-                        <span className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700">
-                          Page 1 of 1
-                        </span>
-                        <Button
-                          variant="outline"
-                          onClick={() => setCurrentPage(currentPage + 1)}
-                          disabled={true} // For mock data
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md"
-                        >
-                          Next
-                        </Button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Empty State */}
-              {payments.length === 0 && !loading && !error && (
-                <div className="text-center py-12">
-                  <IndianRupee className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No payments found</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    No payments match your current filters.
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -576,3 +513,4 @@ export default function AdminPaymentsPage() {
     </ProtectedRoute>
   );
 }
+
