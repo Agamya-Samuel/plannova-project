@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -24,10 +24,11 @@ import {
 import { ImageUpload } from '@/components/upload';
 import type { VenueImageWithUpload } from '@/types/upload';
 import BasicInfoInput from '@/components/ui/BasicInfoInput';
-import LocationInput from '@/components/ui/LocationInput';
+import StateCitySelect from '@/components/ui/StateCitySelect';
 import ContactInput from '@/components/ui/ContactInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
+import { normalizePhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 
 // Define the structure of the form data
@@ -91,7 +92,8 @@ export default function CreatePhotographyService() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
-  const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
+  // Use ref instead of state for synchronous updates to prevent double-click issue
+  const isExplicitSubmitRef = useRef(false);
 
   const [formData, setFormData] = useState<PhotographyServiceFormData>({
     name: '',
@@ -129,6 +131,23 @@ export default function CreatePhotographyService() {
       }));
     }
   }, [user?.email, formData.contact.email]);
+
+  // Auto-fill phone number from user profile if available and not already set
+  // Normalize to E.164 format for react-phone-number-input
+  React.useEffect(() => {
+    if (user?.phone && !formData.contact.phone) {
+      const normalizedPhone = normalizePhoneNumber(user.phone);
+      if (normalizedPhone) {
+        setFormData(prev => ({
+          ...prev,
+          contact: {
+            ...prev.contact,
+            phone: normalizedPhone
+          }
+        }));
+      }
+    }
+  }, [user?.phone, formData.contact.phone]);
 
   const handleInputChange = (field: string, value: string | number | string[] | undefined) => {
     const keys = field.split('.');
@@ -307,7 +326,8 @@ export default function CreatePhotographyService() {
 
   const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
-    if (!isExplicitSubmit) return;
+    // Use ref for synchronous check to prevent double-click issue
+    if (!isExplicitSubmitRef.current) return;
     if (!validateCurrentTab()) {
         toast.error("Please fill all required fields before submitting.");
         return;
@@ -335,12 +355,13 @@ export default function CreatePhotographyService() {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
-      setIsExplicitSubmit(false);
+      isExplicitSubmitRef.current = false;
     }
   };
 
   const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
-    setIsExplicitSubmit(true);
+    // Set ref synchronously to prevent double-click issue
+    isExplicitSubmitRef.current = true;
     // Create a synthetic event and call handleSubmit directly with the status
     const event = new Event('submit') as unknown as React.FormEvent;
     handleSubmit(event, status);
@@ -451,15 +472,54 @@ export default function CreatePhotographyService() {
               )}
 
               {activeTab === 'location' && (
-                <LocationInput
-                  data={formData.serviceLocation}
-                  onChange={(data) => {
-                    setFormData(prev => ({
-                      ...prev,
-                      serviceLocation: data
-                    }));
-                  }}
-                />
+                <div className="space-y-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 mb-6">Service Location</h2>
+                    <p className="text-gray-600 mb-6">Where do you provide your services? This helps customers find you in their area.</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Address *
+                    </label>
+                    <Input
+                      type="text"
+                      value={formData.serviceLocation.address}
+                      onChange={(e) => handleInputChange('serviceLocation.address', e.target.value)}
+                      placeholder="Enter your service address"
+                      required
+                      className="text-black"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">This can be your kitchen location or main service area</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* State and City selection using @countrystatecity package */}
+                    <StateCitySelect
+                      selectedState={formData.serviceLocation.state}
+                      selectedCity={formData.serviceLocation.city}
+                      onStateChange={(stateName) => handleInputChange('serviceLocation.state', stateName)}
+                      onCityChange={(cityName) => handleInputChange('serviceLocation.city', cityName)}
+                      stateLabel="State *"
+                      cityLabel="City *"
+                      required={true}
+                    />
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Pincode *
+                      </label>
+                      <Input
+                        type="text"
+                        value={formData.serviceLocation.pincode}
+                        onChange={(e) => handleInputChange('serviceLocation.pincode', e.target.value)}
+                        placeholder="Enter pincode"
+                        required
+                        className="text-black"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
 
               {activeTab === 'contact' && (
@@ -619,22 +679,42 @@ export default function CreatePhotographyService() {
                         variant="outline" 
                         disabled={loading}
                         onClick={() => handleManualSubmit('DRAFT')}
-                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6"
+                        className="border-pink-600 text-pink-600 hover:bg-pink-50 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {loading ? 'Saving...' : 'Save as Draft'}
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-pink-600"></div>
+                            <span>Saving...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Save as Draft</span>
+                          </div>
+                        )}
                       </Button>
                       {/* Submit for Approval Button */}
                       <Button 
                         type="button" 
                         disabled={loading}
                         onClick={() => handleManualSubmit('PENDING')}
-                        className="bg-gradient-to-r from-pink-600 to-purple-600 px-6"
+                        className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white px-6 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        {loading ? 'Submitting...' : 'Submit for Approval'}
+                        {loading ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Submitting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <Save className="h-4 w-4" />
+                            <span>Submit for Approval</span>
+                          </div>
+                        )}
                       </Button>
                     </div>
                   ) : (
-                    <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600">
+                    <Button type="button" onClick={goToNextTab} className="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white flex items-center space-x-2">
                       <span>Next</span>
                       <ChevronRight className="h-4 w-4" />
                     </Button>

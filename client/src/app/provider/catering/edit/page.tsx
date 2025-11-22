@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../contexts/AuthContext';
 import ProtectedRoute from '../../../../components/auth/ProtectedRoute';
@@ -28,6 +28,7 @@ import { ImageUpload } from '../../../../components/upload';
 import apiClient from '../../../../lib/api';
 import LocationInput from '@/components/ui/LocationInput';
 import { toast } from 'sonner';
+import { normalizePhoneNumber } from '../../../../lib/utils';
 import { PaymentMethodSelector } from '../../../../components/provider/PaymentMethodSelector';
 
 interface CateringService {
@@ -69,7 +70,8 @@ function EditCateringServiceContent() {
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
-  const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
+  // Use ref instead of state for synchronous updates to prevent double-click issue
+  const isExplicitSubmitRef = useRef(false);
   const [formData, setFormData] = useState<Omit<CateringService, '_id'> & { _id?: string }>({
     name: '',
     description: '',
@@ -148,6 +150,23 @@ function EditCateringServiceContent() {
       setFetching(false);
     }
   }, [serviceId]);
+
+  // Auto-fill phone number from user profile if available and not already set in form data
+  // Normalize to E.164 format for react-phone-number-input
+  useEffect(() => {
+    if (user?.phone && !formData.contact.phone && !fetching) {
+      const normalizedPhone = normalizePhoneNumber(user.phone);
+      if (normalizedPhone) {
+        setFormData(prev => ({
+          ...prev,
+          contact: {
+            ...prev.contact,
+            phone: normalizedPhone
+          }
+        }));
+      }
+    }
+  }, [user?.phone, formData.contact.phone, fetching]);
 
   const handleInputChange = (field: string, value: string | number | boolean | string[]) => {
     if (field.includes('.')) {
@@ -249,12 +268,13 @@ function EditCateringServiceContent() {
     e.stopPropagation();
     
     // Only allow submission if it's an explicit submit action
-    if (!isExplicitSubmit) {
+    // Use ref for synchronous check to prevent double-click issue
+    if (!isExplicitSubmitRef.current) {
       return;
     }
     
     // Reset the explicit submit flag
-    setIsExplicitSubmit(false);
+    isExplicitSubmitRef.current = false;
     
     // Only allow submission from the review tab
     if (activeTab !== 'review') {
@@ -409,7 +429,8 @@ function EditCateringServiceContent() {
   };
 
   const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
-    setIsExplicitSubmit(true);
+    // Set ref synchronously to prevent double-click issue
+    isExplicitSubmitRef.current = true;
     // Create a synthetic event and call handleSubmit directly with the status
     const event = new Event('submit') as unknown as React.FormEvent;
     handleSubmit(event, status);

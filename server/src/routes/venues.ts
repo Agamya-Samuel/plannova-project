@@ -43,6 +43,7 @@ router.get('/', async (req: Request, res: Response) => {
   try {
     const {
       city,
+      state,
       type,
       minCapacity,
       maxCapacity,
@@ -61,8 +62,15 @@ router.get('/', async (req: Request, res: Response) => {
       status: { $in: [VenueStatus.APPROVED, VenueStatus.PENDING_EDIT] }
     };
 
+    // Filter by city if provided - matches provider's address.city
     if (city) {
       filter['address.city'] = new RegExp(city as string, 'i');
+    }
+
+    // Filter by state if provided - matches provider's address.state
+    // State can be state code (e.g., "MH") or state name (e.g., "Maharashtra")
+    if (state) {
+      filter['address.state'] = new RegExp(state as string, 'i');
     }
 
     if (type && type !== '') {

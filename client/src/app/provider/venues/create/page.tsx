@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -27,6 +27,8 @@ import VenuePolicyInput from '@/components/ui/VenuePolicyInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import { VENUE_TYPES } from '@/constants/venueTypes';
 import { PaymentMethodSelector } from '@/components/provider/PaymentMethodSelector';
+import { normalizePhoneNumber } from '@/lib/utils';
+import StateCitySelect from '@/components/ui/StateCitySelect';
 
 interface VenueFormData {
   name: string;
@@ -66,14 +68,6 @@ interface VenueFormData {
 // Use shared venue types constant to ensure consistency across the application
 const venueTypes = VENUE_TYPES;
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
-
 const commonFeatures = [
   'Air Conditioning', 'WiFi', 'Parking', 'Sound System', 'Stage', 'Dance Floor',
   'Bridal Room', 'Catering Kitchen', 'Bar', 'Generator Backup', 'Security',
@@ -92,7 +86,8 @@ export default function CreateVenuePage() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
   const [venueId, setVenueId] = useState<string | null>(null);
-  const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
+  // Use ref instead of state for synchronous updates to prevent double-click issue
+  const isExplicitSubmitRef = useRef(false);
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
 
   const [formData, setFormData] = useState<VenueFormData>({
@@ -142,6 +137,23 @@ export default function CreateVenuePage() {
       }));
     }
   }, [user?.email, formData.contact.email]);
+
+  // Auto-fill phone number from user profile if available and not already set
+  // Normalize to E.164 format for react-phone-number-input
+  React.useEffect(() => {
+    if (user?.phone && !formData.contact.phone) {
+      const normalizedPhone = normalizePhoneNumber(user.phone);
+      if (normalizedPhone) {
+        setFormData(prev => ({
+          ...prev,
+          contact: {
+            ...prev.contact,
+            phone: normalizedPhone
+          }
+        }));
+      }
+    }
+  }, [user?.phone, formData.contact.phone]);
 
   const handleInputChange = (field: string, value: string | number | boolean) => {
     if (field.includes('.')) {
@@ -235,13 +247,14 @@ export default function CreateVenuePage() {
     e.stopPropagation();
     
     // Only allow submission if it's an explicit submit action
-    if (!isExplicitSubmit) {
+    // Use ref for synchronous check to prevent double-click issue
+    if (!isExplicitSubmitRef.current) {
       console.log('Preventing automatic form submission');
       return;
     }
     
     // Reset the explicit submit flag
-    setIsExplicitSubmit(false);
+    isExplicitSubmitRef.current = false;
     
     // Only allow submission from the review tab
     if (activeTab !== 'review') {
@@ -296,10 +309,11 @@ export default function CreateVenuePage() {
       const response = await apiClient.post('/venues', { ...cleanFormData, status });
       
       // Save payment configuration
+      // Use the correct endpoint without service ID - it uses serviceType in the body
       if (response.data.venue?._id) {
         try {
-          await apiClient.post(`/vendor-service-config/${response.data.venue._id}`, {
-            serviceType: 'venues',
+          await apiClient.post('/vendor-service-config', {
+            serviceType: 'venue',  // Use singular 'venue' to match ServiceType enum
             paymentMode: formData.paymentMethod
           });
         } catch (configError) {
@@ -341,7 +355,8 @@ export default function CreateVenuePage() {
 
   const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     console.log('Manual submit button clicked with status:', status);
-    setIsExplicitSubmit(true);
+    // Set ref synchronously to prevent double-click issue
+    isExplicitSubmitRef.current = true;
     // Create a synthetic event and call handleSubmit directly with the status
     const event = new Event('submit') as unknown as React.FormEvent;
     handleSubmit(event, status);
@@ -662,35 +677,16 @@ export default function CreateVenuePage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        City *
-                      </label>
-                      <Input
-                        type="text"
-                        value={formData.address.city}
-                        onChange={(e) => handleInputChange('address.city', e.target.value)}
-                        placeholder="Enter city"
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        State *
-                      </label>
-                      <select
-                        value={formData.address.state}
-                        onChange={(e) => handleInputChange('address.state', e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900"
-                        required
-                      >
-                        <option value="" className="text-gray-900">Select state</option>
-                        {states.map(state => (
-                          <option key={state} value={state} className="text-gray-900">{state}</option>
-                        ))}
-                      </select>
-                    </div>
+                    {/* State and City selection using @countrystatecity package */}
+                    <StateCitySelect
+                      selectedState={formData.address.state}
+                      selectedCity={formData.address.city}
+                      onStateChange={(stateName) => handleInputChange('address.state', stateName)}
+                      onCityChange={(cityName) => handleInputChange('address.city', cityName)}
+                      stateLabel="State *"
+                      cityLabel="City *"
+                      required={true}
+                    />
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
