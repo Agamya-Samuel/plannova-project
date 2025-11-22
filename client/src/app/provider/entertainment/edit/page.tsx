@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
@@ -29,6 +29,7 @@ import LocationInput from '@/components/ui/LocationInput';
 import ContactInput from '@/components/ui/ContactInput';
 import { isValidPhoneNumber } from 'react-phone-number-input';
 import apiClient from '@/lib/api';
+import { normalizePhoneNumber } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface PackageFormData {
@@ -91,7 +92,8 @@ function EditEntertainmentServiceContent() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('basic');
   const [visitedTabs, setVisitedTabs] = useState<Set<string>>(new Set(['basic']));
-  const [isExplicitSubmit, setIsExplicitSubmit] = useState(false);
+  // Use ref instead of state for synchronous updates to prevent double-click issue
+  const isExplicitSubmitRef = useRef(false);
 
   const [formData, setFormData] = useState<EntertainmentServiceFormData>({
     name: '',
@@ -177,6 +179,20 @@ function EditEntertainmentServiceContent() {
       }));
     }
   }, [user?.email, formData.contact.email]);
+
+  // Auto-fill phone number from user profile if available and not already set in form data
+  // Normalize to E.164 format for react-phone-number-input
+  React.useEffect(() => {
+    if (user?.phone && !formData.contact.phone && !fetching) {
+      const normalizedPhone = normalizePhoneNumber(user.phone);
+      if (normalizedPhone) {
+        setFormData(prev => ({
+          ...prev,
+          contact: { ...prev.contact, phone: normalizedPhone }
+        }));
+      }
+    }
+  }, [user?.phone, formData.contact.phone, fetching]);
 
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: Info },
@@ -280,7 +296,8 @@ function EditEntertainmentServiceContent() {
 
   const handleSubmit = async (e: React.FormEvent, status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
     e.preventDefault();
-    if (!isExplicitSubmit) return;
+    // Use ref for synchronous check to prevent double-click issue
+    if (!isExplicitSubmitRef.current) return;
     if (!validateCurrentTab()) {
       toast.error("Please fill all required fields before submitting.");
       return;
@@ -296,8 +313,9 @@ function EditEntertainmentServiceContent() {
       await apiClient.put(`/entertainment/${serviceId}`, { ...serviceData, status });
       
       // Save payment configuration
+      // Use the correct endpoint without service ID - it uses serviceType in the body
       try {
-        await apiClient.post(`/vendor-service-config/${serviceId}`, {
+        await apiClient.post('/vendor-service-config', {
           serviceType: 'entertainment',
           paymentMode: formData.paymentMethod
         });
@@ -319,12 +337,13 @@ function EditEntertainmentServiceContent() {
       toast.error(errorMessage);
     } finally {
       setLoading(false);
-      setIsExplicitSubmit(false);
+      isExplicitSubmitRef.current = false;
     }
   };
 
   const handleManualSubmit = (status: 'DRAFT' | 'PENDING' = 'DRAFT') => {
-    setIsExplicitSubmit(true);
+    // Set ref synchronously to prevent double-click issue
+    isExplicitSubmitRef.current = true;
     // Create a synthetic event and call handleSubmit directly with the status
     const event = new Event('submit') as unknown as React.FormEvent;
     handleSubmit(event, status);

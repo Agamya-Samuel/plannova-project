@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Input } from './input';
+import StateCitySelect from './StateCitySelect';
 
 interface LocationData {
   address: string;
@@ -16,24 +17,31 @@ interface LocationInputProps {
   className?: string;
 }
 
-const states = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa',
-  'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala',
-  'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland',
-  'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura',
-  'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Delhi', 'Puducherry'
-];
-
+/**
+ * LocationInput component for service location entry
+ * Uses StateCitySelect component which fetches states and cities from @countrystatecity package
+ */
 export default function LocationInput({
   data,
   onChange,
   className = ""
 }: LocationInputProps) {
+  // Handle field changes for address and pincode
   const handleFieldChange = (field: keyof LocationData, value: string) => {
     onChange({
       ...data,
       [field]: value
     });
+  };
+
+  // Handle state change from StateCitySelect component
+  const handleStateChange = (stateName: string) => {
+    handleFieldChange('state', stateName);
+  };
+
+  // Handle city change from StateCitySelect component
+  const handleCityChange = (cityName: string) => {
+    handleFieldChange('city', cityName);
   };
 
   return (
@@ -59,37 +67,18 @@ export default function LocationInput({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            City *
-          </label>
-          <Input
-            type="text"
-            value={data.city}
-            onChange={(e) => handleFieldChange('city', e.target.value)}
-            placeholder="Enter city"
-            required
-            className="text-black"
-          />
-        </div>
+        {/* State selection using @countrystatecity package */}
+        <StateCitySelect
+          selectedState={data.state}
+          selectedCity={data.city}
+          onStateChange={handleStateChange}
+          onCityChange={handleCityChange}
+          stateLabel="State *"
+          cityLabel="City *"
+          required={true}
+        />
         
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            State *
-          </label>
-          <select
-            value={data.state}
-            onChange={(e) => handleFieldChange('state', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-pink-500 focus:border-transparent text-gray-900"
-            required
-          >
-            <option value="" className="text-gray-900">Select state</option>
-            {states.map(state => (
-              <option key={state} value={state} className="text-gray-900">{state}</option>
-            ))}
-          </select>
-        </div>
-        
+        {/* Pincode field */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Pincode *

@@ -72,13 +72,34 @@ function VenuesContent() {
   const { favorites, toggleFavorite, loading: favoritesLoading, error: favoritesError } = useFavorites();
 
   // Fetch approved venues from API - wrapped in useCallback to avoid recreating on every render
+  // Now includes state and city filters from URL query parameters
   // Note: We use setVenues with a functional update pattern and don't include venues.length
   // in dependencies since it's only used for error display logic, not core functionality
   const fetchVenues = useCallback(async () => {
     try {
       setLoading(true);
       setError(''); // Clear any previous errors
-      const response = await apiClient.get('/venues');
+      
+      // Build query parameters from URL search params
+      // This allows filtering by state and city that providers added when creating venues
+      const params = new URLSearchParams();
+      const stateParam = searchParams.get('state');
+      const cityParam = searchParams.get('city');
+      const typeParam = searchParams.get('type');
+      
+      if (stateParam) {
+        params.append('state', stateParam);
+      }
+      if (cityParam) {
+        params.append('city', cityParam);
+      }
+      if (typeParam) {
+        params.append('type', typeParam);
+      }
+      
+      const queryString = params.toString();
+      const url = queryString ? `/venues?${queryString}` : '/venues';
+      const response = await apiClient.get(url);
       const venuesData = response.data.venues || [];
       setVenues(venuesData);
       
@@ -106,7 +127,7 @@ function VenuesContent() {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   // Fetch venues on component mount
   useEffect(() => {
@@ -128,20 +149,25 @@ function VenuesContent() {
   }, [fetchVenues]);
 
   // Update filters when URL parameters change
+  // Also trigger venue fetch when URL params change (state, city, type)
   useEffect(() => {
     const typeParam = searchParams.get('type');
     if (typeParam) {
       setSelectedFilters(prev => ({ ...prev, venueType: typeParam }));
       setShowFilters(true); // Show filters panel when filtering is applied
     }
-  }, [searchParams]);
+    // Fetch venues when URL params change (state, city, or type)
+    fetchVenues();
+  }, [searchParams, fetchVenues]);
 
   // Filter venues based on selected filters
+  // Note: State and city filtering is now done on the backend via API query params
+  // This client-side filter only handles venue type for UI consistency
   const filteredVenues = venues.filter((venue) => {
     if (selectedFilters.venueType && venue.type !== selectedFilters.venueType) {
       return false;
     }
-    // Add more filter logic here as needed
+    // State and city filtering is handled by backend API, so no need to filter here
     return true;
   });
 

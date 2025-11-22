@@ -45,28 +45,90 @@ export default function VendorCategoriesGrid() {
   const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
 
   useEffect(() => {
+    // Prevent duplicate requests and handle rate limiting gracefully
+    let cancelled = false;
+    
     const fetchAll = async () => {
       try {
         setLoading(true);
-        const [p, c, v, d, e, m] = await Promise.all([
-          apiClient.get('/photography').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/catering').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/videography').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/decoration').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/entertainment').catch(() => ({ data: { data: [] } })),
-          apiClient.get('/bridal-makeup').catch(() => ({ data: { data: [] } })),
-        ]);
-        setPhotography(Array.isArray(p?.data?.data) ? p.data.data : []);
-        setCatering(Array.isArray(c?.data?.data) ? c.data.data : []);
-        setVideography(Array.isArray(v?.data?.data) ? v.data.data : []);
-        setDecoration(Array.isArray(d?.data?.data) ? d.data.data : []);
-        setEntertainment(Array.isArray(e?.data?.data) ? e.data.data : []);
-        setBridalMakeup(Array.isArray(m?.data?.data) ? m.data.data : []);
+        
+        // Helper function to handle API calls with better error handling for rate limiting
+        // Returns empty array on error (including 429 rate limit errors)
+        const fetchService = async (endpoint: string) => {
+          try {
+            const response = await apiClient.get(endpoint);
+            return Array.isArray(response?.data?.data) ? response.data.data : [];
+          } catch (error: unknown) {
+            // Handle rate limiting (429) gracefully - don't log as error, just return empty
+            if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'status' in error.response && error.response.status === 429) {
+              // Rate limit exceeded - silently return empty array
+              // The UI will show "Unavailable" for this category
+              console.warn(`Rate limit exceeded for ${endpoint}. Category will show as unavailable.`);
+              return [];
+            }
+            // For other errors, also return empty array but log for debugging
+            console.error(`Error fetching ${endpoint}:`, error);
+            return [];
+          }
+        };
+        
+        // Fetch all services sequentially with small delays to avoid rate limiting
+        // This is more rate-limit friendly than parallel requests
+        // Each request waits 100ms after the previous one to spread out the load
+        const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+        
+        if (!cancelled) {
+          const p = await fetchService('/photography');
+          await delay(100);
+          if (!cancelled) setPhotography(p);
+        }
+        
+        if (!cancelled) {
+          const c = await fetchService('/catering');
+          await delay(100);
+          if (!cancelled) setCatering(c);
+        }
+        
+        if (!cancelled) {
+          const v = await fetchService('/videography');
+          await delay(100);
+          if (!cancelled) setVideography(v);
+        }
+        
+        if (!cancelled) {
+          const d = await fetchService('/decoration');
+          await delay(100);
+          if (!cancelled) setDecoration(d);
+        }
+        
+        if (!cancelled) {
+          const e = await fetchService('/entertainment');
+          await delay(100);
+          if (!cancelled) setEntertainment(e);
+        }
+        
+        if (!cancelled) {
+          const m = await fetchService('/bridal-makeup');
+          if (!cancelled) setBridalMakeup(m);
+        }
+      } catch (error: unknown) {
+        // Catch any unexpected errors
+        if (!cancelled) {
+          console.error('Unexpected error in VendorCategoriesGrid:', error);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
+    
     fetchAll();
+    
+    // Cleanup function to cancel requests if component unmounts
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Build cards with all available images for each category
