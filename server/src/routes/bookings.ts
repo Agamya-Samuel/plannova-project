@@ -1075,6 +1075,96 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
   }
 });
 
+// PUT /api/bookings/:id/accept-staff - Accept a booking (Staff/Admin only)
+// Staff can accept any booking, not restricted to specific providers
+router.put('/:id/accept-staff', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Find the booking - staff can accept any booking, so no providerId check needed
+    const booking = await Booking.findOne({
+      _id: req.params.id
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (booking.status !== BookingStatus.PENDING) {
+      return res.status(400).json({ error: 'Only pending bookings can be accepted' });
+    }
+
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.CONFIRMED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.CONFIRMED;
+      await booking.save();
+    }
+
+    res.json({
+      message: 'Booking accepted successfully',
+      booking: {
+        id: (booking._id as Types.ObjectId).toString(),
+        status: BookingStatus.CONFIRMED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
+      }
+    });
+  } catch (error) {
+    console.error('Error accepting booking:', error);
+    res.status(500).json({ error: 'Failed to accept booking' });
+  }
+});
+
+// PUT /api/bookings/:id/reject-staff - Reject a booking (Staff/Admin only)
+// Staff can reject any booking, not restricted to specific providers
+router.put('/:id/reject-staff', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Find the booking - staff can reject any booking, so no providerId check needed
+    const booking = await Booking.findOne({
+      _id: req.params.id
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (booking.status !== BookingStatus.PENDING) {
+      return res.status(400).json({ error: 'Only pending bookings can be rejected' });
+    }
+
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.REJECTED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.REJECTED;
+      await booking.save();
+    }
+
+    res.json({
+      message: 'Booking rejected successfully',
+      booking: {
+        id: (booking._id as Types.ObjectId).toString(),
+        status: BookingStatus.REJECTED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting booking:', error);
+    res.status(500).json({ error: 'Failed to reject booking' });
+  }
+});
+
 // POST /api/bookings - Create a new booking
 router.post('/', authenticateToken, createBookingValidation, validateBookingDates, async (req: AuthRequest, res: Response) => {
   try {
