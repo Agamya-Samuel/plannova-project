@@ -4,12 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Search, MapPin, Users, Star, Heart, Calendar } from "lucide-react";
+import { Search, MapPin, Users, Star, Heart, Calendar, Grid } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
 import BlogSection from '@/components/home/BlogSection';
 import { VENUE_TYPES } from '@/constants/venueTypes';
+// States and cities are now loaded from API routes (server-side)
 // Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
@@ -25,7 +26,6 @@ export default function Home() {
   const router = useRouter();
   // Removed unused user from auth context to satisfy linter
   const [venues, setVenues] = useState<VenueItem[]>([]);
-  const [loadingVenues, setLoadingVenues] = useState(false);
   // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
   // Note: pageTitle is fetched but not used - title is hardcoded as "Welcome to Plannova"
@@ -41,45 +41,121 @@ export default function Home() {
   // Track current image index for each venue category to enable image cycling
   const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   
-  // Convert common sharing links to direct image URLs so background works from
-  // services like Google Drive or Dropbox. If parsing fails, we return the
-  // original URL.
-  function normalizeImageUrl(input?: string): string {
-    if (!input) return '';
-    try {
-      // Google Drive share link patterns
-      if (/drive\.google\.com/.test(input)) {
-        // e.g., https://drive.google.com/file/d/FILE_ID/view?usp=sharing
-        const match = input.match(/\/d\/([a-zA-Z0-9_-]+)/);
-        if (match?.[1]) {
-          return `https://drive.google.com/uc?id=${match[1]}`;
-        }
-        // e.g., https://drive.google.com/open?id=FILE_ID or uc?id=FILE_ID
-        const idParam = new URL(input).searchParams.get('id');
-        if (idParam) {
-          return `https://drive.google.com/uc?id=${idParam}`;
-        }
-      }
-      // Dropbox shared links
-      if (/dropbox\.com/.test(input)) {
-        // Force direct download/raw host
-        const url = new URL(input);
-        url.hostname = 'dl.dropboxusercontent.com';
-        url.searchParams.set('raw', '1');
-        url.searchParams.delete('dl');
-        return url.toString();
-      }
-    } catch {
-      // Fall through and return original
-    }
-    return input;
-  }
   // Typing effect state for the typing options (not the title).
   // The title "Welcome to Plannova" is static, but options cycle through with typing effect.
   const [typedOption, setTypedOption] = useState<string>('');
   const [typeIndex, setTypeIndex] = useState<number>(0);
   const [typingDirection, setTypingDirection] = useState<'forward' | 'backward'>('forward');
   const [currentOptionIndex, setCurrentOptionIndex] = useState<number>(0); // Which option we're currently typing
+  
+  // State and city selection state (India is fixed, no country selection needed)
+  // Store selected state code and city name
+  // India country code (IN) is hardcoded since we only show Indian states
+  const selectedCountry = 'IN'; // Fixed to India
+  const [selectedState, setSelectedState] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  // Store list of states for India
+  const [states, setStates] = useState<Array<{ iso2: string; name: string }>>([]);
+  // Store list of cities for selected state
+  const [cities, setCities] = useState<Array<{ name: string }>>([]);
+  
+  // Service type selection (venue or vendor)
+  const [serviceType, setServiceType] = useState<string>('');
+  // Selected venue type (when serviceType is 'venue')
+  const [selectedVenueType, setSelectedVenueType] = useState<string>('');
+  // Selected vendor service (when serviceType is 'vendor')
+  const [selectedVendorService, setSelectedVendorService] = useState<string>('');
+  
+  // Vendor service options with display names and category mappings
+  // Maps internal service names to display names and vendor page category names
+  const vendorServices = [
+    { value: 'catering', label: 'Catering', category: 'Catering' },
+    { value: 'photography', label: 'Photography', category: 'Photography' },
+    { value: 'videography', label: 'Videography', category: 'Videography' },
+    { value: 'bridal-makeup', label: 'Bridal Makeup', category: 'Makeup & Beauty' },
+    { value: 'decoration', label: 'Decoration', category: 'Decoration' },
+    { value: 'entertainment', label: 'Entertainment', category: 'Music & Entertainment' }
+  ];
+
+  // Load India's states from API route (server-side)
+  useEffect(() => {
+    const loadStates = async () => {
+      try {
+        console.log('Fetching states from /api/states...');
+        // Fetch states from our API route (runs server-side where package works)
+        const response = await fetch('/api/states');
+        console.log('Response status:', response.status, response.statusText);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API error response:', response.status, errorData);
+          throw new Error(`HTTP error! status: ${response.status}, message: ${errorData.message || errorData.error || 'Unknown error'}`);
+        }
+        
+        const data = await response.json();
+        console.log('API response data:', JSON.stringify(data, null, 2));
+        console.log('Data success:', data.success);
+        console.log('Data states type:', typeof data.states, 'isArray:', Array.isArray(data.states), 'length:', data.states?.length);
+        
+        if (data.success && Array.isArray(data.states)) {
+          if (data.states.length > 0) {
+            console.log('Successfully loaded Indian states:', data.states.length);
+            console.log('First state:', data.states[0]);
+            setStates(data.states);
+          } else {
+            console.warn('States array is empty - API returned success but no states');
+            setStates([]);
+          }
+        } else {
+          console.error('API returned unsuccessful response:', data);
+          console.error('Success flag:', data.success);
+          console.error('States value:', data.states);
+          console.error('Error message from API:', data.message);
+          console.error('Error stack from API:', data.stack);
+          setStates([]);
+        }
+      } catch (error) {
+        console.error('Failed to load states - Full error:', error);
+        console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
+        setStates([]);
+      }
+    };
+    
+    loadStates();
+  }, []);
+
+  // Load cities when state is selected (from API route)
+  useEffect(() => {
+    const loadCities = async () => {
+      // Reset city selection when state changes
+      setSelectedCity('');
+      
+      if (!selectedCountry || !selectedState) {
+        setCities([]);
+        return;
+      }
+      
+      try {
+        // Fetch cities from our API route
+        const response = await fetch(`/api/cities?country=${selectedCountry}&state=${selectedState}`);
+        const data = await response.json();
+        
+        if (data.success && Array.isArray(data.cities) && data.cities.length > 0) {
+          console.log('Loaded cities:', data.cities.length);
+          setCities(data.cities);
+        } else {
+          console.error('Failed to load cities:', data);
+          setCities([]);
+        }
+      } catch (error) {
+        console.error('Failed to load cities:', error);
+        setCities([]);
+      }
+    };
+    
+    loadCities();
+  }, [selectedCountry, selectedState]);
 
   // Detect if device is mobile or laptop/desktop
   useEffect(() => {
@@ -110,26 +186,52 @@ export default function Home() {
     // Prevent duplicate requests and handle rate limiting
     let cancelled = false;
     
+    // Fetch venues - API already filters to only show provider-listed venues
+    // (venues with providerId, status APPROVED or PENDING_EDIT, isActive: true)
     const fetchVenues = async () => {
       try {
-        setLoadingVenues(true);
         const res = await apiClient.get('/venues');
         if (!cancelled) {
           const list: VenueItem[] = res?.data?.venues || res?.data?.data || res?.data || [];
           setVenues(Array.isArray(list) ? list : []);
         }
       } catch (e: unknown) {
-        // Handle rate limiting (429) gracefully
+        if (cancelled) return; // Don't handle errors if component unmounted
+        
         // Check if error has response property (Axios error)
-        if (e && typeof e === 'object' && 'response' in e && e.response && typeof e.response === 'object' && 'status' in e.response && e.response.status === 429) {
-          console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+        const isAxiosError = e && typeof e === 'object' && 'response' in e;
+        const errorResponse = isAxiosError && e.response && typeof e.response === 'object' ? e.response : null;
+        const errorStatus = errorResponse && 'status' in errorResponse ? errorResponse.status : null;
+        const errorMessage = (e && typeof e === 'object' && 'message' in e) ? String(e.message) : '';
+        const errorCode = (e && typeof e === 'object' && 'code' in e) ? String(e.code) : '';
+        
+        // Handle network errors (server not running, connection issues)
+        // Network errors typically have no response and error code 'ERR_NETWORK' or 'ECONNREFUSED'
+        const isNetworkError = !errorResponse && (
+          errorMessage.includes('Network Error') || 
+          errorCode === 'ERR_NETWORK' || 
+          errorCode === 'ECONNREFUSED' ||
+          errorMessage.includes('Failed to fetch')
+        );
+        
+        if (isNetworkError) {
+          // Network error - server likely not running
+          // Only log in development mode with helpful message
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Network error: Unable to connect to API server. Make sure the backend server is running.');
+          }
+          // Silently fail - UI will show placeholders
+        } else if (errorStatus === 429) {
+          // Rate limiting (429) - handle gracefully
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Rate limit exceeded. Please wait a moment and refresh.');
+          }
           // Silently fail - UI will show placeholders
         } else {
-          console.error('Failed to fetch venues for homepage categories', e);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingVenues(false);
+          // Other errors - log in development mode
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to fetch venues for homepage categories', e);
+          }
         }
       }
     };
@@ -455,8 +557,11 @@ export default function Home() {
     return shuffled;
   };
 
+  // Generate category cards from provider-listed venues
+  // Only shows categories that have venues with images from providers
   const categoryCards = useMemo(() => {
     return categoryDefs.map(def => {
+      // Filter venues by type - all venues here are already provider-listed (filtered by API)
       const items = venues.filter(def.match);
       const count = items.length;
       
@@ -527,7 +632,7 @@ export default function Home() {
           return (
             <div 
               className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-sm transform-gpu scale-105"
-              style={currentImage ? { backgroundImage: `url(${normalizeImageUrl(currentImage)})` } : undefined}
+              style={currentImage ? { backgroundImage: `url(${currentImage})` } : undefined}
             />
           );
         })()}
@@ -568,33 +673,166 @@ export default function Home() {
             ) : null}
             
             {/* Search Bar */}
-            <div className="bg-background rounded-2xl p-6 shadow-2xl max-w-4xl mx-auto mb-8 border border-border">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background">
-                    <option>Select city</option>
-                    <option>Mumbai</option>
-                    <option>Delhi</option>
-                    <option>Bangalore</option>
-                    <option>Chennai</option>
-                    <option>Pune</option>
+            <div className="bg-background rounded-2xl p-6 shadow-2xl max-w-5xl mx-auto mb-8 border border-border relative z-20">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                {/* State Selection Dropdown - Shows India's states directly from package */}
+                <div className="relative z-30">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                  <select 
+                    value={selectedState}
+                    onChange={(e) => {
+                      console.log('State selected:', e.target.value);
+                      setSelectedState(e.target.value);
+                    }}
+                    className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer"
+                  >
+                    <option value="">Select state</option>
+                    {states.length > 0 ? (
+                      states.map((state, index) => (
+                        <option key={`${state.iso2}-${index}`} value={state.iso2}>
+                          {state.name}
+                        </option>
+                      ))
+                    ) : (
+                      <option value="" disabled>Loading states... ({states.length})</option>
+                    )}
                   </select>
                 </div>
                 
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5" />
-                  <select className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background">
-                    <option>Select venue type</option>
-                    {/* Only show venue types available in the creation form */}
-                    {VENUE_TYPES.map(type => (
-                      <option key={type} value={type}>{type}</option>
+                {/* City Selection Dropdown - Only enabled when state is selected */}
+                <div className="relative z-30">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                  <select 
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    disabled={!selectedState || cities.length === 0}
+                    className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer appearance-none disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{ WebkitAppearance: 'menulist' }}
+                  >
+                    <option value="">Select city</option>
+                    {cities.map((city, index) => (
+                      <option key={index} value={city.name}>
+                        {city.name}
+                      </option>
                     ))}
                   </select>
                 </div>
                 
+                {/* Service Type Selection - First dropdown to choose between venue and vendor */}
+                <div className="relative z-30">
+                  <Grid className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                  <select 
+                    value={serviceType}
+                    onChange={(e) => {
+                      const newServiceType = e.target.value;
+                      setServiceType(newServiceType);
+                      // Reset category selections when service type changes
+                      setSelectedVenueType('');
+                      setSelectedVendorService('');
+                    }}
+                    className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer appearance-none"
+                    style={{ WebkitAppearance: 'menulist' }}
+                  >
+                    <option value="">Select service type</option>
+                    <option value="venue">Venue</option>
+                    <option value="vendor">Vendor</option>
+                  </select>
+                </div>
+                
+                {/* Conditional Category Selection - Shows venue types or vendor services based on service type */}
+                {serviceType === 'venue' && (
+                  <div className="relative z-30">
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                    <select 
+                      value={selectedVenueType}
+                      onChange={(e) => setSelectedVenueType(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer appearance-none"
+                      style={{ WebkitAppearance: 'menulist' }}
+                    >
+                      <option value="">Select venue type</option>
+                      {/* Only show venue types available in the creation form */}
+                      {VENUE_TYPES.map(type => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {serviceType === 'vendor' && (
+                  <div className="relative z-30">
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                    <select 
+                      value={selectedVendorService}
+                      onChange={(e) => setSelectedVendorService(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent text-text-primary bg-background relative z-20 cursor-pointer appearance-none"
+                      style={{ WebkitAppearance: 'menulist' }}
+                    >
+                      <option value="">Select vendor service</option>
+                      {vendorServices.map(service => (
+                        <option key={service.value} value={service.value}>
+                          {service.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                
+                {/* Placeholder div when no service type is selected */}
+                {!serviceType && (
+                  <div className="relative z-30">
+                    <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 text-text-tertiary h-5 w-5 z-10 pointer-events-none" />
+                    <select 
+                      disabled
+                      className="w-full pl-10 pr-4 py-3 border border-border rounded-xl text-text-tertiary bg-background relative z-20 cursor-not-allowed opacity-50 appearance-none"
+                      style={{ WebkitAppearance: 'menulist' }}
+                    >
+                      <option>Select service type first</option>
+                    </select>
+                  </div>
+                )}
+                
+                {/* Get Started Button */}
                 <Button 
                   size="lg" 
+                  onClick={() => {
+                    // Build query parameters based on selections
+                    const params = new URLSearchParams();
+                    
+                    // Add location filters if selected (state and/or city)
+                    // This allows flexible searching - can search with just state, just city, or both
+                    if (selectedState) {
+                      params.append('state', selectedState);
+                    }
+                    if (selectedCity) {
+                      params.append('city', selectedCity);
+                    }
+                    
+                    // Navigate based on service type
+                    // If service type is selected, navigate to the appropriate page
+                    if (serviceType === 'venue') {
+                      // Navigate to venues page with filters
+                      // Venue type is optional - can search all venues in a state/city
+                      if (selectedVenueType) {
+                        params.append('type', selectedVenueType);
+                      }
+                      router.push(`/venues${params.toString() ? `?${params.toString()}` : ''}`);
+                    } else if (serviceType === 'vendor') {
+                      // Navigate to vendors page with category filter
+                      // Vendor service is optional - can search all vendors in a state/city
+                      if (selectedVendorService) {
+                        const vendorService = vendorServices.find(s => s.value === selectedVendorService);
+                        if (vendorService) {
+                          params.append('category', vendorService.category);
+                        }
+                      }
+                      router.push(`/vendors${params.toString() ? `?${params.toString()}` : ''}`);
+                    } else {
+                      // If no service type selected but location filters are present,
+                      // default to venues page to show all venues in that location
+                      // This allows searching with just state/city without selecting service type
+                      router.push(`/venues${params.toString() ? `?${params.toString()}` : ''}`);
+                    }
+                  }}
                   className="bg-gradient-to-r from-primary to-secondary hover:from-primary-dark hover:to-secondary-dark text-white py-3 px-8 rounded-xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 shadow-md hover:shadow-lg"
                 >
                   <Search className="mr-2 h-5 w-5" />
@@ -608,94 +846,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Popular Venues Section - Shows actual venue cards */}
-      <div className="py-16 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Popular Venues
-            </h2>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-              Explore our hand-picked selection of top-rated venues
-            </p>
-          </div>
-
-          {/* Filter venues to only show those with images */}
-          {loadingVenues ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600">Loading venues...</p>
-            </div>
-          ) : (
-            <>
-              {/* Filter venues to only show those with at least one image */}
-              {(() => {
-                const venuesWithImages = venues.filter(venue => 
-                  venue.images && venue.images.length > 0
-                ).slice(0, 6); // Show top 6 venues with images
-                
-                if (venuesWithImages.length === 0) {
-                  return (
-                    <div className="text-center py-12">
-                      <p className="text-gray-600">No venues available at the moment.</p>
-                    </div>
-                  );
-                }
-                
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {venuesWithImages.map((venue) => {
-                      const primaryImage = venue.images?.find(img => img.isPrimary)?.url || venue.images?.[0]?.url || '';
-                      
-                      return (
-                        <div 
-                          key={venue._id} 
-                          className="group cursor-pointer"
-                          onClick={() => router.push(`/venues/${venue._id}`)}
-                        >
-                          <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-all duration-300 transform group-hover:scale-105">
-                            <div className="relative overflow-hidden h-64 group-hover:scale-110 transition-transform duration-300">
-                              <Image 
-                                src={primaryImage}
-                                alt={venue.name}
-                                width={800}
-                                height={256}
-                                className="w-full h-64 object-cover"
-                                unoptimized={primaryImage.includes('s3.tebi.io') || primaryImage.includes('s3.')}
-                              />
-                            </div>
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                            <div className="absolute bottom-6 left-6 text-white">
-                              <h3 className="text-2xl font-bold mb-2">{venue.name}</h3>
-                              {venue.type && (
-                                <p className="text-pink-200 font-medium mb-1">{venue.type}</p>
-                              )}
-                              {venue.address && (
-                                <p className="text-sm text-gray-300">
-                                  <MapPin className="h-4 w-4 inline mr-1" />
-                                  {venue.address.city || ''}{venue.address.state ? `, ${venue.address.state}` : ''}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-              
-              {/* Browse more venues button */}
-              <div className="mt-10 flex justify-center">
-                <Link href="/venues">
-                  <Button className="px-6">Browse more venues</Button>
-                </Link>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Popular Venue Categories - Only show categories with images */}
+      {/* Popular Venue Categories - Only show categories with images from provider-listed venues */}
       <div className="py-16 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">

@@ -176,8 +176,40 @@ export default function BlogDisplay({
           ? (blogList.length > initialLimit)
           : false;
         setHasMore(hasMorePages || hasMoreBlogs);
-      } catch (error) {
-        console.error('Error fetching blogs:', error);
+      } catch (error: unknown) {
+        // Handle errors gracefully - don't log network errors as errors
+        // Network errors typically mean server is not running
+        const isAxiosError = error && typeof error === 'object' && 'response' in error;
+        const errorResponse = isAxiosError && error.response && typeof error.response === 'object' ? error.response : null;
+        const errorMessage = (error && typeof error === 'object' && 'message' in error) ? String(error.message) : '';
+        const errorCode = (error && typeof error === 'object' && 'code' in error) ? String(error.code) : '';
+        
+        // Check if it's a network error (server not running, connection issues)
+        const isNetworkError = !errorResponse && (
+          errorMessage.includes('Network Error') || 
+          errorCode === 'ERR_NETWORK' || 
+          errorCode === 'ECONNREFUSED' ||
+          errorMessage.includes('Failed to fetch')
+        );
+        
+        if (isNetworkError) {
+          // Network error - server likely not running
+          // Only log in development mode with helpful message
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Network error: Unable to connect to API server. Make sure the backend server is running.');
+          }
+          // Silently fail - UI will show empty blog list
+        } else if (errorResponse && 'status' in errorResponse && errorResponse.status === 429) {
+          // Rate limiting - handle gracefully
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('Rate limit exceeded while fetching blogs. Please wait a moment.');
+          }
+        } else {
+          // Other errors - log in development mode
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching blogs:', error);
+          }
+        }
       } finally {
         setIsLoading(false);
       }
@@ -262,7 +294,13 @@ export default function BlogDisplay({
           </div>
         ) : displayBlogs.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-gray-600 text-lg">No blogs found.</p>
+            <p className="text-gray-600 text-lg mb-6">No blogs found.</p>
+            <button
+              onClick={() => router.push('/my-blogs?create=true')}
+              className="px-6 py-3 bg-pink-600 text-white font-medium rounded-lg hover:bg-pink-700 transition-colors shadow-md hover:shadow-lg"
+            >
+              Write Your First Blog
+            </button>
           </div>
         ) : (
           <>

@@ -246,6 +246,51 @@ export default function AdminBookingsPage() {
     }
   }, []);
 
+  const getPaymentStatusIcon = useCallback((status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'paid':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'refunded':
+        return <IndianRupee className="h-4 w-4 text-blue-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  }, []);
+
+  const getPaymentStatusColor = useCallback((status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      case 'refunded':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getPaymentStatusText = useCallback((status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'paid':
+        return 'Paid';
+      case 'failed':
+        return 'Failed';
+      case 'refunded':
+        return 'Refunded';
+      default:
+        return status;
+    }
+  }, []);
+
   const handlePaymentStatusUpdate = async (bookingId: string, newStatus: string) => {
     try {
       const response = await apiClient.put(`/admin/bookings/${bookingId}/payment-status`, {
@@ -282,9 +327,9 @@ export default function AdminBookingsPage() {
     return (
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(paymentStatus)}`}>
-            {getStatusIcon(paymentStatus)}
-            <span className="ml-1">{getStatusText(paymentStatus)}</span>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(paymentStatus)}`}>
+            {getPaymentStatusIcon(paymentStatus)}
+            <span className="ml-1">{getPaymentStatusText(paymentStatus)}</span>
           </span>
           <div className="relative">
             <button 
@@ -319,7 +364,7 @@ export default function AdminBookingsPage() {
         </div>
       </td>
     );
-  }, [editingPaymentStatus, getStatusColor, getStatusIcon, getStatusText]);
+  }, [editingPaymentStatus, getPaymentStatusColor, getPaymentStatusIcon, getPaymentStatusText]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -557,7 +602,7 @@ export default function AdminBookingsPage() {
                         Customer
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date & Time
+                        Date
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
@@ -621,9 +666,6 @@ export default function AdminBookingsPage() {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
                             {new Date(booking.date).toLocaleDateString()}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {booking.time}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

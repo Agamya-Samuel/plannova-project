@@ -194,6 +194,8 @@ function VendorsPageInner() {
   const [error, setError] = useState('');
 
   // Fetch approved services
+  // Now includes state and city filters from URL query parameters
+  // This allows filtering by location that providers added when creating services
   useEffect(() => {
     // Prevent duplicate requests and handle rate limiting
     let cancelled = false;
@@ -202,9 +204,25 @@ function VendorsPageInner() {
       try {
         setLoading(true);
         
+        // Build query parameters from URL search params
+        // This allows filtering by state and city that providers added when creating services
+        const params = new URLSearchParams();
+        const stateParam = searchParams?.get('state');
+        const cityParam = searchParams?.get('city');
+        
+        if (stateParam) {
+          params.append('state', stateParam);
+        }
+        if (cityParam) {
+          params.append('city', cityParam);
+        }
+        
+        const queryString = params.toString();
+        const querySuffix = queryString ? `?${queryString}` : '';
+        
         // Fetch all services with individual error handling to continue loading others if one fails
         try {
-          const cateringResponse = await apiClient.get('/catering');
+          const cateringResponse = await apiClient.get(`/catering${querySuffix}`);
           if (!cancelled) {
             setCateringServices(cateringResponse.data.data || []);
           }
@@ -221,7 +239,7 @@ function VendorsPageInner() {
         }
         
         try {
-          const photographyResponse = await apiClient.get('/photography');
+          const photographyResponse = await apiClient.get(`/photography${querySuffix}`);
           if (!cancelled) {
             setPhotographyServices(photographyResponse.data.data || []);
           }
@@ -238,7 +256,7 @@ function VendorsPageInner() {
         }
         
         try {
-          const videographyResponse = await apiClient.get('/videography');
+          const videographyResponse = await apiClient.get(`/videography${querySuffix}`);
           if (!cancelled) {
             setVideographyServices(videographyResponse.data.data || []);
           }
@@ -255,7 +273,7 @@ function VendorsPageInner() {
         }
         
         try {
-          const bridalMakeupResponse = await apiClient.get('/bridal-makeup');
+          const bridalMakeupResponse = await apiClient.get(`/bridal-makeup${querySuffix}`);
           if (!cancelled) {
             setBridalMakeupServices(bridalMakeupResponse.data.data || []);
           }
@@ -272,7 +290,7 @@ function VendorsPageInner() {
         }
         
         try {
-          const decorationResponse = await apiClient.get('/decoration');
+          const decorationResponse = await apiClient.get(`/decoration${querySuffix}`);
           if (!cancelled) {
             setDecorationServices(decorationResponse.data.data || []);
           }
@@ -289,7 +307,7 @@ function VendorsPageInner() {
         }
         
         try {
-          const entertainmentResponse = await apiClient.get('/entertainment');
+          const entertainmentResponse = await apiClient.get(`/entertainment${querySuffix}`);
           if (!cancelled) {
             setEntertainmentServices(entertainmentResponse.data.data || []);
           }
@@ -333,7 +351,7 @@ function VendorsPageInner() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [searchParams]); // Re-fetch when URL params change (state, city)
 
   // Initialize selected category from URL (?category=Photography)
   // This enables deep linking from the home page vendor types section

@@ -30,16 +30,33 @@ const createDecorationValidation = [
 ];
 
 // GET /api/decoration - Get all approved decoration services (for customers)
+// Supports filtering by state and city from query parameters
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const decorations = await Decoration.find({ 
+    const { state, city } = req.query;
+
+    // Build filter object - matches provider's serviceLocation data
+    const filter: Record<string, unknown> = {
       status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
       isActive: true,
       isDeleted: { $ne: true }  // Exclude soft deleted services
-    })
-    .select('+images') // Explicitly select images field
-    .populate('provider', 'firstName lastName email phone')
-    .sort({ createdAt: -1 });
+    };
+
+    // Filter by city if provided - matches provider's serviceLocation.city
+    if (city) {
+      filter['serviceLocation.city'] = new RegExp(city as string, 'i');
+    }
+
+    // Filter by state if provided - matches provider's serviceLocation.state
+    // State can be state code (e.g., "MH") or state name (e.g., "Maharashtra")
+    if (state) {
+      filter['serviceLocation.state'] = new RegExp(state as string, 'i');
+    }
+
+    const decorations = await Decoration.find(filter)
+      .select('+images') // Explicitly select images field
+      .populate('provider', 'firstName lastName email phone')
+      .sort({ createdAt: -1 });
 
     res.json({
       message: 'Decoration services retrieved successfully',

@@ -7,8 +7,6 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Button } from '@/components/ui/button';
 import { 
   Settings,
-  Save,
-  Lock,
   Eye,
   EyeOff,
   FileText,
@@ -85,8 +83,11 @@ export default function AccountSettingsPage() {
   const { user, isLoading, updateServiceCategories } = useAuth();
   const router = useRouter();
   
-  // Active section state - default to 'account' as it's now first
-  const [activeSection, setActiveSection] = useState<'security' | 'account' | 'blogs' | 'services'>('account');
+  // Active section state
+  // Removed 'notifications', 'privacy', and 'security' sections as per user request
+  // Security content has been merged into Account section
+  // Account is set as default and appears first in navigation
+  const [activeSection, setActiveSection] = useState<'account' | 'blogs' | 'services'>('account');
   
   // Security settings
   const [showOldPassword, setShowOldPassword] = useState(false);
@@ -99,14 +100,9 @@ export default function AccountSettingsPage() {
   });
   const [changingPassword, setChangingPassword] = useState(false);
   
-  
-  // Account preferences
-  const [preferences, setPreferences] = useState({
-    language: 'en',
-    timezone: 'Asia/Kolkata',
-    dateFormat: 'DD/MM/YYYY',
-    currency: 'INR'
-  });
+  // Removed notification and privacy state variables as per user request
+  // Note: Passwords are never stored locally for security reasons
+  // Removed account preferences state as Account Preferences section was removed
 
   // Services management
   const [selectedServiceCategories, setSelectedServiceCategories] = useState<ServiceCategory[]>([]);
@@ -386,34 +382,27 @@ export default function AccountSettingsPage() {
     
     setChangingPassword(true);
     try {
-      // TODO: Implement change password API endpoint in backend
-      // This is a placeholder - you'll need to create the endpoint
+      // Call the change password API endpoint
       await apiClient.post('/auth/change-password', {
         oldPassword: passwordForm.oldPassword,
         newPassword: passwordForm.newPassword
       });
       
       toast.success('Password changed successfully!');
+      // Clear the form after successful password change
       setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
     } catch (error: unknown) {
       console.error('Error changing password:', error);
-      toast.error(getApiErrorMessage(error) || 'Failed to change password. Please try again.');
+      // Get user-friendly error message from API response
+      const errorMessage = getApiErrorMessage(error) || 'Failed to change password. Please try again.';
+      toast.error(errorMessage);
     } finally {
       setChangingPassword(false);
     }
   };
 
-  // Handle account preferences save
-  const handleSavePreferences = async () => {
-    try {
-      // TODO: Implement save preferences API
-      await apiClient.put('/user/preferences', preferences);
-      toast.success('Account preferences saved!');
-    } catch (error: unknown) {
-      console.error('Error saving preferences:', error);
-      toast.error(getApiErrorMessage(error) || 'Failed to save preferences');
-    }
-  };
+  // Removed handleSaveNotifications and handleSavePrivacy functions as per user request
+  // Removed handleSavePreferences function as Account Preferences section was removed
 
   // Handle account deletion request
   const handleDeleteAccount = async () => {
@@ -508,6 +497,7 @@ export default function AccountSettingsPage() {
             <div className="lg:col-span-1">
               <div className="bg-white rounded-xl shadow-lg p-4 sticky top-4">
                 <nav className="space-y-2">
+                  {/* Account section appears first as per user request */}
                   <button
                     onClick={() => setActiveSection('account')}
                     className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
@@ -520,31 +510,7 @@ export default function AccountSettingsPage() {
                     Account
                   </button>
                   
-                  {canManageBlogs() && (
-                    <button
-                      onClick={() => setActiveSection('blogs')}
-                      className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                        activeSection === 'blogs'
-                          ? 'bg-pink-100 text-pink-600 font-medium'
-                          : 'text-gray-700 hover:bg-gray-50'
-                      }`}
-                    >
-                      <BookOpen className="h-5 w-5 mr-3" />
-                      Manage Blogs
-                    </button>
-                  )}
-                  
-                  <button
-                    onClick={() => setActiveSection('security')}
-                    className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
-                      activeSection === 'security'
-                        ? 'bg-pink-100 text-pink-600 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Lock className="h-5 w-5 mr-3" />
-                    Security
-                  </button>
+                  {/* Security section removed - content merged into Account section */}
                   
                   {user?.role === 'PROVIDER' && (
                     <button
@@ -559,131 +525,29 @@ export default function AccountSettingsPage() {
                       Services
                     </button>
                   )}
+                  
+                  {canManageBlogs() && (
+                    <button
+                      onClick={() => setActiveSection('blogs')}
+                      className={`w-full text-left flex items-center px-4 py-3 rounded-lg transition-colors ${
+                        activeSection === 'blogs'
+                          ? 'bg-pink-100 text-pink-600 font-medium'
+                          : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <BookOpen className="h-5 w-5 mr-3" />
+                      Manage Blogs
+                    </button>
+                  )}
+
+                  {/* Removed Notifications and Privacy navigation buttons as per user request */}
                 </nav>
               </div>
             </div>
 
             {/* Main Content */}
             <div className="lg:col-span-3">
-              {/* Security Section */}
-              {activeSection === 'security' && (
-                <div className="bg-white rounded-xl shadow-lg p-8">
-                  <div className="flex items-center mb-6">
-                    <Lock className="h-6 w-6 text-pink-500 mr-3" />
-                    <h2 className="text-2xl font-bold text-gray-900">Security Settings</h2>
-                  </div>
-                  
-                  <div className="space-y-6">
-                    {/* Change Password */}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
-                      <form onSubmit={handleChangePassword} className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Current Password
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showOldPassword ? 'text' : 'password'}
-                              value={passwordForm.oldPassword}
-                              onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 pr-10"
-                              placeholder="Enter current password"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowOldPassword(!showOldPassword)}
-                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            >
-                              {showOldPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            New Password
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showNewPassword ? 'text' : 'password'}
-                              value={passwordForm.newPassword}
-                              onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 pr-10"
-                              placeholder="Enter new password (min. 6 characters)"
-                              required
-                              minLength={6}
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowNewPassword(!showNewPassword)}
-                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            >
-                              {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Confirm New Password
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showConfirmPassword ? 'text' : 'password'}
-                              value={passwordForm.confirmPassword}
-                              onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
-                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 pr-10"
-                              placeholder="Confirm new password"
-                              required
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                            >
-                              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
-                          </div>
-                        </div>
-                        
-                        <Button
-                          type="submit"
-                          disabled={changingPassword}
-                          className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
-                        >
-                          {changingPassword ? 'Changing Password...' : 'Change Password'}
-                        </Button>
-                      </form>
-                    </div>
-
-                    {/* Security Info */}
-                    <div className="border-t border-gray-200 pt-6">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Security Tips</h3>
-                      <ul className="space-y-2 text-sm text-gray-600">
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Use a strong password with at least 6 characters</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Never share your password with anyone</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>Log out from shared devices</span>
-                        </li>
-                        <li className="flex items-start">
-                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
-                          <span>If you suspect unauthorized access, change your password immediately</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-
+              {/* Security Section removed - content merged into Account section */}
 
               {/* Manage Blogs Section */}
               {activeSection === 'blogs' && canManageBlogs() && (
@@ -876,6 +740,8 @@ export default function AccountSettingsPage() {
                 </div>
               )}
 
+              {/* Removed Notifications and Privacy sections as per user request */}
+
               {/* Account Section */}
               {activeSection === 'account' && (
                 <div className="bg-white rounded-xl shadow-lg p-8">
@@ -885,76 +751,117 @@ export default function AccountSettingsPage() {
                   </div>
                   
                   <div className="space-y-6">
-                    {/* Preferences */}
+                    {/* Change Password - moved from Security section */}
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Preferences</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Change Password</h3>
+                      <form onSubmit={handleChangePassword} className="space-y-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Language
+                            Current Password
                           </label>
-                          <select
-                            value={preferences.language}
-                            onChange={(e) => setPreferences({...preferences, language: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                          >
-                            <option value="en">English</option>
-                            <option value="hi">हिंदी (Hindi)</option>
-                          </select>
+                          <div className="relative">
+                            <input
+                              type={showOldPassword ? 'text' : 'password'}
+                              value={passwordForm.oldPassword}
+                              onChange={(e) => setPasswordForm({...passwordForm, oldPassword: e.target.value})}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 pr-10"
+                              placeholder="Enter current password"
+                              autoComplete="current-password"
+                              name="current-password"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowOldPassword(!showOldPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showOldPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
                         </div>
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Timezone
+                            New Password
                           </label>
-                          <select
-                            value={preferences.timezone}
-                            onChange={(e) => setPreferences({...preferences, timezone: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                          >
-                            <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                            <option value="UTC">UTC</option>
-                          </select>
+                          <div className="relative">
+                            <input
+                              type={showNewPassword ? 'text' : 'password'}
+                              value={passwordForm.newPassword}
+                              onChange={(e) => setPasswordForm({...passwordForm, newPassword: e.target.value})}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 pr-10"
+                              placeholder="Enter new password (min. 6 characters)"
+                              autoComplete="new-password"
+                              name="new-password"
+                              required
+                              minLength={6}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
                         </div>
                         
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Date Format
+                            Confirm New Password
                           </label>
-                          <select
-                            value={preferences.dateFormat}
-                            onChange={(e) => setPreferences({...preferences, dateFormat: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                          >
-                            <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                            <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                            <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                          </select>
+                          <div className="relative">
+                            <input
+                              type={showConfirmPassword ? 'text' : 'password'}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) => setPasswordForm({...passwordForm, confirmPassword: e.target.value})}
+                              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500 pr-10"
+                              placeholder="Confirm new password"
+                              autoComplete="new-password"
+                              name="confirm-password"
+                              required
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                            >
+                              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                            </button>
+                          </div>
                         </div>
                         
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Currency
-                          </label>
-                          <select
-                            value={preferences.currency}
-                            onChange={(e) => setPreferences({...preferences, currency: e.target.value})}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-pink-500"
-                          >
-                            <option value="INR">INR (₹)</option>
-                            <option value="USD">USD ($)</option>
-                            <option value="EUR">EUR (€)</option>
-                          </select>
-                        </div>
-                      </div>
-                      
-                      <Button
-                        onClick={handleSavePreferences}
-                        className="mt-4 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
-                      >
-                        <Save className="h-4 w-4 mr-2" />
-                        Save Preferences
-                      </Button>
+                        <Button
+                          type="submit"
+                          disabled={changingPassword}
+                          className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white"
+                        >
+                          {changingPassword ? 'Changing Password...' : 'Change Password'}
+                        </Button>
+                      </form>
+                    </div>
+
+                    {/* Security Tips - moved from Security section */}
+                    <div className="border-t border-gray-200 pt-6">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-4">Security Tips</h3>
+                      <ul className="space-y-2 text-sm text-gray-600">
+                        <li className="flex items-start">
+                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>Use a strong password with at least 6 characters</span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>Never share your password with anyone</span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>Log out from shared devices</span>
+                        </li>
+                        <li className="flex items-start">
+                          <CheckCircle className="h-5 w-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                          <span>If you suspect unauthorized access, change your password immediately</span>
+                        </li>
+                      </ul>
                     </div>
                     
                     {/* Account Actions */}
