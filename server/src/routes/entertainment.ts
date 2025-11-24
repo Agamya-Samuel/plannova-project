@@ -31,13 +31,30 @@ const createEntertainmentValidation = [
 ];
 
 // Public list of approved services
+// Supports filtering by state and city from query parameters
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const services = await Entertainment.find({
+    const { state, city } = req.query;
+
+    // Build filter object - matches provider's serviceLocation data
+    const filter: Record<string, unknown> = {
       status: { $in: [ApprovalStatus.APPROVED, ApprovalStatus.PENDING_EDIT] },
       isActive: true,
       isDeleted: { $ne: true }  // Exclude soft deleted services
-    })
+    };
+
+    // Filter by city if provided - matches provider's serviceLocation.city
+    if (city) {
+      filter['serviceLocation.city'] = new RegExp(city as string, 'i');
+    }
+
+    // Filter by state if provided - matches provider's serviceLocation.state
+    // State can be state code (e.g., "MH") or state name (e.g., "Maharashtra")
+    if (state) {
+      filter['serviceLocation.state'] = new RegExp(state as string, 'i');
+    }
+
+    const services = await Entertainment.find(filter)
       .select('+images')
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });

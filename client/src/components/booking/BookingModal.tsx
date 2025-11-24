@@ -248,14 +248,14 @@ export function BookingModal({
     <>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          {/* Backdrop */}
+          {/* Backdrop - grey blurred background for white modal */}
           <div 
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-gray-500/50 backdrop-blur-md"
             onClick={onClose}
           ></div>
           
-          {/* Modal */}
-          <div className="relative bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+          {/* Modal - landscape view on desktop, portrait on mobile */}
+          <div className="relative bg-white rounded-2xl shadow-xl max-w-md md:max-w-3xl lg:max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h3 className="text-xl font-bold text-gray-900">

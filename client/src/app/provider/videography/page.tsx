@@ -201,8 +201,6 @@ export default function VideographyDashboardPage() {
     );
   }
 
-  const totalServices = services.length;
-
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
@@ -259,62 +257,60 @@ export default function VideographyDashboardPage() {
             />
           </div>
 
-          {loading ? (
+          {/* Loading State */}
+          {loading && (
             <div className="flex justify-center items-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
             </div>
-          ) : (
-            <>
-              {/* Services List */}
-              <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-100">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Your Videography Services</h2>
-                  <p className="text-sm font-medium text-gray-600 bg-gray-100 px-3 py-1 rounded-full">
-                    {String(totalServices)} service(s) listed
-                  </p>
-                </div>
+          )}
 
-                {filteredServices.length === 0 ? (
-                  <div className="text-center py-16">
-                    <div className="mx-auto bg-gradient-to-br from-purple-100 to-blue-100 rounded-full p-6 w-24 h-24 flex items-center justify-center mb-6">
-                      <Video className="h-12 w-12 text-purple-600" />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-3">No videography services yet</h3>
-                    <p className="text-gray-600 mb-8 max-w-md mx-auto">Get started by creating your first videography service package</p>
-                    <Button 
-                      onClick={() => router.push('/provider/videography/create')}
-                      className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
-                    >
-                      <Plus className="h-5 w-5 mr-2" />
-                      Create Your First Service
-                    </Button>
+          {/* Services Grid */}
+          {!loading && (
+            <div className="space-y-6">
+              {filteredServices.length === 0 ? (
+                <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+                  <div className="mx-auto bg-gradient-to-br from-purple-100 to-blue-100 rounded-full p-6 w-24 h-24 flex items-center justify-center mb-6">
+                    <Video className="h-12 w-12 text-purple-600" />
                   </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredServices.map((service) => (
-                      <ServiceCard
-                        key={service._id}
-                        id={service._id}
-                        name={service.name}
-                        description={service.description}
-                        status={service.status as 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT'}
-                        location={`${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`}
-                        price={service.basePrice}
-                        rating={service.rating || 0}
-                        reviewCount={service.reviewCount || 0}
-                        tags={service.videographyTypes || []}
-                        onEdit={(id) => router.push(`/provider/videography/edit?id=${id}`)}
-                        onView={(id) => router.push(`/provider/videography/view?id=${id}`)}
-                        onDelete={handleDeleteService}
-                        onSubmitForApproval={handleSubmitForApproval}
-                        loading={loading}
-                        submitLoading={submitLoading === service._id}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            </>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    No videography services yet
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Get started by creating your first videography service package
+                  </p>
+                  <Button 
+                    onClick={() => router.push('/provider/videography/create')}
+                    className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-0.5"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Create Your First Service
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredServices.map((service) => (
+                    <ServiceCard
+                      key={service._id}
+                      id={service._id}
+                      name={service.name}
+                      description={service.description}
+                      status={service.status as 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED' | 'PENDING_EDIT'}
+                      location={`${service.serviceLocation?.city || ''}, ${service.serviceLocation?.state || ''}`}
+                      price={service.basePrice}
+                      rating={service.rating || 0}
+                      reviewCount={service.reviewCount || 0}
+                      tags={service.videographyTypes || []}
+                      onEdit={(id) => router.push(`/provider/videography/edit?id=${id}`)}
+                      onView={(id) => router.push(`/provider/videography/view?id=${id}`)}
+                      onDelete={handleDeleteService}
+                      onSubmitForApproval={handleSubmitForApproval}
+                      loading={loading}
+                      submitLoading={submitLoading === service._id}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

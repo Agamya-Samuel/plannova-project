@@ -33,6 +33,7 @@ export default function AdminBookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [itemsPerPage] = useState(10); // Set items per page
 
   // Memoize expensive calculations
@@ -246,6 +247,51 @@ export default function AdminBookingsPage() {
     }
   }, []);
 
+  const getPaymentStatusIcon = useCallback((status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="h-4 w-4 text-yellow-500" />;
+      case 'paid':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      case 'refunded':
+        return <IndianRupee className="h-4 w-4 text-blue-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
+    }
+  }, []);
+
+  const getPaymentStatusColor = useCallback((status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'paid':
+        return 'bg-green-100 text-green-800';
+      case 'failed':
+        return 'bg-red-100 text-red-800';
+      case 'refunded':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  }, []);
+
+  const getPaymentStatusText = useCallback((status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'Pending';
+      case 'paid':
+        return 'Paid';
+      case 'failed':
+        return 'Failed';
+      case 'refunded':
+        return 'Refunded';
+      default:
+        return status;
+    }
+  }, []);
+
   const handlePaymentStatusUpdate = async (bookingId: string, newStatus: string) => {
     try {
       const response = await apiClient.put(`/admin/bookings/${bookingId}/payment-status`, {
@@ -269,6 +315,43 @@ export default function AdminBookingsPage() {
     }
   };
 
+  // Handle booking actions (accept/reject) for staff
+  const handleAcceptBooking = async (bookingId: string) => {
+    if (processingBookingId) return;
+    
+    try {
+      setProcessingBookingId(bookingId);
+      await apiClient.put(`/bookings/${bookingId}/accept-staff`);
+      toast.success('Booking accepted successfully');
+      // Refresh bookings
+      await fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm, currentPage.toString());
+    } catch (err: unknown) {
+      console.error('Error accepting booking:', err);
+      const apiError = err as { response?: { data?: { error?: string } } };
+      toast.error(apiError.response?.data?.error || 'Failed to accept booking');
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    if (processingBookingId) return;
+    
+    try {
+      setProcessingBookingId(bookingId);
+      await apiClient.put(`/bookings/${bookingId}/reject-staff`);
+      toast.success('Booking rejected successfully');
+      // Refresh bookings
+      await fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm, currentPage.toString());
+    } catch (err: unknown) {
+      console.error('Error rejecting booking:', err);
+      const apiError = err as { response?: { data?: { error?: string } } };
+      toast.error(apiError.response?.data?.error || 'Failed to reject booking');
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
   const renderPaymentStatusCell = useCallback((booking: Booking) => {
     const paymentStatusOptions = [
       { value: 'pending', label: 'Pending' },
@@ -282,9 +365,9 @@ export default function AdminBookingsPage() {
     return (
       <td className="px-6 py-4 whitespace-nowrap">
         <div className="flex items-center space-x-2">
-          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(paymentStatus)}`}>
-            {getStatusIcon(paymentStatus)}
-            <span className="ml-1">{getStatusText(paymentStatus)}</span>
+          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(paymentStatus)}`}>
+            {getPaymentStatusIcon(paymentStatus)}
+            <span className="ml-1">{getPaymentStatusText(paymentStatus)}</span>
           </span>
           <div className="relative">
             <button 
@@ -319,7 +402,7 @@ export default function AdminBookingsPage() {
         </div>
       </td>
     );
-  }, [editingPaymentStatus, getStatusColor, getStatusIcon, getStatusText]);
+  }, [editingPaymentStatus, getPaymentStatusColor, getPaymentStatusIcon, getPaymentStatusText]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -557,7 +640,7 @@ export default function AdminBookingsPage() {
                         Customer
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date & Time
+                        Date
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Status
@@ -579,6 +662,9 @@ export default function AdminBookingsPage() {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -622,9 +708,6 @@ export default function AdminBookingsPage() {
                           <div className="text-sm text-gray-900">
                             {new Date(booking.date).toLocaleDateString()}
                           </div>
-                          <div className="text-sm text-gray-500">
-                            {booking.time}
-                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
@@ -663,6 +746,30 @@ export default function AdminBookingsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           ₹{booking.totalPrice.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            {booking.status === 'pending' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAcceptBooking(booking.id)}
+                                  disabled={processingBookingId === booking.id}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  Accept
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRejectBooking(booking.id)}
+                                  disabled={processingBookingId === booking.id}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}

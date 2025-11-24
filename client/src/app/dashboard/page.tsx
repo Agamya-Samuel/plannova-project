@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
-import { Calendar, Heart, MapPin, MessageCircle, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2, User, Phone, Mail, IndianRupee, Check, X, Search, Eye } from 'lucide-react';
+import { Calendar, Heart, MapPin, Settings, Star, TrendingUp, Users, Camera, BarChart3, Clock, CheckCircle, Utensils, Video, Music, Flower, FileText, Trash2, User, Phone, Mail, IndianRupee, Check, X, Search, Eye } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import MobileNumberAlertDialog from '@/components/auth/MobileNumberAlertDialog';
 import apiClient from '@/lib/api';
@@ -144,15 +144,6 @@ function CustomerDashboard() {
         color="red"
       />
       <DashboardCard
-        title="Messages"
-        description="Communication with venue providers"
-        icon={<MessageCircle className="h-8 w-8 text-blue-600" />}
-        action="View Messages"
-        href="/messages"
-        stats="2 New"
-        color="blue"
-      />
-      <DashboardCard
         title="Profile"
         description="Update your personal information"
         icon={<Settings className="h-8 w-8 text-gray-600" />}
@@ -251,10 +242,6 @@ function ProviderDashboard() {
 
   const handleMyServicesClick = () => {
     setActiveView('services');
-  };
-
-  const handleMyBookingsClick = () => {
-    setActiveView('bookings');
   };
 
   const handleBackToDashboard = () => {
@@ -428,7 +415,7 @@ function ProviderDashboard() {
         </div>
         
         {/* Main Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <DashboardCard
             title="My Services"
             description="View and manage all your service offerings"
@@ -442,8 +429,16 @@ function ProviderDashboard() {
             description="View and manage all your bookings"
             icon={<Calendar className="h-8 w-8 text-pink-600" />}
             action="View Bookings"
-            onClick={handleMyBookingsClick}
+            href="/provider/bookings"
             color="pink"
+          />
+          <DashboardCard
+            title="My Payments"
+            description="Track all payments and revenue for your services"
+            icon={<IndianRupee className="h-8 w-8 text-green-600" />}
+            action="View Payments"
+            href="/provider/payments"
+            color="green"
           />
         </div>
       </div>
@@ -464,6 +459,19 @@ function AdminDashboard() {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
+  interface ApiError extends Error {
+    response?: {
+      status?: number;
+      data?: {
+        error?: string;
+      };
+    };
+    config?: {
+      url?: string;
+    };
+    code?: string;
+  }
+
   useEffect(() => {
     const fetchStats = async () => {
       try {
@@ -471,8 +479,28 @@ function AdminDashboard() {
         const res = await apiClient.get('/admin/stats');
         setStats(res.data);
         setError('');
-      } catch {
-        setError('Failed to load stats');
+      } catch (err: unknown) {
+        const apiError = err as ApiError;
+        console.error('📡 Admin Dashboard Stats Error:', {
+          message: apiError.message,
+          status: apiError.response?.status,
+          data: apiError.response?.data,
+          url: apiError.config?.url,
+          config: apiError.config
+        });
+        
+        // More descriptive error messages based on error type
+        if (apiError.response?.status === 401) {
+          setError('Unauthorized: Please log in again');
+        } else if (apiError.response?.status === 403) {
+          setError('Access denied: Insufficient permissions');
+        } else if (apiError.response?.status === 500) {
+          setError('Server error: Unable to fetch statistics');
+        } else if (apiError.code === 'ERR_NETWORK') {
+          setError('Network error: Unable to connect to server');
+        } else {
+          setError(`Failed to load stats: ${apiError.response?.data?.error || apiError.message || 'Unknown error'}`);
+        }
       } finally {
         setLoading(false);
       }
@@ -551,7 +579,11 @@ function AdminDashboard() {
         </div>
       </div>
       {error && (
-        <div className="text-sm text-red-600">{error}</div>
+        <div className="text-sm text-red-600 bg-red-50 p-4 rounded-lg">
+          <strong>Error:</strong> {error}
+          <br />
+          <small>Please check your connection and try again.</small>
+        </div>
       )}
       
       {/* Admin Cards */}
@@ -602,8 +634,8 @@ function AdminDashboard() {
           color="yellow"
         />
         <DashboardCard
-          title="Payment Management"
-          description="Track all payments and revenue across the platform"
+          title="Online Payment Management"
+          description="Track all online payments and revenue across the platform"
           icon={<IndianRupee className="h-8 w-8 text-green-600" />}
           action="Manage Payments"
           href="/admin/payments"
@@ -618,15 +650,6 @@ function AdminDashboard() {
           href="/admin/content"
           stats="45 Posts"
           color="orange"
-        />
-        <DashboardCard
-          title="System Settings"
-          description="Configure system-wide settings"
-          icon={<Settings className="h-8 w-8 text-gray-600" />}
-          action="System Settings"
-          href="/admin/settings"
-          stats="All Systems OK"
-          color="gray"
         />
         <DashboardCard
           title="Trash Management"
@@ -672,9 +695,18 @@ function StaffDashboard() {
       <DashboardCard
         title="Bookings Overview"
         description="Monitor bookings across the platform"
-        icon={<Calendar className="h-8 w-8 text-green-600" />}
+        icon={<Calendar className="h-8 w-8 text-yellow-600" />}
         action="View Bookings"
         href="/admin/bookings"
+        color="yellow"
+      />
+      <DashboardCard
+        title="Online Payment Management"
+        description="Track all online payments and revenue across the platform"
+        icon={<IndianRupee className="h-8 w-8 text-green-600" />}
+        action="Manage Payments"
+        href="/admin/payments"
+        stats="View Transactions"
         color="green"
       />
       {/* Removed Analytics & Reports and Content Management for staff */}
@@ -1361,6 +1393,8 @@ interface DashboardCardProps {
 }
 
 function DashboardCard({ title, description, icon, action, href, onClick, stats, color }: DashboardCardProps) {
+  const router = useRouter();
+  
   const getColorClasses = (color: string) => {
     const colors = {
       pink: 'from-pink-500 to-pink-600 hover:from-pink-600 hover:to-pink-700',
@@ -1380,13 +1414,13 @@ function DashboardCard({ title, description, icon, action, href, onClick, stats,
     if (onClick) {
       onClick();
     } else if (href) {
-      window.location.href = href;
+      router.push(href);
     }
   };
 
   return (
     <div className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 overflow-hidden group cursor-pointer" onClick={handleClick}>
-      <div className="p-6">
+      <div className="p-6 flex flex-col h-full">
         <div className="flex items-start justify-between mb-4">
           <div className="p-2 rounded-xl bg-gray-50 group-hover:bg-gray-100 transition-colors">
             {icon}
@@ -1401,12 +1435,12 @@ function DashboardCard({ title, description, icon, action, href, onClick, stats,
         <h3 className="text-xl font-bold text-gray-900 mb-2 group-hover:text-gray-700 transition-colors">
           {title}
         </h3>
-        <p className="text-gray-600 mb-6 text-sm leading-relaxed">
+        <p className="text-gray-600 mb-6 text-sm leading-relaxed flex-grow">
           {description}
         </p>
         
         <div
-          className={`inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r ${getColorClasses(color)} text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105`}
+          className={`inline-flex items-center justify-center w-full px-4 py-3 bg-gradient-to-r ${getColorClasses(color)} text-white font-semibold rounded-xl transition-all duration-300 transform group-hover:scale-105 mt-auto`}
         >
           {action}
           <svg
