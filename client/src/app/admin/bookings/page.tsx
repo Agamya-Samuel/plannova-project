@@ -33,6 +33,7 @@ export default function AdminBookingsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [editingPaymentStatus, setEditingPaymentStatus] = useState<string | null>(null);
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null);
   const [itemsPerPage] = useState(10); // Set items per page
 
   // Memoize expensive calculations
@@ -311,6 +312,43 @@ export default function AdminBookingsPage() {
     } catch (error) {
       console.error('Error updating payment status:', error);
       toast.error('Failed to update payment status');
+    }
+  };
+
+  // Handle booking actions (accept/reject) for staff
+  const handleAcceptBooking = async (bookingId: string) => {
+    if (processingBookingId) return;
+    
+    try {
+      setProcessingBookingId(bookingId);
+      await apiClient.put(`/bookings/${bookingId}/accept-staff`);
+      toast.success('Booking accepted successfully');
+      // Refresh bookings
+      await fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm, currentPage.toString());
+    } catch (err: unknown) {
+      console.error('Error accepting booking:', err);
+      const apiError = err as { response?: { data?: { error?: string } } };
+      toast.error(apiError.response?.data?.error || 'Failed to accept booking');
+    } finally {
+      setProcessingBookingId(null);
+    }
+  };
+
+  const handleRejectBooking = async (bookingId: string) => {
+    if (processingBookingId) return;
+    
+    try {
+      setProcessingBookingId(bookingId);
+      await apiClient.put(`/bookings/${bookingId}/reject-staff`);
+      toast.success('Booking rejected successfully');
+      // Refresh bookings
+      await fetchBookings(statusFilter, paymentModeFilter, serviceTypeFilter, searchTerm, currentPage.toString());
+    } catch (err: unknown) {
+      console.error('Error rejecting booking:', err);
+      const apiError = err as { response?: { data?: { error?: string } } };
+      toast.error(apiError.response?.data?.error || 'Failed to reject booking');
+    } finally {
+      setProcessingBookingId(null);
     }
   };
 
@@ -625,6 +663,9 @@ export default function AdminBookingsPage() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Total
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -705,6 +746,30 @@ export default function AdminBookingsPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           ₹{booking.totalPrice.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            {booking.status === 'pending' && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleAcceptBooking(booking.id)}
+                                  disabled={processingBookingId === booking.id}
+                                  className="bg-green-600 hover:bg-green-700"
+                                >
+                                  Accept
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleRejectBooking(booking.id)}
+                                  disabled={processingBookingId === booking.id}
+                                >
+                                  Reject
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
