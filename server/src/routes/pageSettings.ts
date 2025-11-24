@@ -31,7 +31,8 @@ router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, re
       backgroundImagesLaptop, 
       textGradientFrom, 
       textGradientTo, 
-      typingOptions 
+      typingOptions,
+      backgroundBlur
     } = req.body as { 
       title: string; 
       description?: string; 
@@ -40,7 +41,8 @@ router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, re
       backgroundImagesLaptop?: string[]; 
       textGradientFrom?: string; 
       textGradientTo?: string; 
-      typingOptions?: string[] 
+      typingOptions?: string[];
+      backgroundBlur?: number;
     };
 
     if (!title) {
@@ -58,6 +60,7 @@ router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, re
       textGradientFrom?: string;
       textGradientTo?: string;
       typingOptions?: string[];
+      backgroundBlur?: number;
       updatedBy?: string;
     }> = {
       title,
@@ -71,6 +74,7 @@ router.put('/:key', authenticateToken, requireAdmin, async (req: AuthRequest, re
     if (textGradientFrom !== undefined) updateData.textGradientFrom = textGradientFrom;
     if (textGradientTo !== undefined) updateData.textGradientTo = textGradientTo;
     if (Array.isArray(typingOptions)) updateData.typingOptions = typingOptions;
+    if (backgroundBlur !== undefined) updateData.backgroundBlur = backgroundBlur;
 
     const updated = await PageSetting.findOneAndUpdate(
       { key },

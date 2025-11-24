@@ -38,6 +38,7 @@ export default function Home() {
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
   const [typingOptions, setTypingOptions] = useState<string[]>([]); // Options for typing effect
+  const [backgroundBlur, setBackgroundBlur] = useState<number>(4); // Background blur level: 0-100, default 4 to match previous 'sm' behavior
   // Track current image index for each venue category to enable image cycling
   const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   
@@ -266,6 +267,7 @@ export default function Home() {
           setPageDescription(typeof data.description === 'string' ? data.description : '');
           setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
           setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
+          setBackgroundBlur(typeof data.backgroundBlur === 'number' ? data.backgroundBlur : 4); // Default to 4 if not set (matches previous 'sm' behavior)
           setTypingOptions(Array.isArray(data.typingOptions) && data.typingOptions.length > 0 ? data.typingOptions : []);
         }
       } catch {
@@ -618,6 +620,19 @@ export default function Home() {
     return () => clearInterval(id);
   }, [categoryCards]);
 
+  // Helper function to convert numeric blur value (0-100) to CSS blur style
+  // Converts 0-100 to CSS blur value in pixels (0px to 20px for smooth scaling)
+  const getBlurStyle = (blur: number): React.CSSProperties => {
+    if (blur === 0) {
+      return {}; // No blur
+    }
+    // Map 0-100 to 0px-20px blur (linear scaling)
+    const blurPixels = (blur / 100) * 20;
+    return {
+      filter: `blur(${blurPixels}px)`
+    };
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Background Image */}
@@ -631,8 +646,11 @@ export default function Home() {
           
           return (
             <div 
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-sm transform-gpu scale-105"
-              style={currentImage ? { backgroundImage: `url(${currentImage})` } : undefined}
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 transform-gpu scale-105"
+              style={{
+                ...(currentImage ? { backgroundImage: `url(${currentImage})` } : {}),
+                ...getBlurStyle(backgroundBlur)
+              }}
             />
           );
         })()}
