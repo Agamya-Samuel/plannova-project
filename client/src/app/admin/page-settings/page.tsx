@@ -19,6 +19,7 @@ type PageSettingsDto = {
   textGradientFrom?: string;
   textGradientTo?: string;
   typingOptions?: string[]; // Array of options for typing effect (e.g., "wedding platform", "corporate wedding")
+  backgroundBlur?: number; // Background blur level: 0-100 (0 = no blur, 100 = maximum blur)
 };
 
 const PAGE_KEY = 'home';
@@ -35,6 +36,7 @@ export default function AdminPageSettings() {
   const [textGradientFrom, setTextGradientFrom] = useState<string>('');
   const [textGradientTo, setTextGradientTo] = useState<string>('');
   const [typingOptions, setTypingOptions] = useState<string[]>(['']); // Options for typing effect
+  const [backgroundBlur, setBackgroundBlur] = useState<number>(4); // Background blur level: 0-100, default 4 to match previous 'sm' behavior
 
   // Fetch existing settings
   const fetchSettings = async () => {
@@ -49,6 +51,7 @@ export default function AdminPageSettings() {
       setTextGradientFrom(res.data.textGradientFrom || '');
       setTextGradientTo(res.data.textGradientTo || '');
       setTypingOptions(res.data.typingOptions?.length ? res.data.typingOptions : ['']);
+      setBackgroundBlur(typeof res.data.backgroundBlur === 'number' ? res.data.backgroundBlur : 4); // Default to 4 if not set (matches previous 'sm' behavior)
     } catch {
       // If not found, keep defaults and allow creating
       if (process.env.NODE_ENV === 'development') {
@@ -113,12 +116,19 @@ export default function AdminPageSettings() {
         textGradientFrom: textGradientFrom || undefined,
         textGradientTo: textGradientTo || undefined,
         typingOptions: cleanedTypingOptions.length > 0 ? cleanedTypingOptions : undefined,
+        backgroundBlur: backgroundBlur || undefined,
       });
       await fetchSettings();
       toast.success('Page settings saved');
       router.push('/');
-    } catch {
-      toast.error('Failed to save page settings');
+    } catch (error: unknown) {
+      console.error('Error saving page settings:', error);
+      const apiError = error as { response?: { status?: number; data?: { error?: string } } };
+      if (apiError.response?.status === 403) {
+        toast.error('Access denied. Admin role required to save page settings.');
+      } else {
+        toast.error(apiError.response?.data?.error || 'Failed to save page settings');
+      }
     } finally {
       setSaving(false);
     }
@@ -265,6 +275,31 @@ export default function AdminPageSettings() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* Background Blur Control Section */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Background Blur Level
+              </label>
+              <span className="text-sm font-semibold text-pink-600">
+                {backgroundBlur}
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              Control the blur amount applied to the homepage background image (0 = no blur, 100 = maximum blur)
+            </p>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              value={backgroundBlur}
+              onChange={(e) => setBackgroundBlur(parseInt(e.target.value))}
+              className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-pink-600"
+              disabled={loading}
+            />
           </div>
 
           {/* Typing Options Section */}

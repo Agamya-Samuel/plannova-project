@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { UserRole, ServiceCategory } from '@/types/auth';
-import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, Utensils, Video, Flower, Music, FileText } from 'lucide-react';
+import { Search, Menu, X, MapPin, Heart, Camera, Calendar, Users, Settings, ChevronDown, User, LogOut, Utensils, Video, Flower, Music, FileText, Home } from 'lucide-react';
 import ProfileImage from '@/components/ui/ProfileImage';
 import Image from 'next/image';
 
@@ -18,6 +18,7 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { label: 'Home', href: '/', icon: <Home className="h-4 w-4" /> },
   { label: 'Venues', href: '/venues', icon: <MapPin className="h-4 w-4" /> },
   { label: 'Vendors', href: '/vendors', icon: <Users className="h-4 w-4" /> },
   { label: 'Blog', href: '/blog', icon: <FileText className="h-4 w-4" /> },
@@ -96,6 +97,10 @@ export default function Navbar() {
   }
 
   const isActiveRoute = (href: string) => {
+    // Home route: active when pathname is exactly "/"
+    if (href === '/') {
+      return pathname === '/';
+    }
     if (href === '/provider/venues') {
       return pathname.startsWith('/provider/venues');
     }
