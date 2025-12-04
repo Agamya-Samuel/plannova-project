@@ -187,25 +187,27 @@ export const extractImageKeys = <T extends { url: string }>(images: T[]): T[] =>
 
 // Helper function to transform image objects from database (key) to API response (URL)
 // This converts the stored S3 key to a full URL based on NODE_ENV
-export const transformImageUrl = (image: { url: string; [key: string]: unknown }): { url: string; [key: string]: unknown } => {
+// Uses generics to preserve the exact type structure of the input image
+export const transformImageUrl = <T extends { url: string }>(image: T): T => {
   // If the url is already a full URL (starts with http), try to extract key and convert
   if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
     // Try to extract the key from the URL for migration
     const key = extractS3Key(image.url);
     if (key) {
       // Convert to URL using getS3Url (this handles the key properly)
-      return { ...image, url: getS3Url(key) };
+      return { ...image, url: getS3Url(key) } as T;
     }
     // If we can't extract key, return as-is (legacy data)
     return image;
   }
   
   // If url is a key (doesn't start with http), convert it to a full URL
-  return { ...image, url: getS3Url(image.url) };
+  return { ...image, url: getS3Url(image.url) } as T;
 };
 
 // Helper function to transform array of images
-export const transformImageUrls = (images: Array<{ url: string; [key: string]: unknown }>): Array<{ url: string; [key: string]: unknown }> => {
+// Uses generics to preserve the exact type structure of the input images
+export const transformImageUrls = <T extends { url: string }>(images: T[]): T[] => {
   return images.map(transformImageUrl);
 };
 
