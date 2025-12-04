@@ -4,7 +4,7 @@ import { Types } from 'mongoose';
 import Venue, { VenueType, VenueStatus, IVenueImage } from '../models/Venue.js';
 import User from '../models/User.js';
 import { authenticateToken, requireProvider, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
-import { extractS3Key } from '../utils/s3.js';
+import { extractS3Key, transformImageUrls, extractImageKeys } from '../utils/s3.js';
 import { deleteFromS3 } from '../services/uploadService.js';
 import mongoose from 'mongoose';
 
@@ -110,8 +110,14 @@ router.get('/', async (req: Request, res: Response) => {
 
     const total = await Venue.countDocuments(filter);
 
+    // Transform image keys to URLs for API response
+    const transformedVenues = venues.map(venue => ({
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    }));
+
     res.json({
-      venues,
+      venues: transformedVenues,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -162,8 +168,14 @@ router.get('/provider/my-venues', authenticateToken, requireProvider, async (req
 
     const total = await Venue.countDocuments(filter);
 
+    // Transform image keys to URLs for API response
+    const transformedVenues = venues.map(venue => ({
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    }));
+
     res.json({
-      venues,
+      venues: transformedVenues,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -191,7 +203,13 @@ router.get('/provider/:id', authenticateToken, requireProvider, async (req: Auth
       return res.status(404).json({ error: 'Venue not found or unauthorized' });
     }
 
-    res.json(venue);
+    // Transform image keys to URLs for API response
+    const transformedVenue = {
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    };
+
+    res.json(transformedVenue);
   } catch (error) {
     console.error('Error fetching provider venue:', error);
     res.status(500).json({ error: 'Failed to fetch venue' });
@@ -389,7 +407,13 @@ router.get('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: Aut
       return res.status(404).json({ error: 'Venue not found' });
     }
 
-    res.json(venue);
+    // Transform image keys to URLs for API response
+    const transformedVenue = {
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    };
+
+    res.json(transformedVenue);
   } catch (error) {
     console.error('Error fetching venue:', error);
     res.status(500).json({ error: 'Failed to fetch venue' });
@@ -410,7 +434,13 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Venue not found' });
     }
 
-    res.json(venue);
+    // Transform image keys to URLs for API response
+    const transformedVenue = {
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    };
+
+    res.json(transformedVenue);
   } catch (error) {
     console.error('Error fetching venue:', error);
     res.status(500).json({ error: 'Failed to fetch venue' });
@@ -435,17 +465,25 @@ router.post('/', authenticateToken, requireProvider, createVenueValidation, asyn
       ? req.body.status 
       : VenueStatus.DRAFT;
     
+    // Extract keys from image URLs before saving
     const venueData = {
       ...req.body,
       providerId: req.user!.id,
-      status
+      status,
+      images: req.body.images ? extractImageKeys(req.body.images) : req.body.images
     };
 
     const venue = await Venue.create(venueData);
 
+    // Transform image keys to URLs for API response
+    const transformedVenue = {
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    };
+
     res.status(201).json({
       message: `Venue created successfully with status ${status}`,
-      venue
+      venue: transformedVenue
     });
   } catch (error) {
     console.error('Error creating venue:', error);
@@ -478,8 +516,11 @@ router.put('/:id', authenticateToken, requireProvider, updateVenueValidation, as
         updatedAt: new Date()
       };
       
-      // If images are not provided in the request, preserve existing images
-      if (!req.body.images && venue.images) {
+      // Extract keys from image URLs if images are provided
+      if (req.body.images) {
+        pendingEdits.images = extractImageKeys(req.body.images);
+      } else if (venue.images) {
+        // If images are not provided in the request, preserve existing images
         pendingEdits.images = venue.images;
       }
       
@@ -493,13 +534,19 @@ router.put('/:id', authenticateToken, requireProvider, updateVenueValidation, as
       
       await venue.save();
       
+      // Transform image keys to URLs for API response
+      const transformedPendingEdits = venue.pendingEdits ? {
+        ...venue.pendingEdits,
+        images: venue.pendingEdits.images ? transformImageUrls(venue.pendingEdits.images) : undefined
+      } : undefined;
+      
       return res.json({
         message: 'Venue edits submitted for approval',
         venue: {
           _id: venue._id,
           name: venue.name,
           status: venue.status,
-          pendingEdits: venue.pendingEdits
+          pendingEdits: transformedPendingEdits
         }
       });
     }
@@ -510,12 +557,24 @@ router.put('/:id', authenticateToken, requireProvider, updateVenueValidation, as
       return res.status(400).json({ error: 'Maximum capacity must be greater than or equal to minimum capacity' });
     }
 
-    Object.assign(venue, req.body);
+    // Extract keys from image URLs if images are being updated
+    const updateData = { ...req.body };
+    if (req.body.images) {
+      updateData.images = extractImageKeys(req.body.images);
+    }
+
+    Object.assign(venue, updateData);
     await venue.save();
+
+    // Transform image keys to URLs for API response
+    const transformedVenue = {
+      ...venue.toObject(),
+      images: transformImageUrls(venue.images || [])
+    };
 
     res.json({
       message: 'Venue updated successfully',
-      venue
+      venue: transformedVenue
     });
   } catch (error) {
     console.error('Error updating venue:', error);
@@ -597,25 +656,39 @@ router.post('/:id/images', authenticateToken, requireProvider, async (req: AuthR
       return res.status(404).json({ error: 'Venue not found or unauthorized' });
     }
 
-    // Add images with S3 metadata
-    const enhancedImages = images.map(image => ({
-      url: image.url,
-      alt: image.alt || image.name || 'Venue image',
-      category: image.category || 'gallery',
-      isPrimary: image.isPrimary || false,
-      // Note: Additional metadata like key, name, type, size, etc. can be stored
-      // in a separate collection or as extended fields if needed
-    }));
+    // Extract S3 keys from URLs and store keys in database
+    // The url field will store the S3 key, not the full URL
+    const enhancedImages = images.map(image => {
+      // Extract the key from the URL (handles both old URLs and new keys)
+      let key = image.url;
+      if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
+        // If it's a full URL, extract the key
+        const extractedKey = extractS3Key(image.url);
+        if (extractedKey) {
+          key = extractedKey;
+        }
+      }
+      
+      return {
+        url: key, // Store the S3 key in the url field
+        alt: image.alt || image.name || 'Venue image',
+        category: image.category || 'gallery',
+        isPrimary: image.isPrimary || false,
+      };
+    });
 
     venue.images.push(...enhancedImages);
     await venue.save();
+
+    // Transform keys to URLs for API response
+    const transformedImages = transformImageUrls(venue.images);
 
     res.json({
       message: 'Images added successfully',
       venue: {
         _id: venue._id,
         name: venue.name,
-        images: venue.images
+        images: transformedImages
       }
     });
   } catch (error) {

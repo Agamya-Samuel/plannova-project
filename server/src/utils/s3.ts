@@ -126,41 +126,87 @@ export const generateFileKey = (
 };
 
 // Get full S3 URL for a given key
+// In development: returns https://s3.tebi.io/{bucket}/{key}
+// In production: returns {CDN_URL}/{key}
 export const getS3Url = (key: string): string => {
   const config = getS3Config();
+  const nodeEnv = process.env.NODE_ENV || 'development';
   const cdnUrl = process.env.CDN_URL;
   
-  // Use CDN_URL if available
-  if (cdnUrl) {
-    // Ensure the CDN URL doesn't end with a slash and the key doesn't start with one
-    const baseUrl = cdnUrl.endsWith('/') ? cdnUrl.slice(0, -1) : cdnUrl;
-    const filePath = key.startsWith('/') ? key.slice(1) : key;
-    
-    // For Tebi and path-style S3 endpoints, include bucket in the path
-    // Check if this is a path-style endpoint (like Tebi) that needs bucket in path
-    // Tebi uses path-style URLs: https://s3.tebi.io/bucket/key
-    const isPathStyleEndpoint = config.endpoint && (
-      config.endpoint.includes('tebi.io') || 
-      config.endpoint.includes('localhost') ||
-      baseUrl.includes('tebi.io')
-    );
-    
-    if (isPathStyleEndpoint) {
-      // Path-style S3: include bucket name in URL path
-      return `${baseUrl}/${config.bucket}/${filePath}`;
+  // Ensure the key doesn't start with a slash
+  const filePath = key.startsWith('/') ? key.slice(1) : key;
+  
+  // In development: use S3 endpoint with bucket in path
+  if (nodeEnv === 'development') {
+    if (config.endpoint) {
+      // Path-style URLs: https://endpoint/bucket/key
+      const endpoint = config.endpoint.endsWith('/') ? config.endpoint.slice(0, -1) : config.endpoint;
+      return `${endpoint}/${config.bucket}/${filePath}`;
     }
-    
-    // Virtual-hosted style or CDN that handles routing differently
+    // Fallback to standard AWS S3 URL if no endpoint
+    return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${filePath}`;
+  }
+  
+  // In production: use CDN URL
+  if (cdnUrl && cdnUrl.trim() !== '') {
+    const baseUrl = cdnUrl.endsWith('/') ? cdnUrl.slice(0, -1) : cdnUrl;
     return `${baseUrl}/${filePath}`;
   }
   
+  // Fallback: if no CDN URL in production, use endpoint (shouldn't happen but handle gracefully)
   if (config.endpoint) {
-    // For local development or custom endpoints (path-style like Tebi)
-    // Path-style URLs: https://endpoint/bucket/key
-    return `${config.endpoint}/${config.bucket}/${key}`;
+    const endpoint = config.endpoint.endsWith('/') ? config.endpoint.slice(0, -1) : config.endpoint;
+    return `${endpoint}/${config.bucket}/${filePath}`;
   }
-  // Standard AWS S3 URL (virtual-hosted style)
-  return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${key}`;
+  
+  // Final fallback: standard AWS S3 URL
+  return `https://${config.bucket}.s3.${config.region}.amazonaws.com/${filePath}`;
+};
+
+// Helper function to extract S3 key from image URL or key
+// Handles both full URLs and keys (for backward compatibility)
+export const extractImageKey = (urlOrKey: string): string => {
+  // If it's already a key (doesn't start with http), return as-is
+  if (!urlOrKey || (!urlOrKey.startsWith('http://') && !urlOrKey.startsWith('https://'))) {
+    return urlOrKey;
+  }
+  
+  // If it's a full URL, extract the key
+  const key = extractS3Key(urlOrKey);
+  return key || urlOrKey; // Fallback to original if extraction fails
+};
+
+// Helper function to extract keys from array of images
+// Uses generics to preserve the exact type structure of the input images
+export const extractImageKeys = <T extends { url: string }>(images: T[]): T[] => {
+  return images.map(image => ({
+    ...image,
+    url: extractImageKey(image.url)
+  })) as T[];
+};
+
+// Helper function to transform image objects from database (key) to API response (URL)
+// This converts the stored S3 key to a full URL based on NODE_ENV
+export const transformImageUrl = (image: { url: string; [key: string]: unknown }): { url: string; [key: string]: unknown } => {
+  // If the url is already a full URL (starts with http), try to extract key and convert
+  if (image.url && (image.url.startsWith('http://') || image.url.startsWith('https://'))) {
+    // Try to extract the key from the URL for migration
+    const key = extractS3Key(image.url);
+    if (key) {
+      // Convert to URL using getS3Url (this handles the key properly)
+      return { ...image, url: getS3Url(key) };
+    }
+    // If we can't extract key, return as-is (legacy data)
+    return image;
+  }
+  
+  // If url is a key (doesn't start with http), convert it to a full URL
+  return { ...image, url: getS3Url(image.url) };
+};
+
+// Helper function to transform array of images
+export const transformImageUrls = (images: Array<{ url: string; [key: string]: unknown }>): Array<{ url: string; [key: string]: unknown }> => {
+  return images.map(transformImageUrl);
 };
 
 // Extract S3 key from URL
