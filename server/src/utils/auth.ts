@@ -7,6 +7,8 @@ interface CustomJwtPayload extends JwtPayload {
   userId: string;
 }
 
+// Generate JWT token with 30-day expiration
+// This token is used for both regular email/password login and Google sign-in
 export const generateToken = (userId: string): string => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
@@ -14,7 +16,7 @@ export const generateToken = (userId: string): string => {
   }
   
   return jwt.sign({ userId }, secret, {
-    expiresIn: '7d',
+    expiresIn: '30d', // Extended from 7d to 30d for better user experience
   });
 };
 
