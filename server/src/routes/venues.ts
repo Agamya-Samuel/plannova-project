@@ -237,10 +237,43 @@ router.get('/favorites', authenticateToken, async (req: AuthRequest, res: Respon
     }
 
     // Filter out any null values that might have occurred from populate
-    const favorites = (user.favorites || []).filter((venue: unknown) => venue !== null);
+    // After populate, favorites are Venue documents, not ObjectIds
+    // Cast to unknown first, then filter with type guard
+    type PopulatedVenue = mongoose.Document & { 
+      toObject?: () => Record<string, unknown>;
+      images?: IVenueImage[]; 
+      pendingEdits?: { images?: IVenueImage[] } 
+    };
+    
+    // Cast favorites to unknown[] first since TypeScript doesn't know they're populated
+    const favoritesArray = (user.favorites || []) as unknown[];
+    const favorites = favoritesArray.filter((venue: unknown): venue is PopulatedVenue => {
+      if (venue === null || typeof venue !== 'object') {
+        return false;
+      }
+      // Check if it's a Mongoose document (has toObject) or has images property
+      return 'toObject' in venue || 'images' in venue;
+    });
+
+    // Transform image keys to URLs for API response
+    // Also transform pendingEdits images if they exist
+    const transformedFavorites = favorites.map((venue) => {
+      // Handle both Mongoose documents and plain objects
+      const venueObj = venue.toObject ? venue.toObject() : venue;
+      return {
+        ...venueObj,
+        images: transformImageUrls((venue.images || []) as { url: string }[]),
+        pendingEdits: (venueObj as { pendingEdits?: { images?: unknown[] } }).pendingEdits && (venueObj as { pendingEdits: { images?: unknown[] } }).pendingEdits.images
+          ? {
+              ...(venueObj as { pendingEdits: { images?: unknown[] } }).pendingEdits,
+              images: transformImageUrls((venueObj as { pendingEdits: { images: unknown[] } }).pendingEdits.images as { url: string }[])
+            }
+          : (venueObj as { pendingEdits?: unknown }).pendingEdits
+      };
+    });
 
     res.json({
-      venues: favorites
+      venues: transformedFavorites
     });
   } catch (error) {
     console.error('Error fetching favorite venues:', error);
@@ -291,8 +324,24 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
 
     const total = await Venue.countDocuments(filter);
 
+    // Transform image keys to URLs for API response
+    // Also transform pendingEdits images if they exist
+    const transformedVenues = venues.map(venue => {
+      const venueObj = venue.toObject();
+      return {
+        ...venueObj,
+        images: transformImageUrls(venue.images || []),
+        pendingEdits: venueObj.pendingEdits && venueObj.pendingEdits.images
+          ? {
+              ...venueObj.pendingEdits,
+              images: transformImageUrls(venueObj.pendingEdits.images)
+            }
+          : venueObj.pendingEdits
+      };
+    });
+
     res.json({
-      venues,
+      venues: transformedVenues,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -343,8 +392,24 @@ router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async
 
     const total = await Venue.countDocuments(filter);
 
+    // Transform image keys to URLs for API response
+    // Also transform pendingEdits images if they exist
+    const transformedVenues = venues.map(venue => {
+      const venueObj = venue.toObject();
+      return {
+        ...venueObj,
+        images: transformImageUrls(venue.images || []),
+        pendingEdits: venueObj.pendingEdits && venueObj.pendingEdits.images
+          ? {
+              ...venueObj.pendingEdits,
+              images: transformImageUrls(venueObj.pendingEdits.images)
+            }
+          : venueObj.pendingEdits
+      };
+    });
+
     res.json({
-      venues,
+      venues: transformedVenues,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -913,8 +978,24 @@ router.get('/staff/pending', authenticateToken, requireStaffOrAdmin, async (req:
 
     const total = await Venue.countDocuments(filter);
 
+    // Transform image keys to URLs for API response
+    // Also transform pendingEdits images if they exist
+    const transformedVenues = venues.map(venue => {
+      const venueObj = venue.toObject();
+      return {
+        ...venueObj,
+        images: transformImageUrls(venue.images || []),
+        pendingEdits: venueObj.pendingEdits && venueObj.pendingEdits.images
+          ? {
+              ...venueObj.pendingEdits,
+              images: transformImageUrls(venueObj.pendingEdits.images)
+            }
+          : venueObj.pendingEdits
+      };
+    });
+
     res.json({
-      venues,
+      venues: transformedVenues,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -963,8 +1044,24 @@ router.get('/staff/pending-edits', authenticateToken, requireStaffOrAdmin, async
 
     const total = await Venue.countDocuments(filter);
 
+    // Transform image keys to URLs for API response
+    // Also transform pendingEdits images if they exist
+    const transformedVenues = venues.map(venue => {
+      const venueObj = venue.toObject();
+      return {
+        ...venueObj,
+        images: transformImageUrls(venue.images || []),
+        pendingEdits: venueObj.pendingEdits && venueObj.pendingEdits.images
+          ? {
+              ...venueObj.pendingEdits,
+              images: transformImageUrls(venueObj.pendingEdits.images)
+            }
+          : venueObj.pendingEdits
+      };
+    });
+
     res.json({
-      venues,
+      venues: transformedVenues,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
