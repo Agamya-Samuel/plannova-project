@@ -334,10 +334,14 @@ router.post('/google', async (req: Request, res: Response) => {
     const needsRoleSelection = user.role === null;
     // We no longer check for mobile number during login - this is handled on the dashboard
 
+    // Generate our own JWT token instead of using Firebase ID token
+    // This gives us control over token expiration (30 days instead of Firebase's 1 hour default)
+    const token = generateToken((user._id as Types.ObjectId).toString());
+
     res.json({
       message: 'Google sign-in successful',
       user: userData,
-      token: idToken, // Use Firebase ID token as auth token
+      token, // Use our own JWT token with 30-day expiration
       needsRoleSelection, // Indicates if frontend should show role selection
       // Removed needsMobileNumber flag since we handle this on the dashboard
     });
