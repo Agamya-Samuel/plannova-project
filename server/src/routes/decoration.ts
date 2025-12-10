@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import Decoration, { ApprovalStatus } from '../models/Decoration.js';
 import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
+import { transformImageUrls } from '../utils/s3.js';
 
 const router = Router();
 
@@ -58,9 +59,15 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecorations = decorations.map(decoration => ({
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    }));
+
     res.json({
       message: 'Decoration services retrieved successfully',
-      data: decorations
+      data: transformedDecorations
     });
   } catch (error) {
     console.error('Error fetching decoration services:', error);
@@ -92,9 +99,15 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       .select('+images') // Explicitly select images field
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecorations = decorations.map(decoration => ({
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    }));
+
     res.json({
       message: 'Your decoration services retrieved successfully',
-      data: decorations
+      data: transformedDecorations
     });
   } catch (error) {
     console.error('Error fetching provider decoration services:', error);
@@ -171,9 +184,15 @@ router.post('/', authenticateToken, createDecorationValidation, async (req: Auth
       isActive: true
     });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    };
+
     res.status(201).json({
       message: 'Decoration service created successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error creating decoration service:', error);
@@ -250,9 +269,20 @@ router.get('/:id', async (req: Request, res: Response) => {
       // For now, we'll return it but in a real app you'd add authentication checks
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: decoration.pendingEdits ? {
+        ...decoration.pendingEdits,
+        images: decoration.pendingEdits.images ? transformImageUrls(decoration.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Decoration service retrieved successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error fetching decoration service:', error);
@@ -367,9 +397,20 @@ router.put('/:id', authenticateToken, createDecorationValidation, async (req: Au
 
     await decoration.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: decoration.pendingEdits ? {
+        ...decoration.pendingEdits,
+        images: decoration.pendingEdits.images ? transformImageUrls(decoration.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Decoration service updated successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error updating decoration service:', error);
@@ -475,9 +516,20 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
 
     const total = await Decoration.countDocuments(filter);
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecorations = decorations.map(decoration => ({
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: decoration.pendingEdits ? {
+        ...decoration.pendingEdits,
+        images: decoration.pendingEdits.images ? transformImageUrls(decoration.pendingEdits.images) : undefined
+      } : undefined
+    }));
+
     res.json({
       message: 'Pending decoration services retrieved successfully',
-      data: decorations,
+      data: transformedDecorations,
       pagination: {
         currentPage: pageNumber,
         totalPages: Math.ceil(total / limitNumber),
@@ -512,9 +564,15 @@ router.put('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (
     decoration.status = ApprovalStatus.APPROVED;
     await decoration.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    };
+
     res.json({
       message: 'Decoration service approved successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error approving decoration service:', error);
@@ -551,9 +609,15 @@ router.put('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (r
     
     await decoration.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    };
+
     res.json({
       message: 'Decoration service rejected successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error rejecting decoration service:', error);
@@ -676,9 +740,15 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
     
     await decoration.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    };
+
     res.json({
       message: 'Decoration service edits approved successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error approving decoration service edits:', error);
@@ -720,9 +790,15 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
     
     await decoration.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDecoration = {
+      ...decoration.toObject(),
+      images: transformImageUrls(decoration.images || [])
+    };
+
     res.json({
       message: 'Decoration service edits rejected successfully',
-      data: decoration
+      data: transformedDecoration
     });
   } catch (error) {
     console.error('Error rejecting decoration service edits:', error);

@@ -11,6 +11,7 @@ import Videography from '../models/Videography.js';
 import BridalMakeup from '../models/BridalMakeup.js';
 import Decoration from '../models/Decoration.js';
 import Entertainment from '../models/Entertainment.js';
+import { getS3Url } from '../utils/s3.js';
 
 const router = Router();
 
@@ -236,7 +237,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
           
           // Get contact info from service
           if (service.contact) {
@@ -331,7 +334,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
         }
       } catch (error) {
         console.error('Error fetching service details:', error);
@@ -415,7 +420,9 @@ router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: Aut
 
           if (service) {
             serviceName = service.name;
-            serviceImage = service.images?.[0]?.url || serviceImage;
+            // Transform image URL from S3 key to full URL if needed
+            const imageUrl = service.images?.[0]?.url;
+            serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
 
             if (service.contact) {
               providerContact = {
@@ -739,7 +746,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
         }
       } catch (error) {
         console.error('Error fetching service details:', error);

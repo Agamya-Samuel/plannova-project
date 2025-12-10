@@ -6,6 +6,7 @@ import { ApprovalStatus } from '../models/Photography.js';
 import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
 import User from '../models/User.js';
+import { transformImageUrls } from '../utils/s3.js';
 
 const router = Router();
 
@@ -59,7 +60,13 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
-    res.json({ message: 'Entertainment services retrieved successfully', data: services });
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedServices = services.map(service => ({
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    }));
+
+    res.json({ message: 'Entertainment services retrieved successfully', data: transformedServices });
   } catch (error) {
     console.error('Error fetching entertainment services:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -86,7 +93,13 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       .select('+images')
       .sort({ createdAt: -1 });
 
-    res.json({ message: 'Your entertainment services retrieved successfully', data: services });
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedServices = services.map(service => ({
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    }));
+
+    res.json({ message: 'Your entertainment services retrieved successfully', data: transformedServices });
   } catch (error) {
     console.error('Error fetching provider entertainment services:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -144,7 +157,13 @@ router.post('/', authenticateToken, createEntertainmentValidation, async (req: A
       isActive: true
     });
 
-    res.status(201).json({ message: 'Entertainment service created successfully', data: service });
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    };
+
+    res.status(201).json({ message: 'Entertainment service created successfully', data: transformedService });
   } catch (error) {
     console.error('Error creating entertainment service:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -181,7 +200,19 @@ router.get('/:id', async (req: Request, res: Response) => {
       .select('+images')
       .populate('provider', 'firstName lastName email phone');
     if (!service) return res.status(404).json({ error: 'Entertainment service not found' });
-    res.json({ message: 'Entertainment service retrieved successfully', data: service });
+    
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: service.pendingEdits ? {
+        ...service.pendingEdits,
+        images: service.pendingEdits.images ? transformImageUrls(service.pendingEdits.images) : undefined
+      } : undefined
+    };
+    
+    res.json({ message: 'Entertainment service retrieved successfully', data: transformedService });
   } catch (error) {
     console.error('Error fetching entertainment service:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -240,7 +271,19 @@ router.put('/:id', authenticateToken, createEntertainmentValidation, async (req:
     }
 
     await service.save();
-    res.json({ message: 'Entertainment service updated successfully', data: service });
+    
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: service.pendingEdits ? {
+        ...service.pendingEdits,
+        images: service.pendingEdits.images ? transformImageUrls(service.pendingEdits.images) : undefined
+      } : undefined
+    };
+    
+    res.json({ message: 'Entertainment service updated successfully', data: transformedService });
   } catch (error) {
     console.error('Error updating entertainment service:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -374,9 +417,21 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
       .skip(skip)
       .limit(limitNumber);
     const total = await Entertainment.countDocuments(filter);
+    
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedServices = services.map(service => ({
+      ...service.toObject(),
+      images: transformImageUrls(service.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: service.pendingEdits ? {
+        ...service.pendingEdits,
+        images: service.pendingEdits.images ? transformImageUrls(service.pendingEdits.images) : undefined
+      } : undefined
+    }));
+    
     res.json({
       message: 'Pending entertainment services retrieved successfully',
-      data: services,
+      data: transformedServices,
       pagination: {
         currentPage: pageNumber,
         totalPages: Math.ceil(total / limitNumber),
@@ -400,7 +455,14 @@ router.put('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (
     service.pendingEditSubmittedAt = undefined;
     service.status = ApprovalStatus.APPROVED;
     await service.save();
-    res.json({ message: 'Entertainment service approved successfully', data: service });
+    
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    };
+    
+    res.json({ message: 'Entertainment service approved successfully', data: transformedService });
   } catch (error) {
     console.error('Error approving entertainment service:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -421,7 +483,14 @@ router.put('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (r
       console.log(`Entertainment service ${id} rejected with reason: ${rejectionReason}`);
     }
     await service.save();
-    res.json({ message: 'Entertainment service rejected successfully', data: service });
+    
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    };
+    
+    res.json({ message: 'Entertainment service rejected successfully', data: transformedService });
   } catch (error) {
     console.error('Error rejecting entertainment service:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -460,9 +529,15 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
     
     await service.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    };
+
     res.json({
       message: 'Entertainment service edits approved successfully',
-      data: service
+      data: transformedService
     });
   } catch (error) {
     console.error('Error approving entertainment service edits:', error);
@@ -501,9 +576,15 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
     
     await service.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedService = {
+      ...service.toObject(),
+      images: transformImageUrls(service.images || [])
+    };
+
     res.json({
       message: 'Entertainment service edits rejected successfully',
-      data: service
+      data: transformedService
     });
   } catch (error) {
     console.error('Error rejecting entertainment service edits:', error);

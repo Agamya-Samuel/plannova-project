@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import Blog, { BlogStatus, IBlog } from '../models/Blog.js';
 import { authenticateToken, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
+import { getS3Url } from '../utils/s3.js';
 
 const router = Router();
 
@@ -265,9 +266,16 @@ router.post('/', authenticateToken, createBlogValidation, async (req: AuthReques
     // Populate author information for response
     await blog.populate('author', 'firstName lastName email');
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBlog = {
+      ...blog.toObject(),
+      coverImageUrl: blog.coverImageUrl ? (blog.coverImageUrl.startsWith('http') ? blog.coverImageUrl : getS3Url(blog.coverImageUrl)) : undefined,
+      images: blog.images && Array.isArray(blog.images) ? blog.images.map((url: string) => url.startsWith('http') ? url : getS3Url(url)) : undefined
+    };
+
     res.status(201).json({
       message: 'Blog created successfully',
-      data: blog
+      data: transformedBlog
     });
   } catch (error) {
     console.error('Error creating blog:', error);
@@ -546,8 +554,15 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       console.log(`=== END ${statusLower.toUpperCase()} DEBUG ===`);
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBlogs = blogs.map(blog => ({
+      ...blog.toObject(),
+      coverImageUrl: blog.coverImageUrl ? (blog.coverImageUrl.startsWith('http') ? blog.coverImageUrl : getS3Url(blog.coverImageUrl)) : undefined,
+      images: blog.images && Array.isArray(blog.images) ? blog.images.map((url: string) => url.startsWith('http') ? url : getS3Url(url)) : undefined
+    }));
+
     res.json({
-      data: blogs,
+      data: transformedBlogs,
       pagination: {
         page,
         limit,
@@ -602,8 +617,15 @@ router.get('/my', authenticateToken, async (req: AuthRequest, res: Response) => 
       status: BlogStatus.PUBLISHED
     });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBlogs = blogs.map(blog => ({
+      ...blog.toObject(),
+      coverImageUrl: blog.coverImageUrl ? (blog.coverImageUrl.startsWith('http') ? blog.coverImageUrl : getS3Url(blog.coverImageUrl)) : undefined,
+      images: blog.images && Array.isArray(blog.images) ? blog.images.map((url: string) => url.startsWith('http') ? url : getS3Url(url)) : undefined
+    }));
+
     res.json({
-      data: blogs,
+      data: transformedBlogs,
       pagination: {
         page,
         limit,
@@ -658,8 +680,15 @@ router.get('/drafts', authenticateToken, async (req: AuthRequest, res: Response)
       status: BlogStatus.DRAFT
     });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedDrafts = drafts.map(blog => ({
+      ...blog.toObject(),
+      coverImageUrl: blog.coverImageUrl ? (blog.coverImageUrl.startsWith('http') ? blog.coverImageUrl : getS3Url(blog.coverImageUrl)) : undefined,
+      images: blog.images && Array.isArray(blog.images) ? blog.images.map((url: string) => url.startsWith('http') ? url : getS3Url(url)) : undefined
+    }));
+
     res.json({
-      data: drafts,
+      data: transformedDrafts,
       pagination: {
         page,
         limit,
@@ -725,8 +754,15 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBlog = {
+      ...blog.toObject(),
+      coverImageUrl: blog.coverImageUrl ? (blog.coverImageUrl.startsWith('http') ? blog.coverImageUrl : getS3Url(blog.coverImageUrl)) : undefined,
+      images: blog.images && Array.isArray(blog.images) ? blog.images.map((url: string) => url.startsWith('http') ? url : getS3Url(url)) : undefined
+    };
+
     res.json({
-      data: blog
+      data: transformedBlog
     });
   } catch (error) {
     console.error('Error fetching blog:', error);
@@ -863,9 +899,16 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
       });
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBlog = {
+      ...updatedBlog.toObject(),
+      coverImageUrl: updatedBlog.coverImageUrl ? (updatedBlog.coverImageUrl.startsWith('http') ? updatedBlog.coverImageUrl : getS3Url(updatedBlog.coverImageUrl)) : undefined,
+      images: updatedBlog.images && Array.isArray(updatedBlog.images) ? updatedBlog.images.map((url: string) => url.startsWith('http') ? url : getS3Url(url)) : undefined
+    };
+
     res.json({
       message: 'Blog updated successfully',
-      data: updatedBlog
+      data: transformedBlog
     });
   } catch (error) {
     console.error('Error updating blog:', error);

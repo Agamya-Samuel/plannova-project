@@ -11,6 +11,7 @@ import Booking, { BookingStatus, BookingType, PaymentStatus, ServiceType } from 
 import Blog from '../models/Blog.js';
 import Entertainment from '../models/Entertainment.js';
 import { authenticateToken, requireAdmin, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
+import { getS3Url } from '../utils/s3.js';
 
 const router = Router();
 
@@ -779,7 +780,9 @@ router.get('/bookings', authenticateToken, requireStaffOrAdmin, async (req: Auth
 
           if (service) {
             serviceName = service.name;
-            serviceImage = service.images?.[0]?.url || serviceImage;
+            // Transform image URL from S3 key to full URL if needed
+            const imageUrl = service.images?.[0]?.url;
+            serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
 
             if (service.contact) {
               providerContact = {
