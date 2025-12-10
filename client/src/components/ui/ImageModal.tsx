@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import Image from 'next/image';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ensureImageUrl } from '@/lib/utils';
 
 interface ImageModalProps {
   isOpen: boolean;
@@ -94,7 +95,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
         {/* Main Image */}
         <div className="relative max-w-full max-h-[90vh] flex items-center justify-center">
           <Image
-            src={currentImage.url}
+            src={ensureImageUrl(currentImage.url)}
             alt={currentImage.alt || `Image ${currentIndex + 1}`}
             width={1200}
             height={800}
@@ -106,7 +107,7 @@ export const ImageModal: React.FC<ImageModalProps> = ({
             }}
             className="shadow-2xl"
             priority
-            unoptimized={currentImage.url.includes('s3.tebi.io') || currentImage.url.includes('s3.')}
+            unoptimized={ensureImageUrl(currentImage.url).includes('s3.tebi.io') || ensureImageUrl(currentImage.url).includes('s3.')}
           />
         </div>
 
@@ -129,12 +130,12 @@ export const ImageModal: React.FC<ImageModalProps> = ({
                 }`}
               >
                 <Image
-                  src={image.url}
+                  src={ensureImageUrl(image.url)}
                   alt={image.alt || `Thumbnail ${index + 1}`}
                   width={64}
                   height={64}
                   className="w-full h-full object-cover"
-                  unoptimized={image.url.includes('s3.tebi.io') || image.url.includes('s3.')}
+                  unoptimized={ensureImageUrl(image.url).includes('s3.tebi.io') || ensureImageUrl(image.url).includes('s3.')}
                 />
               </button>
             ))}

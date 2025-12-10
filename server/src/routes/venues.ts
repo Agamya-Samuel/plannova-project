@@ -203,11 +203,21 @@ router.get('/provider/:id', authenticateToken, requireProvider, async (req: Auth
       return res.status(404).json({ error: 'Venue not found or unauthorized' });
     }
 
+    const venueObj = venue.toObject();
+    
     // Transform image keys to URLs for API response
     const transformedVenue = {
-      ...venue.toObject(),
+      ...venueObj,
       images: transformImageUrls(venue.images || [])
     };
+
+    // Also transform pendingEdits images if they exist
+    if (venueObj.pendingEdits && venueObj.pendingEdits.images) {
+      transformedVenue.pendingEdits = {
+        ...venueObj.pendingEdits,
+        images: transformImageUrls(venueObj.pendingEdits.images as IVenueImage[])
+      };
+    }
 
     res.json(transformedVenue);
   } catch (error) {
@@ -472,11 +482,21 @@ router.get('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: Aut
       return res.status(404).json({ error: 'Venue not found' });
     }
 
+    const venueObj = venue.toObject();
+    
     // Transform image keys to URLs for API response
     const transformedVenue = {
-      ...venue.toObject(),
+      ...venueObj,
       images: transformImageUrls(venue.images || [])
     };
+
+    // Also transform pendingEdits images if they exist
+    if (venueObj.pendingEdits && venueObj.pendingEdits.images) {
+      transformedVenue.pendingEdits = {
+        ...venueObj.pendingEdits,
+        images: transformImageUrls(venueObj.pendingEdits.images as IVenueImage[])
+      };
+    }
 
     res.json(transformedVenue);
   } catch (error) {
@@ -499,11 +519,22 @@ router.get('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Venue not found' });
     }
 
+    const venueObj = venue.toObject();
+    
     // Transform image keys to URLs for API response
     const transformedVenue = {
-      ...venue.toObject(),
+      ...venueObj,
       images: transformImageUrls(venue.images || [])
     };
+
+    // Also transform pendingEdits images if they exist
+    // This is important for PENDING_EDIT venues where frontend may display pendingEdits.images
+    if (venueObj.pendingEdits && venueObj.pendingEdits.images) {
+      transformedVenue.pendingEdits = {
+        ...venueObj.pendingEdits,
+        images: transformImageUrls(venueObj.pendingEdits.images as IVenueImage[])
+      };
+    }
 
     res.json(transformedVenue);
   } catch (error) {
