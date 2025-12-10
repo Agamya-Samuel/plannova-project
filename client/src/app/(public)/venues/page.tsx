@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Search, MapPin, Users, Star, Heart, SlidersHorizontal, Clock } from 'lucide-react';
+import { Search, MapPin, Users, Star, Heart, SlidersHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import apiClient from '@/lib/api';
@@ -482,13 +482,6 @@ function VenuesContent() {
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
                     {venue.type}
                   </span>
-                  {/* Show a badge when there are pending edits */}
-                  {venue.status === 'PENDING_EDIT' && (
-                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
-                      Edit Pending
-                    </span>
-                  )}
                 </div>
               </div>
               
