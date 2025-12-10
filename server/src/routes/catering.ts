@@ -5,6 +5,7 @@ import Catering, { ApprovalStatus } from '../models/Catering.js';
 import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
 import User from '../models/User.js';
+import { transformImageUrls } from '../utils/s3.js';
 
 const router = Router();
 
@@ -60,9 +61,15 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCaterings = caterings.map(catering => ({
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    }));
+
     res.json({
       message: 'Catering services retrieved successfully',
-      data: caterings
+      data: transformedCaterings
     });
   } catch (error) {
     console.error('Error fetching catering services:', error);
@@ -110,9 +117,15 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
     })
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCaterings = caterings.map(catering => ({
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    }));
+
     res.json({
       message: 'Your catering services retrieved successfully',
-      data: caterings
+      data: transformedCaterings
     });
   } catch (error) {
     console.error('Error fetching provider catering services:', error);
@@ -183,9 +196,15 @@ router.post('/', authenticateToken, createCateringValidation, async (req: AuthRe
       isActive: true
     });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    };
+
     res.status(201).json({
       message: 'Catering service created successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('Error creating catering service:', error);
@@ -273,9 +292,20 @@ router.get('/:id', async (req: Request, res: Response) => {
       // For now, we'll return it but in a real app you'd add authentication checks
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: catering.pendingEdits ? {
+        ...catering.pendingEdits,
+        images: catering.pendingEdits.images ? transformImageUrls(catering.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Catering service retrieved successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('❌ Error fetching catering service:', error);
@@ -384,9 +414,20 @@ router.put('/:id', authenticateToken, createCateringValidation, async (req: Auth
 
     await catering.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: catering.pendingEdits ? {
+        ...catering.pendingEdits,
+        images: catering.pendingEdits.images ? transformImageUrls(catering.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Catering service updated successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('Error updating catering service:', error);
@@ -495,8 +536,19 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
 
     const total = await Catering.countDocuments(filter);
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCaterings = caterings.map(catering => ({
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: catering.pendingEdits ? {
+        ...catering.pendingEdits,
+        images: catering.pendingEdits.images ? transformImageUrls(catering.pendingEdits.images) : undefined
+      } : undefined
+    }));
+
     res.json({
-      caterings,
+      caterings: transformedCaterings,
       pagination: {
         page: pageNumber,
         limit: limitNumber,
@@ -621,9 +673,15 @@ router.put('/:id/approve', authenticateToken, async (req: AuthRequest, res: Resp
     catering.status = ApprovalStatus.APPROVED;
     await catering.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    };
+
     res.json({
       message: 'Catering service approved successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('Error approving catering service:', error);
@@ -665,9 +723,15 @@ router.put('/:id/reject', authenticateToken, async (req: AuthRequest, res: Respo
     
     await catering.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    };
+
     res.json({
       message: 'Catering service rejected successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('Error rejecting catering service:', error);
@@ -707,9 +771,15 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
     
     await catering.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    };
+
     res.json({
       message: 'Catering service edits approved successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('Error approving catering service edits:', error);
@@ -751,9 +821,15 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
     
     await catering.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedCatering = {
+      ...catering.toObject(),
+      images: transformImageUrls(catering.images || [])
+    };
+
     res.json({
       message: 'Catering service edits rejected successfully',
-      data: catering
+      data: transformedCatering
     });
   } catch (error) {
     console.error('Error rejecting catering service edits:', error);

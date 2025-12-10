@@ -10,6 +10,7 @@ import Decoration from '../models/Decoration.js';
 import Entertainment from '../models/Entertainment.js';
 import User from '../models/User.js';
 import { authenticateToken, requireProvider, AuthRequest } from '../middleware/auth.js';
+import { getS3Url } from '../utils/s3.js';
 
 const router = Router();
 
@@ -145,7 +146,9 @@ router.get('/bookings', authenticateToken, requireProvider, async (req: AuthRequ
 
           if (service) {
             serviceName = service.name;
-            serviceImage = service.images?.[0]?.url || serviceImage;
+            // Transform image URL from S3 key to full URL if needed
+            const imageUrl = service.images?.[0]?.url;
+            serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
 
             if (service.contact) {
               providerContact = {
