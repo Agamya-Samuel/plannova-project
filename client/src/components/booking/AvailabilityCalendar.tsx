@@ -1,18 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { ServiceType } from '@/types/booking';
+
+// Interface for booking payload
+export interface BookingPayload {
+  dates: string[];
+  selectionType: 'single' | 'multiple';
+}
 
 interface AvailabilityCalendarProps {
   serviceId: string;
   serviceType: ServiceType;
-  onDateSelect: (date: string | string[]) => void;
-  selectedDate?: string;
-  selectedDates?: string[]; // For multi-date selection
-  selectionMode?: 'single' | 'range' | 'multiple'; // Selection mode
-  onSelectionModeChange?: (mode: 'single' | 'range' | 'multiple') => void; // Callback for mode changes
+  // Callback when user clicks "Book Selected Dates" button
+  onBook?: (payload: BookingPayload) => void;
+  // Optional: allow parent to control selected dates externally
+  selectedDates?: string[];
+  // Optional: callback for when dates are selected (before booking)
+  onDateSelect?: (dates: string[]) => void;
 }
 
 interface BookedDates {
@@ -24,36 +32,53 @@ interface BookedDates {
   }>;
 }
 
+/**
+ * Optimized Booking Calendar Component
+ * 
+ * Features:
+ * - Automatic selection type detection (single/multiple)
+ * - Click any dates to select/deselect
+ * - Visual indicators for booked and selected dates
+ * - "Book Selected Dates" button with payload
+ */
 export function AvailabilityCalendar({ 
   serviceId, 
   serviceType, 
-  onDateSelect,
-  selectedDate,
-  selectedDates = [],
-  selectionMode = 'single',
-  onSelectionModeChange
+  onBook,
+  selectedDates: externalSelectedDates,
+  onDateSelect
 }: AvailabilityCalendarProps) {
+  // Internal state for selected dates
+  const [internalSelectedDates, setInternalSelectedDates] = useState<string[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [bookedDates, setBookedDates] = useState<BookedDates>({});
   const [loading, setLoading] = useState(false);
-  const [dragStart, setDragStart] = useState<Date | null>(null);
-  const [dragEnd, setDragEnd] = useState<Date | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  
   const calendarRef = useRef<HTMLDivElement>(null);
 
+  // Use external dates if provided, otherwise use internal state
+  const selectedDates = externalSelectedDates ?? internalSelectedDates;
+
+  // Fetch availability when month or service changes
   useEffect(() => {
     fetchAvailability();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentMonth, serviceId, serviceType]);
 
-  // Helper function to convert Date to YYYY-MM-DD string in UTC to avoid timezone issues
-  const formatDateToString = (date: Date): string => {
+  /**
+   * Converts Date to YYYY-MM-DD string format
+   * Uses UTC to avoid timezone issues
+   */
+  const formatDateToString = useCallback((date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  };
+  }, []);
 
+  /**
+   * Fetches booked dates from the API
+   */
   const fetchAvailability = async () => {
     try {
       setLoading(true);
@@ -72,7 +97,10 @@ export function AvailabilityCalendar({
     }
   };
 
-  const getDaysInMonth = (date: Date) => {
+  /**
+   * Calculates days in month and starting day of week
+   */
+  const getDaysInMonth = useCallback((date: Date) => {
     const year = date.getFullYear();
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -81,124 +109,122 @@ export function AvailabilityCalendar({
     const startingDayOfWeek = firstDay.getDay();
 
     return { daysInMonth, startingDayOfWeek };
-  };
+  }, []);
 
-  const isDateBooked = (date: Date) => {
+  /**
+   * Checks if a date is booked
+   */
+  const isDateBooked = useCallback((date: Date) => {
     const dateStr = formatDateToString(date);
     return bookedDates[dateStr] && bookedDates[dateStr].length > 0;
-  };
+  }, [bookedDates, formatDateToString]);
 
-  const isDateManuallyBlocked = (date: Date) => {
+  /**
+   * Checks if a date is manually blocked
+   */
+  const isDateManuallyBlocked = useCallback((date: Date) => {
     const dateStr = formatDateToString(date);
     return bookedDates[dateStr]?.some(booking => booking.type === 'manual') || false;
-  };
+  }, [bookedDates, formatDateToString]);
 
-  const isDatePast = (date: Date) => {
+  /**
+   * Checks if a date is in the past
+   */
+  const isDatePast = useCallback((date: Date) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     date.setHours(0, 0, 0, 0);
     return date < today;
-  };
+  }, []);
 
-  const isDateSelected = (date: Date) => {
+  /**
+   * Checks if a date is currently selected
+   */
+  const isDateSelected = useCallback((date: Date) => {
     const dateStr = formatDateToString(date);
-    
-    if (selectionMode === 'single') {
-      return selectedDate ? dateStr === selectedDate : false;
-    } else if (selectionMode === 'range' && dragStart && dragEnd) {
-      const startDate = new Date(Math.min(dragStart.getTime(), dragEnd.getTime()));
-      const endDate = new Date(Math.max(dragStart.getTime(), dragEnd.getTime()));
-      startDate.setHours(0, 0, 0, 0);
-      endDate.setHours(0, 0, 0, 0);
-      date.setHours(0, 0, 0, 0);
-      return date >= startDate && date <= endDate;
-    } else if (selectionMode === 'multiple') {
-      return selectedDates.includes(dateStr);
-    }
-    
-    return false;
-  };
+    return selectedDates.includes(dateStr);
+  }, [selectedDates, formatDateToString]);
 
-  const getSelectedDatesInRange = (): string[] => {
-    if (selectionMode === 'range' && dragStart && dragEnd) {
-      const startDate = new Date(Math.min(dragStart.getTime(), dragEnd.getTime()));
-      const endDate = new Date(Math.max(dragStart.getTime(), dragEnd.getTime()));
-      
-      const dates: string[] = [];
-      const currentDate = new Date(startDate);
-      
-      while (currentDate <= endDate) {
-        if (!isDateBooked(currentDate) && !isDatePast(currentDate)) {
-          dates.push(formatDateToString(currentDate));
-        }
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-      
-      return dates;
-    } else if (selectionMode === 'multiple') {
-      return selectedDates;
+  /**
+   * Updates selected dates and notifies parent
+   */
+  const updateSelectedDates = useCallback((dates: string[]) => {
+    if (externalSelectedDates === undefined) {
+      // Only update internal state if not controlled externally
+      setInternalSelectedDates(dates);
     }
-    
-    return selectedDate ? [selectedDate] : [];
-  };
+    // Always notify parent
+    onDateSelect?.(dates);
+  }, [externalSelectedDates, onDateSelect]);
 
-  const handleDateMouseDown = (date: Date) => {
+  /**
+   * Handles date click - toggles selection
+   */
+  const handleDateClick = useCallback((date: Date) => {
     if (isDateBooked(date) || isDatePast(date)) return;
     
-    if (selectionMode === 'range') {
-      setDragStart(date);
-      setDragEnd(date);
-      setIsDragging(true);
-    } else if (selectionMode === 'multiple') {
-      const dateStr = formatDateToString(date);
-      if (selectedDates.includes(dateStr)) {
-        // Remove date from selection
-        const newSelectedDates = selectedDates.filter(d => d !== dateStr);
-        onDateSelect(newSelectedDates);
-      } else {
-        // Add date to selection
-        onDateSelect([...selectedDates, dateStr]);
-      }
+    const dateStr = formatDateToString(date);
+    
+    // Toggle date in selection
+    if (selectedDates.includes(dateStr)) {
+      // Remove date
+      const newDates = selectedDates.filter(d => d !== dateStr);
+      updateSelectedDates(newDates);
     } else {
-      // Single selection mode
-      const dateStr = formatDateToString(date);
-      onDateSelect(dateStr);
+      // Add date
+      const newDates = [...selectedDates, dateStr].sort();
+      updateSelectedDates(newDates);
     }
-  };
+  }, [selectedDates, formatDateToString, isDateBooked, isDatePast, updateSelectedDates]);
 
-  const handleDateMouseEnter = (date: Date) => {
-    if (isDragging && dragStart && selectionMode === 'range') {
-      setDragEnd(date);
-    }
-  };
+  /**
+   * Automatically detects selection type
+   */
+  const detectSelectionType = useMemo((): 'single' | 'multiple' => {
+    if (selectedDates.length === 0) return 'single';
+    if (selectedDates.length === 1) return 'single';
+    return 'multiple';
+  }, [selectedDates]);
 
-  const handleDateMouseUp = () => {
-    if (isDragging && selectionMode === 'range') {
-      setIsDragging(false);
-      // Notify parent of selected dates
-      const selectedDates = getSelectedDatesInRange();
-      onDateSelect(selectedDates);
-    }
-  };
+  /**
+   * Handles "Book Selected Dates" button click
+   */
+  const handleBookClick = useCallback(() => {
+    if (selectedDates.length === 0 || !onBook) return;
+    
+    const payload: BookingPayload = {
+      dates: selectedDates,
+      selectionType: detectSelectionType
+    };
+    
+    onBook(payload);
+  }, [selectedDates, detectSelectionType, onBook]);
 
-  const handleCalendarMouseUp = () => {
-    if (isDragging && selectionMode === 'range') {
-      setIsDragging(false);
-      // Notify parent of selected dates
-      const selectedDates = getSelectedDatesInRange();
-      onDateSelect(selectedDates);
-    }
-  };
+  /**
+   * Clears all selected dates
+   */
+  const handleClearSelection = useCallback(() => {
+    updateSelectedDates([]);
+  }, [updateSelectedDates]);
 
-  const previousMonth = () => {
+  /**
+   * Navigate to previous month
+   */
+  const previousMonth = useCallback(() => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
-  };
+  }, [currentMonth]);
 
-  const nextMonth = () => {
+  /**
+   * Navigate to next month
+   */
+  const nextMonth = useCallback(() => {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
-  };
+  }, [currentMonth]);
 
-  const renderCalendar = () => {
+  /**
+   * Renders the calendar grid
+   */
+  const renderCalendar = useCallback(() => {
     const { daysInMonth, startingDayOfWeek } = getDaysInMonth(currentMonth);
     const days = [];
     const year = currentMonth.getFullYear();
@@ -220,16 +246,17 @@ export function AvailabilityCalendar({
       const selected = isDateSelected(date);
       const disabled = booked || past;
 
-      let buttonClass = 'aspect-square p-2 rounded-lg text-sm font-bold transition-all ';
+      let buttonClass = 'aspect-square p-2 rounded-lg text-sm font-bold transition-all duration-200 ';
       let label = '';
       let title = '';
 
       if (selected) {
-        buttonClass += 'bg-gradient-to-r from-pink-600 to-purple-600 text-white cursor-pointer';
-        title = 'Selected date';
+        // Selected dates - prominent gradient
+        buttonClass += 'bg-gradient-to-r from-pink-600 to-purple-600 text-white cursor-pointer shadow-md transform scale-105';
+        title = 'Selected date - Click to deselect';
       } else if (manuallyBlocked || booked) {
-        // Show both manually blocked and regular bookings as "Booked" (red styling)
-        buttonClass += 'bg-red-100 text-red-900 border border-red-300 cursor-not-allowed';
+        // Booked dates - red styling
+        buttonClass += 'bg-red-100 text-red-900 border-2 border-red-300 cursor-not-allowed opacity-75';
         label = 'Booked';
         if (manuallyBlocked) {
           title = 'Not available for booking';
@@ -237,22 +264,23 @@ export function AvailabilityCalendar({
           title = 'Already booked';
         }
       } else if (past) {
+        // Past dates - grayed out
         buttonClass += 'text-gray-400 bg-gray-50 cursor-not-allowed';
         title = 'Past date';
       } else {
-        buttonClass += 'text-gray-900 hover:border-pink-300 border border-gray-200 bg-white hover:bg-pink-50 cursor-pointer';
+        // Available dates - interactive
+        buttonClass += 'text-gray-900 hover:border-pink-400 hover:bg-pink-50 border-2 border-gray-200 bg-white cursor-pointer hover:shadow-md';
         title = 'Available - Click to select';
       }
 
       days.push(
         <button
           key={day}
-          onMouseDown={() => handleDateMouseDown(date)}
-          onMouseEnter={() => handleDateMouseEnter(date)}
-          onMouseUp={handleDateMouseUp}
+          onClick={() => handleDateClick(date)}
           disabled={disabled}
           className={buttonClass}
           title={title}
+          aria-label={`${day} ${currentMonth.toLocaleString('default', { month: 'long' })}`}
         >
           <div className="flex flex-col items-center justify-center h-full">
             <span>{day}</span>
@@ -265,7 +293,15 @@ export function AvailabilityCalendar({
     }
 
     return days;
-  };
+  }, [
+    currentMonth,
+    getDaysInMonth,
+    isDateBooked,
+    isDateManuallyBlocked,
+    isDatePast,
+    isDateSelected,
+    handleDateClick
+  ]);
 
   const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -274,51 +310,36 @@ export function AvailabilityCalendar({
 
   const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+  // Selection type display text
+  const selectionTypeText = useMemo(() => {
+    switch (detectSelectionType) {
+      case 'single':
+        return 'Single Date';
+      case 'multiple':
+        return 'Multiple Dates';
+      default:
+        return 'No Selection';
+    }
+  }, [detectSelectionType]);
+
   return (
     <div 
       ref={calendarRef}
       className="bg-white rounded-xl shadow-lg p-6"
-      onMouseUp={handleCalendarMouseUp}
-      onMouseLeave={handleCalendarMouseUp}
     >
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
           <CalendarIcon className="h-5 w-5 mr-2 text-pink-600" />
-          Check Availability
+          Select Dates
         </h3>
-        {/* Selection Mode Controls */}
-        <div className="flex space-x-2">
-          <button
-            onClick={() => onSelectionModeChange?.('single')}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-              selectionMode === 'single'
-                ? 'bg-pink-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Single
-          </button>
-          <button
-            onClick={() => onSelectionModeChange?.('range')}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-              selectionMode === 'range'
-                ? 'bg-pink-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Range
-          </button>
-          <button
-            onClick={() => onSelectionModeChange?.('multiple')}
-            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-              selectionMode === 'multiple'
-                ? 'bg-pink-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
-          >
-            Multiple
-          </button>
-        </div>
+        {/* Selection info */}
+        {selectedDates.length > 0 && (
+          <div className="text-sm text-gray-600">
+            <span className="font-medium">{selectedDates.length}</span> date{selectedDates.length !== 1 ? 's' : ''} selected
+            <span className="ml-2 text-pink-600">({selectionTypeText})</span>
+          </div>
+        )}
       </div>
 
       {/* Month Navigation */}
@@ -364,6 +385,26 @@ export function AvailabilityCalendar({
         </div>
       )}
 
+      {/* Action Buttons */}
+      <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        <Button
+          onClick={handleBookClick}
+          disabled={selectedDates.length === 0}
+          className="flex-1 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Book Selected Dates
+        </Button>
+        {selectedDates.length > 0 && (
+          <Button
+            onClick={handleClearSelection}
+            variant="outline"
+            className="sm:w-auto"
+          >
+            Clear Selection
+          </Button>
+        )}
+      </div>
+
       {/* Legend */}
       <div className="mt-6 flex flex-wrap gap-4 text-sm">
         <div className="flex items-center">
@@ -371,11 +412,11 @@ export function AvailabilityCalendar({
           <span className="text-gray-900 font-medium">Selected</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded bg-red-100 border border-red-300 mr-2"></div>
+          <div className="w-4 h-4 rounded bg-red-100 border-2 border-red-300 mr-2"></div>
           <span className="text-gray-900 font-medium">Booked</span>
         </div>
         <div className="flex items-center">
-          <div className="w-4 h-4 rounded bg-white border border-gray-300 mr-2"></div>
+          <div className="w-4 h-4 rounded bg-white border-2 border-gray-200 mr-2"></div>
           <span className="text-gray-900 font-medium">Available</span>
         </div>
       </div>

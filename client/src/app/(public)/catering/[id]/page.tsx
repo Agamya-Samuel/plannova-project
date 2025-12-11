@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { BookingButton } from '@/components/booking/BookingButton';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { BookingPayload } from '@/components/booking/AvailabilityCalendar';
 
 interface CateringService {
   _id: string;
@@ -63,8 +64,7 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
-  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -146,18 +146,17 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
     setSelectedImageIndex(null);
   };
 
-  const handleDateSelect = (date: string | string[]) => {
-    if (typeof date === 'string') {
-      // Single date selection
-      setSelectedDate(date);
-      setSelectedDates([date]); // Also set the array for consistency
-      setShowBookingModal(true);
-    } else if (date.length > 0) {
-      // Multiple dates selection
-      setSelectedDates(date);
-      setSelectedDate(date[0]); // Set first date as primary
-      setShowBookingModal(true);
-    }
+  // Handle booking action from calendar
+  const handleBook = (payload: BookingPayload) => {
+    setSelectedDates(payload.dates);
+    setSelectedDate(payload.dates[0] || '');
+    setShowBookingModal(true);
+  };
+
+  // Optional: Track date selections before booking
+  const handleDateSelect = (dates: string[]) => {
+    // This is called when dates are selected but not yet booked
+    // Useful for showing preview or updating UI
   };
 
   const navigateImage = (direction: 'prev' | 'next') => {
@@ -386,11 +385,8 @@ export default function CateringDetailPage({ params }: { params: Promise<{ id: s
               serviceId={service._id}
               serviceType="catering"
               basePrice={service.basePrice}
+              onBook={handleBook}
               onDateSelect={handleDateSelect}
-              selectedDate={selectedDate}
-              selectedDates={selectedDates}
-              selectionMode={selectionMode}
-              onSelectionModeChange={setSelectionMode}
             />
 
 

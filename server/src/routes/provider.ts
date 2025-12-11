@@ -98,17 +98,136 @@ router.get('/bookings', authenticateToken, requireProvider, async (req: AuthRequ
       ];
     }
 
-    const bookings = await Booking.find(filter)
+    // Fetch all bookings (before pagination) to group them properly
+    const allBookings = await Booking.find(filter)
       .sort({ createdAt: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
       .populate('customerId', 'firstName lastName email phone')
       .populate('providerId', 'firstName lastName email phone')
       .lean();
 
-    // Build rich response including service details
-    const transformed = await Promise.all(
-      bookings.map(async (booking) => {
+    // Group bookings by bookingGroupId to prevent duplicate cards for multi-date bookings
+    const groupedBookings: { [key: string]: typeof allBookings } = {};
+    const ungroupedBookings: typeof allBookings = [];
+
+    allBookings.forEach(booking => {
+      const groupId = (booking as { bookingGroupId?: string }).bookingGroupId;
+      if (groupId) {
+        if (!groupedBookings[groupId]) {
+          groupedBookings[groupId] = [];
+        }
+        groupedBookings[groupId].push(booking);
+      } else {
+        ungroupedBookings.push(booking);
+      }
+    });
+
+    // Transform grouped bookings into single booking objects
+    const transformedGroupedBookings = await Promise.all(
+      Object.values(groupedBookings).map(async (group) => {
+        // Use the first booking as the primary one for display
+        const primaryBooking = group[0];
+        
+        // Get all dates in the group, sorted chronologically
+        const dates = group.map(b => new Date((b as { date: Date }).date))
+          .sort((a, b) => a.getTime() - b.getTime());
+        
+        // Calculate total price for all bookings in the group
+        const totalPrice = group.reduce((sum, b) => sum + ((b as { totalPrice: number }).totalPrice || 0), 0);
+        
+        // Build rich response for the grouped booking
+        let serviceName = 'Unknown Service';
+        let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
+        let providerContact = {
+          name: 'Provider',
+          email: '',
+          phone: ''
+        };
+
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          let service: any = null;
+          switch ((primaryBooking as { serviceType: string }).serviceType) {
+            case ServiceType.VENUE:
+              service = await Venue.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+            case ServiceType.CATERING:
+              service = await Catering.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+            case ServiceType.PHOTOGRAPHY:
+              service = await Photography.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+            case ServiceType.VIDEOGRAPHY:
+              service = await Videography.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+            case ServiceType.BRIDAL_MAKEUP:
+              service = await BridalMakeup.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+            case ServiceType.DECORATION:
+              service = await Decoration.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+            case ServiceType.ENTERTAINMENT:
+              service = await Entertainment.findById((primaryBooking as { serviceId: Types.ObjectId }).serviceId);
+              break;
+          }
+
+          if (service) {
+            serviceName = service.name;
+            const imageUrl = service.images?.[0]?.url;
+            serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
+
+            if (service.contact) {
+              providerContact = {
+                name: service.contact.name || serviceName,
+                email: service.contact.email || '',
+                phone: service.contact.phone || ''
+              };
+            }
+          }
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const provider = (primaryBooking as any).providerId;
+          if (provider && !providerContact.email) {
+            providerContact = {
+              name: `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || 'Provider',
+              email: provider.email || '',
+              phone: provider.phone || ''
+            };
+          }
+        } catch (error) {
+          console.error('Error fetching service/provider details (provider/bookings):', error);
+        }
+
+        return {
+          id: String((primaryBooking as unknown as { _id: Types.ObjectId })._id),
+          serviceId: String((primaryBooking as unknown as { serviceId: Types.ObjectId }).serviceId),
+          serviceType: (primaryBooking as { serviceType: string }).serviceType,
+          serviceName,
+          serviceImage,
+          // Group information
+          isGroupBooking: true,
+          bookingGroupId: (primaryBooking as { bookingGroupId?: string }).bookingGroupId,
+          dates: dates.map(d => d.toISOString().split('T')[0]),
+          date: dates[0].toISOString().split('T')[0], // First date for display
+          time: (primaryBooking as { time: string }).time,
+          status: (primaryBooking as { status: string }).status,
+          paymentStatus: (primaryBooking as { paymentStatus: string }).paymentStatus,
+          bookingType: (primaryBooking as { bookingType: string }).bookingType,
+          paymentMode: (primaryBooking as { paymentMode: string }).paymentMode,
+          totalPrice,
+          guestCount: (primaryBooking as { guestCount: number }).guestCount,
+          contactPerson: (primaryBooking as { contactPerson: string }).contactPerson,
+          contactPhone: (primaryBooking as { contactPhone: string }).contactPhone,
+          contactEmail: (primaryBooking as { contactEmail: string }).contactEmail,
+          specialRequests: (primaryBooking as { specialRequests?: string }).specialRequests,
+          provider: providerContact,
+          createdAt: (primaryBooking as { createdAt: Date }).createdAt
+        };
+      })
+    );
+
+    // Transform ungrouped bookings
+    const transformedUngroupedBookings = await Promise.all(
+      ungroupedBookings.map(async (booking) => {
         let serviceName = 'Unknown Service';
         let serviceImage = 'https://images.unsplash.com/photo-1519225421980-715cb0215aed?w=400';
         let providerContact = {
@@ -174,33 +293,44 @@ router.get('/bookings', authenticateToken, requireProvider, async (req: AuthRequ
         }
 
         return {
-          id: (booking._id as Types.ObjectId).toString(),
-          serviceId: booking.serviceId?.toString(),
-          serviceType: booking.serviceType,
+          id: String((booking as unknown as { _id: Types.ObjectId })._id),
+          serviceId: String((booking as unknown as { serviceId: Types.ObjectId }).serviceId),
+          serviceType: (booking as { serviceType: string }).serviceType,
           serviceName,
           serviceImage,
-          date: booking.date,
-          time: booking.time,
-          status: booking.status,
-          paymentStatus: booking.paymentStatus,
-          bookingType: booking.bookingType,
-          paymentMode: booking.paymentMode,
-          totalPrice: booking.totalPrice,
-          guestCount: booking.guestCount,
-          contactPerson: booking.contactPerson,
-          contactPhone: booking.contactPhone,
-          contactEmail: booking.contactEmail,
-          specialRequests: booking.specialRequests,
+          date: (booking as { date: Date }).date,
+          time: (booking as { time: string }).time,
+          status: (booking as { status: string }).status,
+          paymentStatus: (booking as { paymentStatus: string }).paymentStatus,
+          bookingType: (booking as { bookingType: string }).bookingType,
+          paymentMode: (booking as { paymentMode: string }).paymentMode,
+          totalPrice: (booking as { totalPrice: number }).totalPrice,
+          guestCount: (booking as { guestCount: number }).guestCount,
+          contactPerson: (booking as { contactPerson: string }).contactPerson,
+          contactPhone: (booking as { contactPhone: string }).contactPhone,
+          contactEmail: (booking as { contactEmail: string }).contactEmail,
+          specialRequests: (booking as { specialRequests?: string }).specialRequests,
           provider: providerContact,
-          createdAt: booking.createdAt
+          createdAt: (booking as { createdAt: Date }).createdAt,
+          bookingGroupId: (booking as { bookingGroupId?: string }).bookingGroupId
         };
       })
     );
 
-    const total = await Booking.countDocuments(filter);
+    // Combine grouped and ungrouped bookings
+    const allTransformedBookings = [...transformedGroupedBookings, ...transformedUngroupedBookings];
+    
+    // Apply pagination to the combined results
+    const paginatedBookings = allTransformedBookings.slice(
+      (pageNum - 1) * limitNum,
+      pageNum * limitNum
+    );
+
+    // Total count is the number of unique bookings (grouped + ungrouped)
+    const total = allTransformedBookings.length;
 
     res.json({
-      bookings: transformed,
+      bookings: paginatedBookings,
       pagination: {
         page: pageNum,
         limit: limitNum,

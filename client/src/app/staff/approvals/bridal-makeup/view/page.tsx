@@ -457,7 +457,6 @@ function StaffBridalMakeupViewContent() {
                     serviceId={service._id}
                     serviceType="bridal-makeup"
                     onDateSelect={() => {}}
-                    selectedDate={''}
                   />
                 </div>
               )}

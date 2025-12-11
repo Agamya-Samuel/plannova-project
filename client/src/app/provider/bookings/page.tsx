@@ -13,7 +13,9 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  IndianRupee
+  IndianRupee,
+  User,
+  Users
 } from 'lucide-react';
 import type { Booking } from '@/types/booking';
 import apiClient from '@/lib/api';
@@ -69,6 +71,8 @@ export default function ProviderBookingsPage() {
       if (search) params.append('search', search);
       
       const response = await apiClient.get(`/provider/bookings?${params.toString()}`);
+      // Backend now groups bookings by bookingGroupId, so each booking in the array
+      // represents either a single booking or a grouped booking with all dates
       const apiBookings: Booking[] = response.data.bookings || [];
       const pagination = response.data.pagination || { total: 0, pages: 1 };
 
@@ -258,6 +262,74 @@ export default function ProviderBookingsPage() {
       default:
         return status;
     }
+  }, []);
+
+  /**
+   * Checks if the event date(s) have passed (today or in the past).
+   * For grouped bookings, checks if all dates have passed.
+   * Allows completion on the event day or after.
+   * 
+   * @param booking - Booking object with date or dates array
+   * @returns true if all event dates are today or in the past, false otherwise
+   */
+  const hasEventDatePassed = useCallback((booking: Booking): boolean => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Set to start of day for comparison
+    
+    // If booking has multiple dates, check all of them
+    if (booking.dates && booking.dates.length > 0) {
+      // All dates must be today or in the past
+      return booking.dates.every(dateStr => {
+        const eventDate = new Date(dateStr);
+        eventDate.setHours(0, 0, 0, 0);
+        return now >= eventDate; // Event date must be today or in the past
+      });
+    }
+    
+    // Single date booking
+    const eventDate = new Date(booking.date);
+    eventDate.setHours(0, 0, 0, 0);
+    return now >= eventDate; // Event date must be today or in the past
+  }, []);
+
+  /**
+   * Formats an array of date strings into a readable format.
+   * Example: ["2025-12-11", "2025-12-12", "2025-12-15"] => "11 Dec, 12 Dec, 15 Dec 2025"
+   * If dates array is empty or invalid, falls back to single date formatting.
+   * 
+   * @param dates - Array of date strings in ISO format (YYYY-MM-DD)
+   * @param fallbackDate - Single date string to use if dates array is empty
+   * @returns Formatted date string
+   */
+  const formatBookingDates = useCallback((dates: string[] | undefined, fallbackDate: string): string => {
+    // If we have multiple dates, format them all
+    if (dates && dates.length > 0) {
+      // Sort dates chronologically
+      const sortedDates = [...dates].sort((a, b) => {
+        return new Date(a).getTime() - new Date(b).getTime();
+      });
+
+      // Format each date and extract year (assuming all dates are in the same year)
+      const formattedDates = sortedDates.map(dateStr => {
+        const date = new Date(dateStr);
+        const day = date.getDate();
+        const month = date.toLocaleDateString('en-US', { month: 'short' });
+        return `${day} ${month}`;
+      });
+
+      // Get the year from the first date (all dates should be in the same year)
+      const year = new Date(sortedDates[0]).getFullYear();
+
+      // Join all formatted dates with commas and add year at the end
+      return `${formattedDates.join(', ')} ${year}`;
+    }
+
+    // Fallback to single date formatting
+    const date = new Date(fallbackDate);
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'short' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
   }, []);
 
   // Handle booking actions (accept/reject/complete)
@@ -527,238 +599,243 @@ export default function ProviderBookingsPage() {
             </div>
           )}
 
-          {/* Bookings Table */}
+          {/* Bookings List - Card Layout */}
           {!loading && !error && (
-            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Booking
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Customer
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Payment Mode
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Payment Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Guests
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Total
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {bookings.length === 0 ? (
-                      <tr>
-                        <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
-                          No bookings found
-                        </td>
-                      </tr>
-                    ) : (
-                      bookings.map((booking) => (
-                        <tr key={booking.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10">
-                                <Image 
-                                  src={booking.serviceImage || '/placeholder-image.png'} 
-                                  alt={booking.serviceName || 'Unknown Service'}
-                                  width={40}
-                                  height={40}
-                                  className="rounded-full object-cover"
-                                  style={{ width: 'auto', height: 'auto' }}
-                                />
+            <div className="space-y-6">
+              {bookings.length === 0 ? (
+                <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+                  <Calendar className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No bookings found</h3>
+                  <p className="text-gray-600">You don&apos;t have any bookings yet.</p>
+                </div>
+              ) : (
+                bookings.map((booking) => (
+                  <div key={booking.id} className="bg-white rounded-2xl shadow-lg overflow-hidden">
+                    <div className="p-6">
+                      <div className="flex flex-col lg:flex-row">
+                        {/* Service Image */}
+                        <div className="lg:w-1/4 mb-4 lg:mb-0 lg:mr-6">
+                          <div className="aspect-video bg-gray-200 rounded-xl overflow-hidden">
+                            <Image 
+                              src={booking.serviceImage || booking.venueImage || '/placeholder-image.png'} 
+                              alt={booking.serviceName || booking.venueName || 'Unknown Service'}
+                              width={400}
+                              height={225}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                                (e.target as HTMLImageElement).nextElementSibling?.setAttribute('style', 'display: flex');
+                              }}
+                            />
+                            <div className="hidden w-full h-full bg-gray-300 rounded-xl items-center justify-center">
+                              <Calendar className="h-8 w-8 text-gray-500" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Booking Details */}
+                        <div className="lg:w-3/4">
+                          <div className="flex flex-col md:flex-row md:justify-between md:items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center mb-2 flex-wrap gap-2">
+                                <h2 className="text-xl font-bold text-gray-900">{booking.serviceName || booking.venueName || 'Unknown Service'}</h2>
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(booking.status)}`}>
+                                  {getStatusIcon(booking.status)}
+                                  <span className="ml-1">{getStatusText(booking.status)}</span>
+                                </span>
                               </div>
-                              <div className="ml-4">
-                                <div className="text-sm font-medium text-gray-900">
-                                  {booking.serviceName || 'Unknown Service'}
-                                </div>
-                                <div className="text-sm text-gray-500">
+                              <div className="mb-2">
+                                <span className="inline-block px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded">
                                   {getServiceTypeLabel(booking.serviceType || '')}
+                                </span>
+                              </div>
+                              
+                              {/* Booking Information Grid */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                {/* Dates - All dates displayed in single cell */}
+                                <div className="flex items-start text-gray-600">
+                                  <Calendar className="h-5 w-5 mr-3 text-red-600 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-sm text-gray-500 mb-1">Booking Dates</p>
+                                    <p className="font-medium text-gray-900">
+                                      {formatBookingDates(booking.dates, booking.date)}
+                                    </p>
+                                    {booking.time && (
+                                      <p className="text-xs text-gray-500 mt-1">Time: {booking.time}</p>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Customer Information */}
+                                <div className="flex items-start text-gray-600">
+                                  <User className="h-5 w-5 mr-3 text-red-600 mt-0.5 flex-shrink-0" />
+                                  <div>
+                                    <p className="text-sm text-gray-500 mb-1">Customer</p>
+                                    <p className="font-medium text-gray-900">{booking.contactPerson}</p>
+                                    <p className="text-xs text-gray-500">{booking.contactEmail}</p>
+                                    <p className="text-xs text-gray-500">{booking.contactPhone}</p>
+                                  </div>
+                                </div>
+                                
+                                {/* Guests */}
+                                <div className="flex items-center text-gray-600">
+                                  <Users className="h-5 w-5 mr-3 text-red-600" />
+                                  <div>
+                                    <p className="text-sm text-gray-500">Guests</p>
+                                    <p className="font-medium text-gray-900">{booking.guestCount}</p>
+                                  </div>
+                                </div>
+                                
+                                {/* Payment Information */}
+                                <div className="flex items-center text-gray-600">
+                                  <IndianRupee className="h-5 w-5 mr-3 text-red-600" />
+                                  <div>
+                                    <p className="text-sm text-gray-500">Total Amount</p>
+                                    <p className="font-medium text-gray-900">₹{booking.totalPrice.toLocaleString('en-IN')}</p>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Payment Details */}
+                              <div className="mt-4 pt-4 border-t border-gray-100">
+                                <div className="flex flex-wrap gap-3">
+                                  {booking.paymentMode && (
+                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentModeClass(booking.paymentMode)}`}>
+                                      {getPaymentModeText(booking.paymentMode)}
+                                    </span>
+                                  )}
+                                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || 'pending')}`}>
+                                    {getPaymentStatusIcon(booking.paymentStatus || 'pending')}
+                                    <span className="ml-1">{getPaymentStatusText(booking.paymentStatus || 'pending')}</span>
+                                  </span>
                                 </div>
                               </div>
                             </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900">
-                              {booking.contactPerson}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {booking.contactEmail}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {booking.contactPhone}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">
-                              {new Date(booking.date).toLocaleDateString()}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(booking.status)}`}>
-                              {getStatusIcon(booking.status)}
-                              <span className="ml-1">{getStatusText(booking.status)}</span>
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {booking.paymentMode && (
-                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentModeClass(booking.paymentMode)}`}>
-                                {getPaymentModeText(booking.paymentMode)}
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getPaymentStatusColor(booking.paymentStatus || 'pending')}`}>
-                              {getPaymentStatusIcon(booking.paymentStatus || 'pending')}
-                              <span className="ml-1">{getPaymentStatusText(booking.paymentStatus || 'pending')}</span>
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {booking.guestCount}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                            ₹{booking.totalPrice.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <div className="flex items-center space-x-2">
-                              {booking.status === 'pending' && (
-                                <>
+                            
+                            {/* Action Buttons */}
+                            <div className="mt-4 md:mt-0 md:ml-4">
+                              <div className="flex flex-col space-y-2">
+                                {booking.status === 'pending' && (
+                                  <>
+                                    <Button
+                                      onClick={() => handleAcceptBooking(booking.id)}
+                                      disabled={processingBookingId === booking.id}
+                                      className="bg-green-600 hover:bg-green-700 w-full md:w-auto"
+                                    >
+                                      Accept
+                                    </Button>
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => handleRejectBooking(booking.id)}
+                                      disabled={processingBookingId === booking.id}
+                                      className="w-full md:w-auto"
+                                    >
+                                      Reject
+                                    </Button>
+                                  </>
+                                )}
+                                {booking.status === 'confirmed' && (
                                   <Button
-                                    size="sm"
-                                    onClick={() => handleAcceptBooking(booking.id)}
-                                    disabled={processingBookingId === booking.id}
-                                    className="bg-green-600 hover:bg-green-700"
+                                    onClick={() => handleCompleteBooking(booking.id)}
+                                    disabled={processingBookingId === booking.id || !hasEventDatePassed(booking)}
+                                    className="bg-blue-600 hover:bg-blue-700 w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+                                    title={!hasEventDatePassed(booking) ? 'Cannot complete booking before the event date has passed' : 'Mark booking as completed'}
                                   >
-                                    Accept
+                                    Complete
                                   </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() => handleRejectBooking(booking.id)}
-                                    disabled={processingBookingId === booking.id}
-                                  >
-                                    Reject
-                                  </Button>
-                                </>
-                              )}
-                              {booking.status === 'confirmed' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleCompleteBooking(booking.id)}
-                                  disabled={processingBookingId === booking.id}
-                                  className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                  Complete
-                                </Button>
-                              )}
+                                )}
+                              </div>
                             </div>
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {!loading && !error && bookings.length > 0 && (
+            <div className="bg-white rounded-xl shadow-lg px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6 mt-6">
+              <div className="flex-1 flex justify-between sm:hidden">
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
               </div>
-              
-              {/* Pagination */}
-              {bookings.length > 0 && (
-                <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                  <div className="flex-1 flex justify-between sm:hidden">
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700">
+                    Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalBookings)}</span> to{' '}
+                    <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalBookings)}</span> of{' '}
+                    <span className="font-medium">{totalBookings}</span> results
+                  </p>
+                </div>
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
                     <Button
                       variant="outline"
                       onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                       disabled={currentPage === 1}
+                      className="relative inline-flex items-center px-2 py-2 rounded-l-md"
                     >
                       Previous
                     </Button>
+                    {[...Array(totalPages)].map((_, i) => {
+                      const pageNum = i + 1;
+                      // Only show first, last, current, and nearby pages
+                      if (pageNum === 1 || pageNum === totalPages || 
+                          (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            onClick={() => setCurrentPage(pageNum)}
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
+                              currentPage === pageNum 
+                                ? 'z-10 bg-red-600 text-white border-red-600' 
+                                : 'border-gray-300'
+                            }`}
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
+                        // Show ellipsis for skipped pages
+                        return (
+                          <span 
+                            key={`ellipsis-${pageNum}`}
+                            className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700"
+                          >
+                            ...
+                          </span>
+                        );
+                      }
+                      return null;
+                    })}
                     <Button
                       variant="outline"
                       onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                       disabled={currentPage === totalPages}
+                      className="relative inline-flex items-center px-2 py-2 rounded-r-md"
                     >
                       Next
                     </Button>
-                  </div>
-                  <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-gray-700">
-                        Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalBookings)}</span> to{' '}
-                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalBookings)}</span> of{' '}
-                        <span className="font-medium">{totalBookings}</span> results
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                        <Button
-                          variant="outline"
-                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                          disabled={currentPage === 1}
-                          className="relative inline-flex items-center px-2 py-2 rounded-l-md"
-                        >
-                          Previous
-                        </Button>
-                        {[...Array(totalPages)].map((_, i) => {
-                          const pageNum = i + 1;
-                          // Only show first, last, current, and nearby pages
-                          if (pageNum === 1 || pageNum === totalPages || 
-                              (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)) {
-                            return (
-                              <Button
-                                key={pageNum}
-                                variant={currentPage === pageNum ? "default" : "outline"}
-                                onClick={() => setCurrentPage(pageNum)}
-                                className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
-                                  currentPage === pageNum 
-                                    ? 'z-10 bg-red-600 text-white border-red-600' 
-                                    : 'border-gray-300'
-                                }`}
-                              >
-                                {pageNum}
-                              </Button>
-                            );
-                          } else if (pageNum === currentPage - 2 || pageNum === currentPage + 2) {
-                            // Show ellipsis for skipped pages
-                            return (
-                              <span 
-                                key={`ellipsis-${pageNum}`}
-                                className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700"
-                              >
-                                ...
-                              </span>
-                            );
-                          }
-                          return null;
-                        })}
-                        <Button
-                          variant="outline"
-                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                          disabled={currentPage === totalPages}
-                          className="relative inline-flex items-center px-2 py-2 rounded-r-md"
-                        >
-                          Next
-                        </Button>
-                      </nav>
-                    </div>
-                  </div>
+                  </nav>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>

@@ -13,6 +13,7 @@ import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { BookingModal } from '@/components/booking/BookingModal';
 import { BookingButton } from '@/components/booking/BookingButton';
+import { BookingPayload } from '@/components/booking/AvailabilityCalendar';
 import SocialShare from '@/components/ui/SocialShare';
 
 interface FoodOption {
@@ -114,8 +115,7 @@ export default function VenueDetailsPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [favorite, setFavorite] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
-  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Redirect to login if not authenticated (prevents direct URL access)
@@ -220,18 +220,17 @@ export default function VenueDetailsPage() {
     }
   };
 
-  const handleDateSelect = (date: string | string[]) => {
-    if (typeof date === 'string') {
-      // Single date selection
-      setSelectedDate(date);
-      setSelectedDates([date]); // Also set the array for consistency
-      setShowBookingModal(true);
-    } else if (date.length > 0) {
-      // Multiple dates selection
-      setSelectedDates(date);
-      setSelectedDate(date[0]); // Set first date as primary
-      setShowBookingModal(true);
-    }
+  // Handle booking action from calendar
+  const handleBook = (payload: BookingPayload) => {
+    setSelectedDates(payload.dates);
+    setSelectedDate(payload.dates[0] || '');
+    setShowBookingModal(true);
+  };
+
+  // Optional: Track date selections before booking
+  const handleDateSelect = (dates: string[]) => {
+    // This is called when dates are selected but not yet booked
+    // Useful for showing preview or updating UI
   };
 
   if (loading) {
@@ -720,11 +719,8 @@ export default function VenueDetailsPage() {
               serviceId={venue._id}
               serviceType="venue"
               basePrice={venue.basePrice}
+              onBook={handleBook}
               onDateSelect={handleDateSelect}
-              selectedDate={selectedDate}
-              selectedDates={selectedDates}
-              selectionMode={selectionMode}
-              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Information */}
