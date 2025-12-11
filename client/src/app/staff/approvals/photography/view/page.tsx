@@ -445,7 +445,6 @@ function ViewPhotographyService() {
                   serviceId={service._id}
                   serviceType="photography"
                   onDateSelect={() => {}}
-                  selectedDate={''}
                 />
               </div>
             </div>

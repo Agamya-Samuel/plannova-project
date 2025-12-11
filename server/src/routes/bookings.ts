@@ -11,6 +11,7 @@ import Videography from '../models/Videography.js';
 import BridalMakeup from '../models/BridalMakeup.js';
 import Decoration from '../models/Decoration.js';
 import Entertainment from '../models/Entertainment.js';
+import { getS3Url } from '../utils/s3.js';
 
 const router = Router();
 
@@ -236,7 +237,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
           
           // Get contact info from service
           if (service.contact) {
@@ -331,7 +334,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
         }
       } catch (error) {
         console.error('Error fetching service details:', error);
@@ -415,7 +420,9 @@ router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: Aut
 
           if (service) {
             serviceName = service.name;
-            serviceImage = service.images?.[0]?.url || serviceImage;
+            // Transform image URL from S3 key to full URL if needed
+            const imageUrl = service.images?.[0]?.url;
+            serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
 
             if (service.contact) {
               providerContact = {
@@ -739,7 +746,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
         }
       } catch (error) {
         console.error('Error fetching service details:', error);
@@ -1038,24 +1047,59 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
       return res.status(400).json({ error: 'Only confirmed bookings can be marked as completed' });
     }
 
-    // Verify the event date has passed
-    const eventDate = new Date(booking.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Verify the event date has passed (cannot complete before the event)
+    const now = new Date();
     
-    if (eventDate > today) {
-      return res.status(400).json({ error: 'Cannot mark future bookings as completed. The event must have occurred.' });
-    }
-
-    // If this is a group booking, update all bookings in the group
+    // If this is a group booking, check all dates in the group
     if (booking.bookingGroupId) {
+      // Get all bookings in the group to verify they're all confirmed and dates have passed
+      const groupBookings = await Booking.find({
+        bookingGroupId: booking.bookingGroupId
+      });
+      
+      // Check if all bookings in the group are confirmed
+      const allConfirmed = groupBookings.every(b => b.status === BookingStatus.CONFIRMED);
+      
+      if (!allConfirmed) {
+        return res.status(400).json({ 
+          error: 'Cannot complete booking group. Some bookings in the group are not confirmed.' 
+        });
+      }
+      
+      // Check if all event dates in the group are today or in the past
+      const allDatesPassed = groupBookings.every(b => {
+        const eventDate = new Date(b.date);
+        eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        return today >= eventDate; // Event date must be today or in the past
+      });
+      
+      if (!allDatesPassed) {
+        return res.status(400).json({ 
+          error: 'Cannot mark booking as completed. The event date(s) must be today or in the past. You cannot complete bookings before the event date.' 
+        });
+      }
+      
       // Update all bookings in the same group
       await Booking.updateMany(
         { bookingGroupId: booking.bookingGroupId },
         { status: BookingStatus.COMPLETED }
       );
     } else {
-      // Single booking
+      // Single booking - verify the event date is today or in the past
+      const eventDate = new Date(booking.date);
+      eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      
+      if (today < eventDate) {
+        return res.status(400).json({ 
+          error: 'Cannot mark booking as completed. The event date must be today or in the past. You cannot complete bookings before the event date.' 
+        });
+      }
+      
+      // Single booking - mark as completed
       booking.status = BookingStatus.COMPLETED;
       await booking.save();
     }

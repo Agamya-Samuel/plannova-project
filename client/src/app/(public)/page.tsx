@@ -10,8 +10,8 @@ import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
 import BlogSection from '@/components/home/BlogSection';
 import { VENUE_TYPES } from '@/constants/venueTypes';
+import { useAuth } from '@/contexts/AuthContext';
 // States and cities are now loaded from API routes (server-side)
-// Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
 interface VenueItem {
@@ -24,7 +24,7 @@ interface VenueItem {
 
 export default function Home() {
   const router = useRouter();
-  // Removed unused user from auth context to satisfy linter
+  const { user } = useAuth(); // Get user from auth context to check if signed in
   const [venues, setVenues] = useState<VenueItem[]>([]);
   // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
@@ -997,11 +997,14 @@ export default function Home() {
             Join thousands of people who found their perfect venue through Plannova
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/auth/register">
-              <Button size="lg" className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
-                Sign Up Today
-              </Button>
-            </Link>
+            {/* Only show "Sign Up Today" button when user is not signed in */}
+            {!user && (
+              <Link href="/auth/register">
+                <Button size="lg" className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
+                  Sign Up Today
+                </Button>
+              </Link>
+            )}
             <Link href="/venues">
               <Button size="lg" variant="outline" className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-pink-600 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300">
                 Browse Venues

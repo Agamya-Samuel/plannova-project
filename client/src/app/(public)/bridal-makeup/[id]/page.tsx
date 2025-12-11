@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import apiClient from '@/lib/api';
 import { BookingButton } from '@/components/booking/BookingButton';
 import { BookingModal } from '@/components/booking/BookingModal';
+import { BookingPayload } from '@/components/booking/AvailabilityCalendar';
 
 interface BridalMakeupService {
   _id: string;
@@ -68,8 +69,7 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
   const [serviceId, setServiceId] = useState<string | null>(null);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
-  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
   useEffect(() => {
     const unwrapParams = async () => {
@@ -80,18 +80,17 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
     unwrapParams();
   }, [params]);
 
-  const handleDateSelect = (date: string | string[]) => {
-    if (typeof date === 'string') {
-      // Single date selection
-      setSelectedDate(date);
-      setSelectedDates([date]); // Also set the array for consistency
-      setShowBookingModal(true);
-    } else if (date.length > 0) {
-      // Multiple dates selection
-      setSelectedDates(date);
-      setSelectedDate(date[0]); // Set first date as primary
-      setShowBookingModal(true);
-    }
+  // Handle booking action from calendar
+  const handleBook = (payload: BookingPayload) => {
+    setSelectedDates(payload.dates);
+    setSelectedDate(payload.dates[0] || '');
+    setShowBookingModal(true);
+  };
+
+  // Optional: Track date selections before booking
+  const handleDateSelect = (dates: string[]) => {
+    // This is called when dates are selected but not yet booked
+    // Useful for showing preview or updating UI
   };
 
   const fetchBridalMakeupService = React.useCallback(async () => {
@@ -428,11 +427,8 @@ export default function BridalMakeupDetailPage({ params }: { params: Promise<{ i
               serviceId={service._id}
               serviceType="bridal-makeup"
               basePrice={service.basePrice}
+              onBook={handleBook}
               onDateSelect={handleDateSelect}
-              selectedDate={selectedDate}
-              selectedDates={selectedDates}
-              selectionMode={selectionMode}
-              onSelectionModeChange={setSelectionMode}
             />
 
             <div className="bg-white rounded-2xl shadow-lg p-6 sticky top-8">

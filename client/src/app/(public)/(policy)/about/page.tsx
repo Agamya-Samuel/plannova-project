@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Heart, Users, Camera, ShoppingCart, Sparkles, BookOpen } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AboutUs() {
   const router = useRouter();
+  const { user } = useAuth(); // Get user from auth context to check if signed in
 
   const handleGoBack = () => {
     router.back();
@@ -127,11 +129,14 @@ export default function AboutUs() {
                   Join millions of clients who have found their perfect event vendors through Plannova
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-4">
-                  <Link href="/auth/register">
-                    <Button className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 text-lg">
-                      Sign Up Today
-                    </Button>
-                  </Link>
+                  {/* Only show "Sign Up Today" button when user is not signed in */}
+                  {!user && (
+                    <Link href="/auth/register">
+                      <Button className="bg-pink-600 hover:bg-pink-700 text-white px-8 py-3 text-lg">
+                        Sign Up Today
+                      </Button>
+                    </Link>
+                  )}
                   <Link href="/vendors">
                     <Button variant="outline" className="border-2 border-pink-600 text-pink-600 hover:bg-pink-50 px-8 py-3 text-lg">
                       Browse Vendors

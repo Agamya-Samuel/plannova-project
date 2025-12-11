@@ -3,39 +3,43 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Calendar } from 'lucide-react';
-import { AvailabilityCalendar } from '@/components/booking/AvailabilityCalendar';
+import { AvailabilityCalendar, BookingPayload } from '@/components/booking/AvailabilityCalendar';
 import { ServiceType } from '@/types/booking';
 
 interface BookingButtonProps {
   serviceId: string;
   serviceType: ServiceType;
   basePrice: number;
-  onDateSelect: (date: string | string[]) => void;
-  selectedDate?: string;
-  selectedDates?: string[];
-  selectionMode?: 'single' | 'range' | 'multiple';
-  onSelectionModeChange?: (mode: 'single' | 'range' | 'multiple') => void;
+  // Callback when user books selected dates
+  onBook?: (payload: BookingPayload) => void;
+  // Optional: callback for date selection changes (before booking)
+  onDateSelect?: (dates: string[]) => void;
 }
 
 export function BookingButton({
   serviceId,
   serviceType,
   basePrice,
-  onDateSelect,
-  selectedDate,
-  selectedDates = [],
-  selectionMode = 'single',
-  onSelectionModeChange
+  onBook,
+  onDateSelect
 }: BookingButtonProps) {
   const [showCalendar, setShowCalendar] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
 
   const handleBookNow = () => {
     setShowCalendar(true);
   };
 
-  const handleDateSelection = (date: string | string[]) => {
-    onDateSelect(date);
-    // Calendar will remain visible after date selection
+  // Handle date selection changes (for tracking)
+  const handleDateSelection = (dates: string[]) => {
+    setSelectedDates(dates);
+    onDateSelect?.(dates);
+  };
+
+  // Handle booking action
+  const handleBook = (payload: BookingPayload) => {
+    onBook?.(payload);
+    // Calendar remains visible after booking
   };
 
   return (
@@ -67,11 +71,9 @@ export function BookingButton({
         <AvailabilityCalendar
           serviceId={serviceId}
           serviceType={serviceType}
+          onBook={handleBook}
           onDateSelect={handleDateSelection}
-          selectedDate={selectedDate}
           selectedDates={selectedDates}
-          selectionMode={selectionMode}
-          onSelectionModeChange={onSelectionModeChange}
         />
       )}
     </div>
