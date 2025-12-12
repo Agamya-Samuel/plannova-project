@@ -13,6 +13,7 @@ import apiClient from '@/lib/api';
 import { toast } from 'sonner';
 import { BookingModal } from '@/components/booking/BookingModal';
 import { BookingButton } from '@/components/booking/BookingButton';
+import { BookingPayload } from '@/components/booking/AvailabilityCalendar';
 import SocialShare from '@/components/ui/SocialShare';
 
 interface FoodOption {
@@ -114,8 +115,7 @@ export default function VenueDetailsPage() {
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [favorite, setFavorite] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedDates, setSelectedDates] = useState<string[]>([]); // For multi-date selection
-  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | 'multiple'>('single'); // Selection mode
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
   const [showBookingModal, setShowBookingModal] = useState(false);
 
   // Redirect to login if not authenticated (prevents direct URL access)
@@ -220,18 +220,17 @@ export default function VenueDetailsPage() {
     }
   };
 
-  const handleDateSelect = (date: string | string[]) => {
-    if (typeof date === 'string') {
-      // Single date selection
-      setSelectedDate(date);
-      setSelectedDates([date]); // Also set the array for consistency
-      setShowBookingModal(true);
-    } else if (date.length > 0) {
-      // Multiple dates selection
-      setSelectedDates(date);
-      setSelectedDate(date[0]); // Set first date as primary
-      setShowBookingModal(true);
-    }
+  // Handle booking action from calendar
+  const handleBook = (payload: BookingPayload) => {
+    setSelectedDates(payload.dates);
+    setSelectedDate(payload.dates[0] || '');
+    setShowBookingModal(true);
+  };
+
+  // Optional: Track date selections before booking
+  const handleDateSelect = (dates: string[]) => {
+    // This is called when dates are selected but not yet booked
+    // Useful for showing preview or updating UI
   };
 
   if (loading) {
@@ -307,13 +306,6 @@ export default function VenueDetailsPage() {
                   <span className="bg-white/90 text-pink-600 px-3 py-1 rounded-full text-sm font-semibold">
                     {venue.type}
                   </span>
-                  {/* Show a badge when there are pending edits */}
-                  {venue.status === 'PENDING_EDIT' && (
-                    <span className="bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-semibold flex items-center">
-                      <Clock className="h-4 w-4 mr-1" />
-                      Edit Pending
-                    </span>
-                  )}
                 </div>
               </div>
               
@@ -418,14 +410,20 @@ export default function VenueDetailsPage() {
                     <Navigation className="h-5 w-5 text-pink-600" />
                     <div>
                       <p className="font-semibold text-gray-900">Full Address</p>
-                      <p className="text-gray-600">
+                      <div className="text-gray-600">
                         {/* Show pending address if there are pending edits, otherwise show current address */}
-                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.address
-                          ? `${venue.pendingEdits.address.street}, ${venue.pendingEdits.address.area}<br />
-                            ${venue.pendingEdits.address.city}, ${venue.pendingEdits.address.state} - ${venue.pendingEdits.address.pincode}`
-                          : `${venue.address.street}, ${venue.address.area}<br />
-                            ${venue.address.city}, ${venue.address.state} - ${venue.address.pincode}`}
-                      </p>
+                        {venue.status === 'PENDING_EDIT' && venue.pendingEdits?.address ? (
+                          <>
+                            <p>{venue.pendingEdits.address.street}, {venue.pendingEdits.address.area}</p>
+                            <p>{venue.pendingEdits.address.city}, {venue.pendingEdits.address.state} - {venue.pendingEdits.address.pincode}</p>
+                          </>
+                        ) : (
+                          <>
+                            <p>{venue.address.street}, {venue.address.area}</p>
+                            <p>{venue.address.city}, {venue.address.state} - {venue.address.pincode}</p>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -449,16 +447,6 @@ export default function VenueDetailsPage() {
                     <div>
                       <p className="font-semibold text-gray-900">Provider</p>
                       <p className="text-gray-600">{venue.providerId.firstName} {venue.providerId.lastName}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-3">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    <div>
-                      <p className="font-semibold text-gray-900">Status</p>
-                      <p className={`font-medium ${venue.status === 'PENDING_EDIT' ? 'text-blue-600' : 'text-green-600'}`}>
-                        {venue.status === 'PENDING_EDIT' ? 'Edit Pending Approval' : venue.status}
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -731,11 +719,8 @@ export default function VenueDetailsPage() {
               serviceId={venue._id}
               serviceType="venue"
               basePrice={venue.basePrice}
+              onBook={handleBook}
               onDateSelect={handleDateSelect}
-              selectedDate={selectedDate}
-              selectedDates={selectedDates}
-              selectionMode={selectionMode}
-              onSelectionModeChange={setSelectionMode}
             />
 
             {/* Booking Information */}

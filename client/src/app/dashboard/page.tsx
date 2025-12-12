@@ -616,6 +616,14 @@ function AdminDashboard() {
           color="pink"
         />
         <DashboardCard
+          title="Service Approvals"
+          description="Review and approve provider submissions across services"
+          icon={<CheckCircle className="h-8 w-8 text-green-600" />}
+          action="Manage Approvals"
+          href="/staff/approvals"
+          color="green"
+        />
+        <DashboardCard
           title="Bookings Overview"
           description="Monitor all bookings across the platform"
           icon={<Calendar className="h-8 w-8 text-green-600" />}

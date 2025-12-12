@@ -531,7 +531,6 @@ function ViewEntertainmentService() {
                   serviceId={service._id}
                   serviceType="entertainment"
                   onDateSelect={() => { /* read-only for staff */ }}
-                  selectedDate={''}
                 />
               </div>
             </div>

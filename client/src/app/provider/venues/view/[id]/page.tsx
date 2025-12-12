@@ -23,6 +23,7 @@ import {
 import apiClient from '@/lib/api';
 import ImageModal from '@/components/ui/ImageModal';
 import { BlockedDatesManager } from '@/components/booking/BlockedDatesManager';
+import { ensureImageUrl } from '@/lib/utils';
 
 interface Venue {
   _id: string;
@@ -138,15 +139,22 @@ export default function ProviderVenueViewPage() {
   };
 
   const handleImageNavigate = (direction: 'prev' | 'next') => {
-    if (!venue || venue.images.length === 0) return;
+    if (!venue) return;
+    
+    // Get the current images array (pending edits or regular images)
+    const currentImages = (venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images) 
+      ? venue.pendingEdits.images 
+      : venue.images;
+    
+    if (currentImages.length === 0) return;
     
     if (direction === 'prev') {
       setSelectedImageIndex(prev => 
-        prev === 0 ? venue.images.length - 1 : prev - 1
+        prev === 0 ? currentImages.length - 1 : prev - 1
       );
     } else {
       setSelectedImageIndex(prev => 
-        prev === venue.images.length - 1 ? 0 : prev + 1
+        prev === currentImages.length - 1 ? 0 : prev + 1
       );
     }
   };
@@ -253,12 +261,12 @@ export default function ProviderVenueViewPage() {
                         onClick={() => handleImageClick(index)}
                       >
                         <Image
-                          src={image.url}
+                          src={ensureImageUrl(image.url)}
                           alt={image.alt}
                           width={400}
                           height={192}
                           className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-300"
-                          unoptimized={image.url.includes('s3.tebi.io') || image.url.includes('s3.')}
+                          unoptimized={ensureImageUrl(image.url).includes('s3.tebi.io') || ensureImageUrl(image.url).includes('s3.')}
                         />
                         {image.isPrimary && (
                           <span className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
@@ -529,11 +537,11 @@ export default function ProviderVenueViewPage() {
       </div>
 
       {/* Image Modal */}
-      {venue && venue.images.length > 0 && (
+      {venue && (venue.images.length > 0 || (venue.pendingEdits?.images && venue.pendingEdits.images.length > 0)) && (
         <ImageModal
           isOpen={showImageModal}
           onClose={handleImageModalClose}
-          images={venue.images}
+          images={(venue.status === 'PENDING_EDIT' && venue.pendingEdits?.images ? venue.pendingEdits.images : venue.images)}
           currentIndex={selectedImageIndex}
           onNavigate={handleImageNavigate}
         />
