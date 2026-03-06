@@ -12,7 +12,7 @@ import { Booking, ServiceType } from '@/types/booking';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const showMobileAlert = user && !user.phone;
+  const showMobileAlert = !!user && !user.phone;
 
   // Check if user needs to provide mobile number
 
