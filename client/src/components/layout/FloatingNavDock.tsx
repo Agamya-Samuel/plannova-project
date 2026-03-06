@@ -70,7 +70,7 @@ export default function FloatingNavDock() {
     }
     
     return items;
-  }, [isAuthenticated, user?.role]);
+  }, [user, isAuthenticated]);
 
   // Show dock on ALL pages for ALL users in mobile view
   // Always visible - no scroll-based hiding, no auth page restrictions

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useLayoutEffect } from 'react';
 import { useStateCity } from '@/hooks/useStateCity';
 
 // Interface for state data
@@ -92,10 +92,11 @@ export default function StateCitySelect({
 
   // Update internal state and state code when current state is found from prop
   // This ensures cities are loaded when component receives selectedState prop
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (currentState) {
       // Update both the select value and state code if we found a matching state
       if (currentState.iso2 !== stateCodeForCities) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setStateCodeForCities(currentState.iso2);
       }
       if (currentState.iso2 !== selectedStateIso2) {

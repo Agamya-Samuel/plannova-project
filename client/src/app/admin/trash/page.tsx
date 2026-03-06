@@ -44,7 +44,6 @@ const TABS = [
 ];
 
 export default function TrashPage() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { user: authUser } = useAuth();
   const [items, setItems] = useState<TrashItem[]>([]);
   const [loading, setLoading] = useState(true);

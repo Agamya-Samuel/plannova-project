@@ -55,7 +55,7 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      
       const { confirmPassword, ...registrationData } = data;
       await registerUser(registrationData);
       toast.success('Welcome! Your account has been successfully created.');

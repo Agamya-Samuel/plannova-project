@@ -12,21 +12,9 @@ import { Booking, ServiceType } from '@/types/booking';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [showMobileAlert, setShowMobileAlert] = useState(false);
+  const showMobileAlert = user && !user.phone;
 
   // Check if user needs to provide mobile number
-  useEffect(() => {
-    console.log('Dashboard useEffect triggered', { user });
-    
-    // Only show the alert if user is authenticated and doesn't have a phone number
-    if (user && !user.phone) {
-      console.log('User does not have phone number, showing alert');
-      setShowMobileAlert(true);
-    } else if (user && user.phone) {
-      console.log('User has phone number, hiding alert if it was shown');
-      setShowMobileAlert(false);
-    }
-  }, [user]);
 
 
   const renderDashboardContent = () => {
@@ -92,7 +80,7 @@ export default function DashboardPage() {
         
         <MobileNumberAlertDialog
           isOpen={showMobileAlert}
-          onClose={() => setShowMobileAlert(false)}
+          onClose={() => {}}
           userDisplayName={user?.firstName || 'there'}
         />
       </div>

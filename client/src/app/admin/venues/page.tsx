@@ -177,7 +177,6 @@ export default function AdminVenuesPage() {
     }
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleRejectVenue = async (venueId: string, _venueName: string) => {
     const reason = await sonnerPrompt('Please provide a reason for rejection:');
     if (!reason) {

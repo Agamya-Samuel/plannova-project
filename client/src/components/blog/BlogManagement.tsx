@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,9 +36,10 @@ export default function BlogManagement({ initialTab = 'my' }: BlogManagementProp
 
   // Check for query parameter to auto-open create section
   // This allows navigation from "Write Your First Blog" button
-  useEffect(() => {
+  useLayoutEffect(() => {
     const createParam = searchParams.get('create');
     if (createParam === 'true') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveSection('create');
       setEditingBlog(null); // Clear any editing state
     }

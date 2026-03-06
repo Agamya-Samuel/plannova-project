@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Facebook, 
-  Twitter, 
-  Linkedin, 
-  MessageCircle, 
+import {
+  Facebook,
+  Twitter,
+  Linkedin,
+  MessageCircle,
   Link as LinkIcon,
   Share2,
   X
@@ -31,11 +31,39 @@ interface SocialShareProps {
   variant?: 'button' | 'icon';
 }
 
+// Share menu item component - defined outside to avoid recreation on each render
+interface ShareMenuItemProps {
+  onClick: () => void;
+  icon: React.ElementType;
+  label: string;
+  iconColor?: string;
+}
+
+const ShareMenuItem = ({
+  onClick,
+  icon: Icon,
+  label,
+  iconColor = 'text-gray-700'
+}: ShareMenuItemProps) => (
+  <button
+    onClick={onClick}
+    className="
+      w-full flex items-center gap-4 px-4 py-3
+      hover:bg-gray-50 active:bg-gray-100
+      transition-colors duration-150
+      text-left
+    "
+    aria-label={`Share on ${label}`}
+  >
+    <Icon className={`h-5 w-5 ${iconColor} flex-shrink-0`} />
+    <span className="text-gray-900 font-medium">{label}</span>
+  </button>
+);
+
 export default function SocialShare({
   url,
   title,
   description = '',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   imageUrl, // Currently unused - reserved for future use or commented-out native share code
   className = '',
   variant = 'button'
@@ -63,21 +91,21 @@ export default function SocialShare({
   // This is used by all share platforms for consistency
   const buildFormattedShareMessage = (maxContentLength: number = 200): string => {
     const shareUrl = getShareUrl();
-    
+
     // Ensure title is always included - use fallback if empty
     const blogTitle = title && title.trim() ? title.trim() : 'Blog Post';
-    
+
     // Get blog content - use description (full content) if available
     const blogContent = description && description.trim() && description !== title
       ? description.trim()
       : '';
-    
+
     // Build message in the requested format:
     // 1. Blog title (ALWAYS included)
     // 2. Blog content (truncated if too long)
     // 3. "Read more: [URL]"
     let message = `${blogTitle}\n\n`;
-    
+
     // Add content if available (truncate to specified length)
     if (blogContent) {
       const truncatedContent = blogContent.length > maxContentLength
@@ -85,10 +113,10 @@ export default function SocialShare({
         : blogContent;
       message += `${truncatedContent}\n\n`;
     }
-    
+
     // Add "Read more:" prefix before URL
     message += `Read more: ${shareUrl}`;
-    
+
     return message;
   };
 
@@ -99,7 +127,7 @@ export default function SocialShare({
     // Native share API often ignores text field when url is provided
     setIsMenuOpen(true);
     return;
-    
+
     // Original native share code (commented out - use custom menu instead)
     /*
     if (!isWebShareAvailable()) {
@@ -112,18 +140,18 @@ export default function SocialShare({
       // NEW APPROACH: Put everything in the text field to ensure title and content are included
       // Some platforms ignore text when url is provided separately, so we include URL in text too
       const shareUrl = getShareUrl();
-      
+
       // Ensure title is always included - use fallback if empty
       const blogTitle = title && title.trim() ? title.trim() : 'Blog Post';
-      
+
       const blogContent = description && description.trim() && description !== title
         ? description.trim()
         : '';
-      
+
       // Build complete message with title, content, and URL all in text field
       // Format: Title first, then content, then "Read more: [URL]"
       let shareText = `${blogTitle}\n\n`;
-      
+
       // Add content if available (truncate for chat messages)
       if (blogContent) {
         // Truncate content to ~200 characters for better chat display
@@ -133,15 +161,15 @@ export default function SocialShare({
           : blogContent;
         shareText += `${truncatedContent}\n\n`;
       }
-      
+
       // Add "Read more:" prefix before URL - URL is included in text field
       shareText += `Read more: ${shareUrl}`;
-      
+
       // Debug: Log what we're sharing to verify title is included
       console.log('Native share - Complete text:', shareText);
       console.log('Native share - Title:', blogTitle);
       console.log('Native share - URL:', shareUrl);
-      
+
       // CRITICAL FIX: Use ONLY text field, NO separate url field
       // Many platforms ignore text when url is provided separately
       // By putting URL in text field and NOT providing separate url, we force platform to use text
@@ -189,7 +217,7 @@ export default function SocialShare({
   const shareOnFacebook = () => {
     const shareUrl = getShareUrl();
     const formattedMessage = buildFormattedShareMessage(200);
-    
+
     // Copy formatted message to clipboard FIRST (before opening Facebook)
     // This ensures user has the message ready to paste
     navigator.clipboard.writeText(formattedMessage).then(() => {
@@ -198,7 +226,7 @@ export default function SocialShare({
       const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
       window.open(facebookUrl, '_blank', 'width=600,height=400');
       setIsMenuOpen(false);
-      
+
       // Show clear instructions to user
       toast.success(
         'Formatted message copied! Facebook opened - paste the message (Ctrl+V / Cmd+V) in the post box.',
@@ -211,7 +239,7 @@ export default function SocialShare({
       const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
       window.open(facebookUrl, '_blank', 'width=600,height=400');
       setIsMenuOpen(false);
-      
+
       toast.warning(
         'Facebook opened! Note: Facebook doesn\'t support pre-filling text. The URL will show a preview card.',
         {
@@ -230,13 +258,13 @@ export default function SocialShare({
     const urlLength = 23; // Twitter shortens URLs to ~23 chars
     const prefixLength = 11; // "Read more: " prefix
     const titleLength = (title && title.trim() ? title.trim() : 'Blog Post').length + 2; // Title + "\n\n"
-    
+
     // Calculate available space for content (280 - title - "Read more: URL" - buffer)
     const maxContentLength = 280 - titleLength - prefixLength - urlLength - 10; // 10 char buffer
-    
+
     // Build formatted message with appropriate content length for Twitter
     const formattedMessage = buildFormattedShareMessage(Math.max(50, maxContentLength)); // Min 50 chars
-    
+
     // Twitter will use Twitter Card meta tags from the page for image preview
     // Put everything in text parameter (Twitter will extract URL automatically)
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(formattedMessage)}`;
@@ -251,7 +279,7 @@ export default function SocialShare({
     const shareUrl = getShareUrl();
     // LinkedIn supports longer text, so we can use more content (300 chars)
     const formattedMessage = buildFormattedShareMessage(300);
-    
+
     // Copy formatted message to clipboard FIRST (before opening LinkedIn)
     // This ensures user has the message ready to paste
     navigator.clipboard.writeText(formattedMessage).then(() => {
@@ -260,7 +288,7 @@ export default function SocialShare({
       const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
       window.open(linkedInUrl, '_blank', 'width=600,height=400');
       setIsMenuOpen(false);
-      
+
       // Show clear instructions to user
       toast.success(
         'Formatted message copied! LinkedIn opened - paste the message (Ctrl+V / Cmd+V) in the post box.',
@@ -273,7 +301,7 @@ export default function SocialShare({
       const linkedInUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`;
       window.open(linkedInUrl, '_blank', 'width=600,height=400');
       setIsMenuOpen(false);
-      
+
       toast.warning(
         'LinkedIn opened! Note: LinkedIn doesn\'t support pre-filling text. The URL will show a preview card.',
         {
@@ -289,14 +317,14 @@ export default function SocialShare({
   const shareOnWhatsApp = () => {
     // Use the same formatted message as other platforms
     const formattedMessage = buildFormattedShareMessage(200);
-    
+
     // Debug: Log what we're sharing to verify title is included
     console.log('WhatsApp share message:', formattedMessage);
-    
+
     // Encode the entire message and share
     const encodedMessage = encodeURIComponent(formattedMessage);
     const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
-    
+
     window.open(whatsappUrl, '_blank');
     setIsMenuOpen(false);
   };
@@ -308,10 +336,10 @@ export default function SocialShare({
     try {
       // Use the same formatted message as other platforms for consistency
       const textToCopy = buildFormattedShareMessage(200);
-      
+
       // Debug: Log what we're copying to verify title is included
       console.log('Copying to clipboard:', textToCopy);
-      
+
       await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       toast.success('Link with title copied to clipboard!');
@@ -361,33 +389,6 @@ export default function SocialShare({
     };
   }, [isMenuOpen]);
 
-  // Share menu item component
-  const ShareMenuItem = ({ 
-    onClick, 
-    icon: Icon, 
-    label, 
-    iconColor = 'text-gray-700'
-  }: { 
-    onClick: () => void; 
-    icon: React.ElementType; 
-    label: string; 
-    iconColor?: string;
-  }) => (
-    <button
-      onClick={onClick}
-      className="
-        w-full flex items-center gap-4 px-4 py-3
-        hover:bg-gray-50 active:bg-gray-100
-        transition-colors duration-150
-        text-left
-      "
-      aria-label={`Share on ${label}`}
-    >
-      <Icon className={`h-5 w-5 ${iconColor} flex-shrink-0`} />
-      <span className="text-gray-900 font-medium">{label}</span>
-    </button>
-  );
-
   return (
     <div className={`relative ${className}`} ref={menuRef}>
       {/* Share Button */}
@@ -395,8 +396,8 @@ export default function SocialShare({
         ref={buttonRef}
         onClick={handleNativeShare}
         className={`
-          ${variant === 'icon' 
-            ? 'p-2 rounded-full hover:bg-gray-100' 
+          ${variant === 'icon'
+            ? 'p-2 rounded-full hover:bg-gray-100'
             : 'px-4 py-2 rounded-lg bg-pink-600 hover:bg-pink-700 text-white font-medium'
           }
           flex items-center gap-2
@@ -415,15 +416,15 @@ export default function SocialShare({
       {isMenuOpen && (
         <>
           {/* Backdrop - z-[55] to be above dock but below menu */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[55]"
             onClick={() => setIsMenuOpen(false)}
           />
-          
+
           {/* Menu Container - Positioned above the button on desktop, centered on mobile */}
           {/* z-[60] ensures it appears above floating dock (z-50) */}
           <div className="
-            fixed md:absolute z-[60] 
+            fixed md:absolute z-[60]
             md:w-64 w-[calc(100vw-2rem)] max-w-sm
             bg-white rounded-xl shadow-2xl
             border border-gray-200
@@ -453,30 +454,30 @@ export default function SocialShare({
                 label="Facebook"
                 iconColor="text-[#1877F2]"
               />
-              
+
               <ShareMenuItem
                 onClick={shareOnTwitter}
                 icon={Twitter}
                 label="Twitter"
                 iconColor="text-[#1DA1F2]"
               />
-              
+
               <ShareMenuItem
                 onClick={shareOnLinkedIn}
                 icon={Linkedin}
                 label="LinkedIn"
                 iconColor="text-[#0077B5]"
               />
-              
+
               <ShareMenuItem
                 onClick={shareOnWhatsApp}
                 icon={MessageCircle}
                 label="WhatsApp"
                 iconColor="text-[#25D366]"
               />
-              
+
               <div className="border-t border-gray-200 my-1" />
-              
+
               <button
                 onClick={copyToClipboard}
                 className="
