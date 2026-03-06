@@ -5,6 +5,7 @@ import Videography, { ApprovalStatus } from '../models/Videography.js';
 import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
 import User from '../models/User.js';
+import { transformImageUrls } from '../utils/s3.js';
 
 const router = Router();
 
@@ -59,9 +60,15 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideographies = videographies.map(videography => ({
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    }));
+
     res.json({
       message: 'Videography services retrieved successfully',
-      data: videographies
+      data: transformedVideographies
     });
   } catch (error) {
     console.error('Error fetching videography services:', error);
@@ -95,9 +102,15 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       .select('+images') // Explicitly select images field
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideographies = videographies.map(videography => ({
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    }));
+
     res.json({
       message: 'Your videography services retrieved successfully',
-      data: videographies
+      data: transformedVideographies
     });
   } catch (error) {
     console.error('Error fetching provider videography services:', error);
@@ -166,9 +179,15 @@ router.post('/', authenticateToken, createVideographyValidation, async (req: Aut
       isActive: true
     });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    };
+
     res.status(201).json({
       message: 'Videography service created successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error creating videography service:', error);
@@ -245,9 +264,20 @@ router.get('/:id', async (req: Request, res: Response) => {
       // For now, we'll return it but in a real app you'd add authentication checks
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: videography.pendingEdits ? {
+        ...videography.pendingEdits,
+        images: videography.pendingEdits.images ? transformImageUrls(videography.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Videography service retrieved successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error fetching videography service:', error);
@@ -353,9 +383,20 @@ router.put('/:id', authenticateToken, createVideographyValidation, async (req: A
 
     await videography.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: videography.pendingEdits ? {
+        ...videography.pendingEdits,
+        images: videography.pendingEdits.images ? transformImageUrls(videography.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Videography service updated successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error updating videography service:', error);
@@ -461,9 +502,20 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
 
     const total = await Videography.countDocuments(filter);
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideographies = videographies.map(videography => ({
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: videography.pendingEdits ? {
+        ...videography.pendingEdits,
+        images: videography.pendingEdits.images ? transformImageUrls(videography.pendingEdits.images) : undefined
+      } : undefined
+    }));
+
     res.json({
       message: 'Pending videography services retrieved successfully',
-      data: videographies,
+      data: transformedVideographies,
       pagination: {
         currentPage: pageNumber,
         totalPages: Math.ceil(total / limitNumber),
@@ -498,9 +550,15 @@ router.put('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (
     videography.status = ApprovalStatus.APPROVED;
     await videography.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    };
+
     res.json({
       message: 'Videography service approved successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error approving videography service:', error);
@@ -537,9 +595,15 @@ router.put('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (r
     
     await videography.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    };
+
     res.json({
       message: 'Videography service rejected successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error rejecting videography service:', error);
@@ -662,9 +726,15 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
     
     await videography.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    };
+
     res.json({
       message: 'Videography service edits approved successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error approving videography service edits:', error);
@@ -706,9 +776,15 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
     
     await videography.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedVideography = {
+      ...videography.toObject(),
+      images: transformImageUrls(videography.images || [])
+    };
+
     res.json({
       message: 'Videography service edits rejected successfully',
-      data: videography
+      data: transformedVideography
     });
   } catch (error) {
     console.error('Error rejecting videography service edits:', error);

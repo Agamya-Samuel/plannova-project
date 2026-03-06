@@ -4,6 +4,7 @@ import { Types } from 'mongoose';
 import BridalMakeup, { ApprovalStatus } from '../models/BridalMakeup.js';
 import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
+import { transformImageUrls } from '../utils/s3.js';
 
 const router = Router();
 
@@ -60,9 +61,15 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeups = bridalMakeups.map(bridalMakeup => ({
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    }));
+
     res.json({
       message: 'Bridal makeup services retrieved successfully',
-      data: bridalMakeups
+      data: transformedBridalMakeups
     });
   } catch (error) {
     console.error('Error fetching bridal makeup services:', error);
@@ -94,9 +101,15 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       .select('+images') // Explicitly select images field
       .sort({ createdAt: -1 });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeups = bridalMakeups.map(bridalMakeup => ({
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    }));
+
     res.json({
       message: 'Your bridal makeup services retrieved successfully',
-      data: bridalMakeups
+      data: transformedBridalMakeups
     });
   } catch (error) {
     console.error('Error fetching provider bridal makeup services:', error);
@@ -173,9 +186,15 @@ router.post('/', authenticateToken, createBridalMakeupValidation, async (req: Au
       isActive: true
     });
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    };
+
     res.status(201).json({
       message: 'Bridal makeup service created successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error creating bridal makeup service:', error);
@@ -252,9 +271,20 @@ router.get('/:id', async (req: Request, res: Response) => {
       // For now, we'll return it but in a real app you'd add authentication checks
     }
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: bridalMakeup.pendingEdits ? {
+        ...bridalMakeup.pendingEdits,
+        images: bridalMakeup.pendingEdits.images ? transformImageUrls(bridalMakeup.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Bridal makeup service retrieved successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error fetching bridal makeup service:', error);
@@ -369,9 +399,20 @@ router.put('/:id', authenticateToken, createBridalMakeupValidation, async (req: 
 
     await bridalMakeup.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: bridalMakeup.pendingEdits ? {
+        ...bridalMakeup.pendingEdits,
+        images: bridalMakeup.pendingEdits.images ? transformImageUrls(bridalMakeup.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Bridal makeup service updated successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error updating bridal makeup service:', error);
@@ -477,9 +518,20 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
 
     const total = await BridalMakeup.countDocuments(filter);
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeups = bridalMakeups.map(bridalMakeup => ({
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || []),
+      // Also transform pending edits images if they exist
+      pendingEdits: bridalMakeup.pendingEdits ? {
+        ...bridalMakeup.pendingEdits,
+        images: bridalMakeup.pendingEdits.images ? transformImageUrls(bridalMakeup.pendingEdits.images) : undefined
+      } : undefined
+    }));
+
     res.json({
       message: 'Pending bridal makeup services retrieved successfully',
-      data: bridalMakeups,
+      data: transformedBridalMakeups,
       pagination: {
         currentPage: pageNumber,
         totalPages: Math.ceil(total / limitNumber),
@@ -514,9 +566,15 @@ router.put('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (
     bridalMakeup.status = ApprovalStatus.APPROVED;
     await bridalMakeup.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    };
+
     res.json({
       message: 'Bridal makeup service approved successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error approving bridal makeup service:', error);
@@ -553,9 +611,15 @@ router.put('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (r
     
     await bridalMakeup.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    };
+
     res.json({
       message: 'Bridal makeup service rejected successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error rejecting bridal makeup service:', error);
@@ -678,9 +742,15 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
     
     await bridalMakeup.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    };
+
     res.json({
       message: 'Bridal makeup service edits approved successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error approving bridal makeup service edits:', error);
@@ -722,9 +792,15 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
     
     await bridalMakeup.save();
 
+    // Transform image URLs from S3 keys to full URLs before sending to client
+    const transformedBridalMakeup = {
+      ...bridalMakeup.toObject(),
+      images: transformImageUrls(bridalMakeup.images || [])
+    };
+
     res.json({
       message: 'Bridal makeup service edits rejected successfully',
-      data: bridalMakeup
+      data: transformedBridalMakeup
     });
   } catch (error) {
     console.error('Error rejecting bridal makeup service edits:', error);

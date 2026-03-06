@@ -475,7 +475,6 @@ function StaffDecorationViewContent() {
                   serviceId={displayData._id}
                   serviceType="decoration"
                   onDateSelect={() => {}}
-                  selectedDate={''}
                 />
               </div>
               {/* Provider Information */}

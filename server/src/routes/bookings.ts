@@ -11,6 +11,7 @@ import Videography from '../models/Videography.js';
 import BridalMakeup from '../models/BridalMakeup.js';
 import Decoration from '../models/Decoration.js';
 import Entertainment from '../models/Entertainment.js';
+import { getS3Url } from '../utils/s3.js';
 
 const router = Router();
 
@@ -236,7 +237,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
           
           // Get contact info from service
           if (service.contact) {
@@ -331,7 +334,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res: Response) => {
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
         }
       } catch (error) {
         console.error('Error fetching service details:', error);
@@ -415,7 +420,9 @@ router.get('/staff/all', authenticateToken, requireStaffOrAdmin, async (req: Aut
 
           if (service) {
             serviceName = service.name;
-            serviceImage = service.images?.[0]?.url || serviceImage;
+            // Transform image URL from S3 key to full URL if needed
+            const imageUrl = service.images?.[0]?.url;
+            serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
 
             if (service.contact) {
               providerContact = {
@@ -739,7 +746,9 @@ router.get('/provider/incoming', authenticateToken, requireProvider, async (req:
         
         if (service) {
           serviceName = service.name;
-          serviceImage = service.images?.[0]?.url || serviceImage;
+          // Transform image URL from S3 key to full URL if needed
+          const imageUrl = service.images?.[0]?.url;
+          serviceImage = imageUrl ? (imageUrl.startsWith('http') ? imageUrl : getS3Url(imageUrl)) : serviceImage;
         }
       } catch (error) {
         console.error('Error fetching service details:', error);
@@ -1038,24 +1047,59 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
       return res.status(400).json({ error: 'Only confirmed bookings can be marked as completed' });
     }
 
-    // Verify the event date has passed
-    const eventDate = new Date(booking.date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    // Verify the event date has passed (cannot complete before the event)
+    const now = new Date();
     
-    if (eventDate > today) {
-      return res.status(400).json({ error: 'Cannot mark future bookings as completed. The event must have occurred.' });
-    }
-
-    // If this is a group booking, update all bookings in the group
+    // If this is a group booking, check all dates in the group
     if (booking.bookingGroupId) {
+      // Get all bookings in the group to verify they're all confirmed and dates have passed
+      const groupBookings = await Booking.find({
+        bookingGroupId: booking.bookingGroupId
+      });
+      
+      // Check if all bookings in the group are confirmed
+      const allConfirmed = groupBookings.every(b => b.status === BookingStatus.CONFIRMED);
+      
+      if (!allConfirmed) {
+        return res.status(400).json({ 
+          error: 'Cannot complete booking group. Some bookings in the group are not confirmed.' 
+        });
+      }
+      
+      // Check if all event dates in the group are today or in the past
+      const allDatesPassed = groupBookings.every(b => {
+        const eventDate = new Date(b.date);
+        eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+        const today = new Date(now);
+        today.setHours(0, 0, 0, 0);
+        return today >= eventDate; // Event date must be today or in the past
+      });
+      
+      if (!allDatesPassed) {
+        return res.status(400).json({ 
+          error: 'Cannot mark booking as completed. The event date(s) must be today or in the past. You cannot complete bookings before the event date.' 
+        });
+      }
+      
       // Update all bookings in the same group
       await Booking.updateMany(
         { bookingGroupId: booking.bookingGroupId },
         { status: BookingStatus.COMPLETED }
       );
     } else {
-      // Single booking
+      // Single booking - verify the event date is today or in the past
+      const eventDate = new Date(booking.date);
+      eventDate.setHours(0, 0, 0, 0); // Set to start of day for comparison
+      const today = new Date(now);
+      today.setHours(0, 0, 0, 0);
+      
+      if (today < eventDate) {
+        return res.status(400).json({ 
+          error: 'Cannot mark booking as completed. The event date must be today or in the past. You cannot complete bookings before the event date.' 
+        });
+      }
+      
+      // Single booking - mark as completed
       booking.status = BookingStatus.COMPLETED;
       await booking.save();
     }
@@ -1072,6 +1116,96 @@ router.put('/:id/complete', authenticateToken, requireProvider, async (req: Auth
   } catch (error) {
     console.error('Error completing booking:', error);
     res.status(500).json({ error: 'Failed to mark booking as completed' });
+  }
+});
+
+// PUT /api/bookings/:id/accept-staff - Accept a booking (Staff/Admin only)
+// Staff can accept any booking, not restricted to specific providers
+router.put('/:id/accept-staff', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Find the booking - staff can accept any booking, so no providerId check needed
+    const booking = await Booking.findOne({
+      _id: req.params.id
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (booking.status !== BookingStatus.PENDING) {
+      return res.status(400).json({ error: 'Only pending bookings can be accepted' });
+    }
+
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.CONFIRMED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.CONFIRMED;
+      await booking.save();
+    }
+
+    res.json({
+      message: 'Booking accepted successfully',
+      booking: {
+        id: (booking._id as Types.ObjectId).toString(),
+        status: BookingStatus.CONFIRMED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
+      }
+    });
+  } catch (error) {
+    console.error('Error accepting booking:', error);
+    res.status(500).json({ error: 'Failed to accept booking' });
+  }
+});
+
+// PUT /api/bookings/:id/reject-staff - Reject a booking (Staff/Admin only)
+// Staff can reject any booking, not restricted to specific providers
+router.put('/:id/reject-staff', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    // Find the booking - staff can reject any booking, so no providerId check needed
+    const booking = await Booking.findOne({
+      _id: req.params.id
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (booking.status !== BookingStatus.PENDING) {
+      return res.status(400).json({ error: 'Only pending bookings can be rejected' });
+    }
+
+    // If this is a group booking, update all bookings in the group
+    if (booking.bookingGroupId) {
+      // Update all bookings in the same group
+      await Booking.updateMany(
+        { bookingGroupId: booking.bookingGroupId },
+        { status: BookingStatus.REJECTED }
+      );
+    } else {
+      // Single booking
+      booking.status = BookingStatus.REJECTED;
+      await booking.save();
+    }
+
+    res.json({
+      message: 'Booking rejected successfully',
+      booking: {
+        id: (booking._id as Types.ObjectId).toString(),
+        status: BookingStatus.REJECTED,
+        // Include bookingGroupId if it exists
+        bookingGroupId: booking.bookingGroupId
+      }
+    });
+  } catch (error) {
+    console.error('Error rejecting booking:', error);
+    res.status(500).json({ error: 'Failed to reject booking' });
   }
 });
 

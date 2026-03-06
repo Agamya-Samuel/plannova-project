@@ -23,12 +23,17 @@ import paymentsRoutes from "./routes/payments.js";
 import vendorServiceConfigRoutes from "./routes/vendorServiceConfig.js";
 import providerRoutes from "./routes/provider.js";
 import connectDB from "./db.js";
+import { startBookingScheduler } from "./utils/bookingScheduler.js";
 
 // Load environment variables
 dotenv.config();
 
 // Connect to MongoDB
 connectDB();
+
+// Start the booking auto-complete scheduler
+// This will automatically mark bookings as completed 12 hours after their date
+startBookingScheduler();
 
 const app = express();
 

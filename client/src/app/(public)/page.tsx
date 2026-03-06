@@ -10,8 +10,8 @@ import apiClient from '@/lib/api';
 import VendorCategoriesGrid from '@/components/home/VendorCategoriesGrid';
 import BlogSection from '@/components/home/BlogSection';
 import { VENUE_TYPES } from '@/constants/venueTypes';
+import { useAuth } from '@/contexts/AuthContext';
 // States and cities are now loaded from API routes (server-side)
-// Removed unused auth import to satisfy linter
 
 interface VenueImage { url: string; isPrimary?: boolean; }
 interface VenueItem {
@@ -24,7 +24,7 @@ interface VenueItem {
 
 export default function Home() {
   const router = useRouter();
-  // Removed unused user from auth context to satisfy linter
+  const { user } = useAuth(); // Get user from auth context to check if signed in
   const [venues, setVenues] = useState<VenueItem[]>([]);
   // Removed unused category visibility state to satisfy linter
   // Dynamic homepage settings (admin managed)
@@ -38,6 +38,7 @@ export default function Home() {
   const [textFrom, setTextFrom] = useState<string>('');
   const [textTo, setTextTo] = useState<string>('');
   const [typingOptions, setTypingOptions] = useState<string[]>([]); // Options for typing effect
+  const [backgroundBlur, setBackgroundBlur] = useState<number>(4); // Background blur level: 0-100, default 4 to match previous 'sm' behavior
   // Track current image index for each venue category to enable image cycling
   const [imageIndices, setImageIndices] = useState<Record<string, number>>({});
   
@@ -266,6 +267,7 @@ export default function Home() {
           setPageDescription(typeof data.description === 'string' ? data.description : '');
           setTextFrom(typeof data.textGradientFrom === 'string' ? data.textGradientFrom : '');
           setTextTo(typeof data.textGradientTo === 'string' ? data.textGradientTo : '');
+          setBackgroundBlur(typeof data.backgroundBlur === 'number' ? data.backgroundBlur : 4); // Default to 4 if not set (matches previous 'sm' behavior)
           setTypingOptions(Array.isArray(data.typingOptions) && data.typingOptions.length > 0 ? data.typingOptions : []);
         }
       } catch {
@@ -618,6 +620,19 @@ export default function Home() {
     return () => clearInterval(id);
   }, [categoryCards]);
 
+  // Helper function to convert numeric blur value (0-100) to CSS blur style
+  // Converts 0-100 to CSS blur value in pixels (0px to 20px for smooth scaling)
+  const getBlurStyle = (blur: number): React.CSSProperties => {
+    if (blur === 0) {
+      return {}; // No blur
+    }
+    // Map 0-100 to 0px-20px blur (linear scaling)
+    const blurPixels = (blur / 100) * 20;
+    return {
+      filter: `blur(${blurPixels}px)`
+    };
+  };
+
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section with Background Image */}
@@ -631,8 +646,11 @@ export default function Home() {
           
           return (
             <div 
-              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 blur-sm transform-gpu scale-105"
-              style={currentImage ? { backgroundImage: `url(${currentImage})` } : undefined}
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-100 transition-all duration-700 transform-gpu scale-105"
+              style={{
+                ...(currentImage ? { backgroundImage: `url(${currentImage})` } : {}),
+                ...getBlurStyle(backgroundBlur)
+              }}
             />
           );
         })()}
@@ -979,11 +997,14 @@ export default function Home() {
             Join thousands of people who found their perfect venue through Plannova
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link href="/auth/register">
-              <Button size="lg" className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
-                Sign Up Today
-              </Button>
-            </Link>
+            {/* Only show "Sign Up Today" button when user is not signed in */}
+            {!user && (
+              <Link href="/auth/register">
+                <Button size="lg" className="bg-pink-600 text-white hover:bg-pink-700 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300 transform hover:scale-105">
+                  Sign Up Today
+                </Button>
+              </Link>
+            )}
             <Link href="/venues">
               <Button size="lg" variant="outline" className="bg-transparent border-2 border-white text-white hover:bg-white hover:text-pink-600 px-8 py-3 text-lg font-semibold rounded-xl transition-all duration-300">
                 Browse Venues

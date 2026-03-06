@@ -5,6 +5,7 @@ import Photography, { ApprovalStatus } from '../models/Photography.js';
 import { authenticateToken, requireStaffOrAdmin, AuthRequest } from '../middleware/auth.js';
 import { UserRole } from '../models/User.js';
 import User from '../models/User.js';
+import { extractImageKeys, transformImageUrls } from '../utils/s3.js';
 
 const router = Router();
 
@@ -59,9 +60,19 @@ router.get('/', async (req: Request, res: Response) => {
       .populate('provider', 'firstName lastName email phone')
       .sort({ createdAt: -1 });
 
+    // Transform image keys to URLs for API response
+    const transformedPhotographies = photographies.map(photography => ({
+      ...photography.toObject(),
+      images: transformImageUrls(photography.images || []),
+      pendingEdits: photography.pendingEdits ? {
+        ...photography.pendingEdits,
+        images: photography.pendingEdits.images ? transformImageUrls(photography.pendingEdits.images) : undefined
+      } : undefined
+    }));
+
     res.json({
       message: 'Photography services retrieved successfully',
-      data: photographies
+      data: transformedPhotographies
     });
   } catch (error) {
     console.error('Error fetching photography services:', error);
@@ -95,9 +106,19 @@ router.get('/my-services', authenticateToken, async (req: AuthRequest, res: Resp
       .select('+images') // Explicitly select images field
       .sort({ createdAt: -1 });
 
+    // Transform image keys to URLs for API response
+    const transformedPhotographies = photographies.map(photography => ({
+      ...photography.toObject(),
+      images: transformImageUrls(photography.images || []),
+      pendingEdits: photography.pendingEdits ? {
+        ...photography.pendingEdits,
+        images: photography.pendingEdits.images ? transformImageUrls(photography.pendingEdits.images) : undefined
+      } : undefined
+    }));
+
     res.json({
       message: 'Your photography services retrieved successfully',
-      data: photographies
+      data: transformedPhotographies
     });
   } catch (error) {
     console.error('Error fetching provider photography services:', error);
@@ -146,13 +167,16 @@ router.post('/', authenticateToken, createPhotographyValidation, async (req: Aut
       paymentTerms
     } = req.body;
 
+    // Extract keys from image URLs before saving
+    // Type assertion: images from req.body should match the Photography image structure
+    const typedImages = images as Array<{ url: string; alt: string; isPrimary: boolean }> | undefined;
     const photography = await Photography.create({
       name,
       description,
       provider: req.user.id,
       serviceLocation,
       contact,
-      images: images || [],
+      images: typedImages ? extractImageKeys(typedImages) : [],
       photographyTypes,
       packages,
       addons: addons || [],
@@ -166,9 +190,15 @@ router.post('/', authenticateToken, createPhotographyValidation, async (req: Aut
       isActive: true
     });
 
+    // Transform image keys to URLs for API response
+    const transformedPhotography = {
+      ...photography.toObject(),
+      images: transformImageUrls(photography.images || [])
+    };
+
     res.status(201).json({
       message: 'Photography service created successfully',
-      data: photography
+      data: transformedPhotography
     });
   } catch (error) {
     console.error('Error creating photography service:', error);
@@ -245,9 +275,19 @@ router.get('/:id', async (req: Request, res: Response) => {
       // For now, we'll return it but in a real app you'd add authentication checks
     }
 
+    // Transform image keys to URLs for API response
+    const transformedPhotography = {
+      ...photography.toObject(),
+      images: transformImageUrls(photography.images || []),
+      pendingEdits: photography.pendingEdits ? {
+        ...photography.pendingEdits,
+        images: photography.pendingEdits.images ? transformImageUrls(photography.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Photography service retrieved successfully',
-      data: photography
+      data: transformedPhotography
     });
   } catch (error) {
     console.error('Error fetching photography service:', error);
@@ -315,12 +355,15 @@ router.put('/:id', authenticateToken, createPhotographyValidation, async (req: A
     // For approved services, store edits in pendingEdits instead of directly updating
     if (photography.status === ApprovalStatus.APPROVED) {
       // Store the edits in pendingEdits field
+      // Extract keys from image URLs before saving
+      // Type assertion: images from req.body should match the Photography image structure
+      const typedImages = images as Array<{ url: string; alt: string; isPrimary: boolean }> | undefined;
       photography.pendingEdits = {
         name,
         description,
         serviceLocation,
         contact,
-        images: images || [],
+        images: typedImages ? extractImageKeys(typedImages) : [],
         photographyTypes,
         packages,
         addons: addons || [],
@@ -338,7 +381,10 @@ router.put('/:id', authenticateToken, createPhotographyValidation, async (req: A
       photography.description = description;
       photography.serviceLocation = serviceLocation;
       photography.contact = contact;
-      photography.images = images || [];
+      // Extract keys from image URLs before saving
+      // Type assertion: images from req.body should match the Photography image structure
+      const typedImages = images as Array<{ url: string; alt: string; isPrimary: boolean }> | undefined;
+      photography.images = typedImages ? extractImageKeys(typedImages) : [];
       photography.photographyTypes = photographyTypes;
       photography.packages = packages;
       photography.addons = addons || [];
@@ -353,9 +399,19 @@ router.put('/:id', authenticateToken, createPhotographyValidation, async (req: A
 
     await photography.save();
 
+    // Transform image keys to URLs for API response
+    const transformedPhotography = {
+      ...photography.toObject(),
+      images: transformImageUrls(photography.images || []),
+      pendingEdits: photography.pendingEdits ? {
+        ...photography.pendingEdits,
+        images: photography.pendingEdits.images ? transformImageUrls(photography.pendingEdits.images) : undefined
+      } : undefined
+    };
+
     res.json({
       message: 'Photography service updated successfully',
-      data: photography
+      data: transformedPhotography
     });
   } catch (error) {
     console.error('Error updating photography service:', error);
