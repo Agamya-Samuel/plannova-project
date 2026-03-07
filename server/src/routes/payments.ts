@@ -25,7 +25,7 @@ router.post('/create-order', authenticateToken, async (req: AuthRequest, res: Re
     const { bookingId } = req.body;
 
     // Validate booking ID
-    if (!Types.ObjectId.isValid(bookingId)) {
+    if (!Types.ObjectId.isValid(bookingId as string)) {
       return res.status(400).json({ error: 'Invalid booking ID' });
     }
 
@@ -129,7 +129,7 @@ router.post('/verify-payment', authenticateToken, async (req: AuthRequest, res: 
     }
 
     // Validate booking ID
-    if (!Types.ObjectId.isValid(bookingId)) {
+    if (!Types.ObjectId.isValid(bookingId as string)) {
       console.error('[Payment] Invalid booking ID format', { bookingId });
       return res.status(400).json({ error: 'Invalid booking ID' });
     }
@@ -200,7 +200,7 @@ router.get('/status/:bookingId', authenticateToken, async (req: AuthRequest, res
     const { bookingId } = req.params;
 
     // Validate booking ID
-    if (!Types.ObjectId.isValid(bookingId)) {
+    if (!Types.ObjectId.isValid(bookingId as string)) {
       return res.status(400).json({ error: 'Invalid booking ID' });
     }
 

@@ -712,7 +712,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     await optionalAuthenticate(req);
 
     // Check if the id is a valid MongoDB ObjectId (24 hex characters)
-    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id as string);
     
     let blog;
     if (isObjectId) {
@@ -722,7 +722,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
     
     // If not found by ID or not an ObjectId, try to find by slug
     if (!blog) {
-      blog = await Blog.findOne({ slug: id.toLowerCase() }).populate('author', 'firstName lastName email');
+      blog = await Blog.findOne({ slug: (id as string).toLowerCase() }).populate('author', 'firstName lastName email');
     }
 
     if (!blog) {
@@ -835,7 +835,7 @@ router.patch('/:id', authenticateToken, updateBlogValidation, async (req: AuthRe
       updateData.title = req.body.title;
       // Regenerate slug if title changed
       const baseSlug = generateSlug(req.body.title);
-      updateData.slug = await generateUniqueSlug(baseSlug, id);
+      updateData.slug = await generateUniqueSlug(baseSlug, id as string);
     }
     if (req.body.coverImageUrl !== undefined) {
       updateData.coverImageUrl = req.body.coverImageUrl && req.body.coverImageUrl.trim() 
