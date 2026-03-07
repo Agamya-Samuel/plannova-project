@@ -251,7 +251,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -303,7 +303,7 @@ router.put('/:id', authenticateToken, createDecorationValidation, async (req: Au
 
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -423,7 +423,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -548,7 +548,7 @@ router.put('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -586,7 +586,7 @@ router.put('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (r
     const { id } = req.params;
     const { rejectionReason } = req.body;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -630,7 +630,7 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -713,7 +713,7 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 
@@ -766,7 +766,7 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
       return res.status(400).json({ error: 'Rejection reason is required' });
     }
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid decoration service ID' });
     }
 

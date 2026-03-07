@@ -195,7 +195,7 @@ router.patch('/:id/submit-for-approval', authenticateToken, async (req: AuthRequ
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
+    if (!Types.ObjectId.isValid(id as string)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
     const service = await Entertainment.findById(id)
       .select('+images')
       .populate('provider', 'firstName lastName email phone');
@@ -228,7 +228,7 @@ router.put('/:id', authenticateToken, createEntertainmentValidation, async (req:
     }
 
     const { id } = req.params;
-    if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
+    if (!Types.ObjectId.isValid(id as string)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
     if (!req.user) return res.status(401).json({ error: 'User not authenticated' });
     if (req.user.role !== UserRole.PROVIDER) {
       return res.status(403).json({ error: 'Only providers can update entertainment services' });
@@ -295,7 +295,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid entertainment service ID' });
     }
 
@@ -448,7 +448,7 @@ router.get('/staff/pending', authenticateToken, async (req: AuthRequest, res: Re
 router.put('/staff/:id/approve', authenticateToken, requireStaffOrAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
+    if (!Types.ObjectId.isValid(id as string)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
     const service = await Entertainment.findById(id);
     if (!service) return res.status(404).json({ error: 'Entertainment service not found' });
     service.pendingEdits = undefined;
@@ -473,7 +473,7 @@ router.put('/staff/:id/reject', authenticateToken, requireStaffOrAdmin, async (r
   try {
     const { id } = req.params;
     const { rejectionReason } = req.body as { rejectionReason?: string };
-    if (!Types.ObjectId.isValid(id)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
+    if (!Types.ObjectId.isValid(id as string)) return res.status(400).json({ error: 'Invalid entertainment service ID' });
     const service = await Entertainment.findById(id);
     if (!service) return res.status(404).json({ error: 'Entertainment service not found' });
     service.pendingEdits = undefined;
@@ -502,7 +502,7 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid entertainment service ID' });
     }
 
@@ -555,7 +555,7 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
       return res.status(400).json({ error: 'Rejection reason is required' });
     }
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid entertainment service ID' });
     }
 
@@ -597,7 +597,7 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid entertainment service ID' });
     }
 
