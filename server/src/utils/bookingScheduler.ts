@@ -39,7 +39,7 @@ export async function autoCompleteBookings(): Promise<void> {
     const ungroupedBookings: typeof confirmedBookings = [];
 
     confirmedBookings.forEach(booking => {
-      const groupId = (booking as IBooking).bookingGroupId;
+      const groupId = (booking as unknown as IBooking).bookingGroupId;
       if (groupId) {
         if (!groupedBookings[groupId]) {
           groupedBookings[groupId] = [];
@@ -54,11 +54,11 @@ export async function autoCompleteBookings(): Promise<void> {
 
     // Process ungrouped bookings (single date bookings)
     for (const booking of ungroupedBookings) {
-      const bookingDate = new Date((booking as IBooking).date);
+      const bookingDate = new Date((booking as unknown as IBooking).date);
       // Set the time to the booking date, then add 12 hours
       const bookingDateTime = new Date(bookingDate);
       // If booking has a time, try to parse it (format: "HH:MM" or "HH:MM AM/PM")
-      const timeStr = (booking as IBooking).time;
+      const timeStr = (booking as unknown as IBooking).time;
       if (timeStr && timeStr !== 'Not specified') {
         try {
           // Try to parse time string (e.g., "10:00 AM" or "14:30")
@@ -91,7 +91,7 @@ export async function autoCompleteBookings(): Promise<void> {
       // Check if 12 hours have passed since the booking date and time
       if (now >= completionTime) {
         await Booking.updateOne(
-          { _id: (booking as IBooking)._id },
+          { _id: (booking as unknown as IBooking)._id },
           { status: BookingStatus.COMPLETED }
         );
         completedCount++;
@@ -103,9 +103,9 @@ export async function autoCompleteBookings(): Promise<void> {
     for (const [groupId, group] of Object.entries(groupedBookings)) {
       // Get all booking dates with times in the group
       const bookingTimes: Date[] = group.map(b => {
-        const bookingDate = new Date((b as IBooking).date);
+        const bookingDate = new Date((b as unknown as IBooking).date);
         const bookingDateTime = new Date(bookingDate);
-        const timeStr = (b as IBooking).time;
+        const timeStr = (b as unknown as IBooking).time;
         
         if (timeStr && timeStr !== 'Not specified') {
           try {
