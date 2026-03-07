@@ -1341,7 +1341,7 @@ router.post('/:id/favorite', authenticateToken, async (req: AuthRequest, res: Re
     if (!user.favorites) {
       user.favorites = [];
     }
-    user.favorites.push(new Types.ObjectId(venueId));
+    user.favorites.push(new Types.ObjectId(venueId as string));
     await user.save();
 
     res.json({

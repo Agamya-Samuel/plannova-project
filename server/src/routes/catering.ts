@@ -264,7 +264,7 @@ router.get('/:id', async (req: Request, res: Response) => {
     const { id } = req.params;
     console.log('🔍 Fetching catering service with ID:', id);
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       console.log('❌ Invalid ObjectId format:', id);
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
@@ -326,7 +326,7 @@ router.put('/:id', authenticateToken, createCateringValidation, async (req: Auth
 
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
@@ -440,7 +440,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res: Response)
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
@@ -567,7 +567,7 @@ router.delete('/staff/:id', authenticateToken, requireStaffOrAdmin, async (req: 
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
@@ -651,7 +651,7 @@ router.put('/:id/approve', authenticateToken, async (req: AuthRequest, res: Resp
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
@@ -695,7 +695,7 @@ router.put('/:id/reject', authenticateToken, async (req: AuthRequest, res: Respo
     const { id } = req.params;
     const { reason } = req.body; // Optional rejection reason
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
@@ -744,7 +744,7 @@ router.post('/:id/approve-edit', authenticateToken, requireStaffOrAdmin, async (
   try {
     const { id } = req.params;
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 
@@ -797,7 +797,7 @@ router.post('/:id/reject-edit', authenticateToken, requireStaffOrAdmin, async (r
       return res.status(400).json({ error: 'Rejection reason is required' });
     }
 
-    if (!Types.ObjectId.isValid(id)) {
+    if (!Types.ObjectId.isValid(id as string)) {
       return res.status(400).json({ error: 'Invalid catering service ID' });
     }
 

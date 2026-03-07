@@ -184,7 +184,7 @@ router.delete('/:key', authenticateToken, async (req: AuthRequest, res: Response
       return res.status(403).json({ error: 'Unauthorized to delete this file' });
     }
 
-    const result = await deleteFromS3(key);
+    const result = await deleteFromS3(key as string);
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
@@ -220,7 +220,7 @@ router.delete('/by-url', authenticateToken, async (req: AuthRequest, res: Respon
       return res.status(403).json({ error: 'Unauthorized to delete this file' });
     }
 
-    const result = await deleteFromS3(key);
+    const result = await deleteFromS3(key as string);
 
     if (!result.success) {
       return res.status(400).json({ error: result.error });
@@ -251,7 +251,7 @@ router.get('/presigned-view/:key', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'expiresIn must be between 60 and 86400 seconds' });
     }
 
-    const result = await generatePresignedViewUrl(key, expiresIn);
+    const result = await generatePresignedViewUrl(key as string, expiresIn);
 
     if (!result.success) {
       return res.status(404).json({ error: result.error });
@@ -287,7 +287,7 @@ router.get('/metadata/:key', authenticateToken, async (req: AuthRequest, res: Re
       return res.status(403).json({ error: 'Unauthorized to access this file' });
     }
 
-    const result = await getFileMetadata(key);
+    const result = await getFileMetadata(key as string);
 
     if (!result.success) {
       return res.status(404).json({ error: result.error });
